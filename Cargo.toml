@@ -1,0 +1,15 @@
+[package]
+name = "crust"
+version = "0.1.0"
+authors = ["TheNappap <napoleonpapiertjes@gmail.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+itertools = "0.10"
+cranelift-codegen = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
+cranelift-frontend = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
+cranelift-module = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
+cranelift-native = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
+cranelift-object = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
