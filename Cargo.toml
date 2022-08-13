@@ -8,8 +8,8 @@ edition = "2021"
 
 [dependencies]
 itertools = "0.10"
-cranelift-codegen = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
-cranelift-frontend = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
-cranelift-module = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
-cranelift-native = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
-cranelift-object = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "main" }
+cranelift-codegen = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "release-0.40.0" }
+cranelift-frontend = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "release-0.40.0" }
+cranelift-module = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "release-0.40.0" }
+cranelift-native = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "release-0.40.0" }
+cranelift-object = { git = "https://github.com/bytecodealliance/wasmtime/", branch = "release-0.40.0" }

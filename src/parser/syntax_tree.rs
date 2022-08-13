@@ -1,3 +1,5 @@
+use crate::lexer::Value;
+
 use self::fn_expr::Fn;
 use core::slice::Iter;
 
@@ -5,8 +7,8 @@ pub mod fn_expr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
-    _Int(i32),
-    _Float(f64),
+    Int(i32),
+    Float(f64),
     String(String),
 }
 
@@ -14,6 +16,7 @@ pub enum Literal {
 pub enum Expression {
     Call(String, Vec<Expression>),
     Fn(Fn),
+    Let(String, Value),
     Literal(Literal),
 }
 

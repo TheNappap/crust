@@ -1,4 +1,8 @@
-use crate::{error::{Error, Result}, lexer::{Block, Delimeter, Token}, parser::{Expression, Fn, Parser}};
+use crate::{
+    error::{Error, Result},
+    lexer::{Block, Delimeter, Token},
+    parser::{Expression, Fn, Parser},
+};
 
 use super::BlockDefinition;
 
@@ -26,7 +30,9 @@ impl BlockDefinition for FnDef {
             _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0).into()),
         }
 
-        let exprs = block.body.into_iter()
+        let exprs = block
+            .body
+            .into_iter()
             .map(|block| parser.parse_block(block))
             .collect::<Result<Vec<Expression>>>()?;
         Ok(Expression::Fn(Fn::new(&name, exprs)))

@@ -8,6 +8,9 @@ fn main() {
     }
     fn f2(): print "one liner";
 
+    let var = "hi";
+
+    call f2();
     call f2();
     call function();
 }

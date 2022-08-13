@@ -47,7 +47,7 @@ fn is_end_delimeter(c: char) -> bool {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
-    Int(i32),
+    Int(i64),
     Float(f64),
     String(String),
 }
@@ -158,7 +158,7 @@ impl<'str> TokenStream<'str> {
                 .chars()
                 .filter(|c| c.is_ascii_digit())
                 .collect::<String>()
-                .parse::<i32>()
+                .parse::<i64>()
                 .unwrap();
             Ok(Token::Value(Value::Int(num)))
         }
@@ -334,7 +334,7 @@ mod tests {
         Ok(())
     }
 
-	#[test]
+    #[test]
     fn tokenize_test() -> Result<()> {
         let s = r#"	
 			//line

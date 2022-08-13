@@ -166,7 +166,6 @@ impl<'str> BlockStream<'str> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,14 +188,20 @@ mod tests {
 		"#;
         let blocks = BlockStream::from(s).collect::<Result<Vec<_>>>()?;
         assert_eq!(
-			blocks,
-			vec![Block { 
-				tag: "fn".to_string(), 
-				header: vec![Token::Ident("main".to_string()), Token::Group(Delimeter::Parens, vec![])], 
-				body: vec![
+            blocks,
+            vec![Block {
+                tag: "fn".to_string(),
+                header: vec![
+                    Token::Ident("main".to_string()),
+                    Token::Group(Delimeter::Parens, vec![])
+                ],
+                body: vec![
                     Block {
                         tag: "fn".to_string(),
-                        header: vec![Token::Ident("function".to_string()), Token::Group(Delimeter::Parens, vec![])],
+                        header: vec![
+                            Token::Ident("function".to_string()),
+                            Token::Group(Delimeter::Parens, vec![])
+                        ],
                         body: vec![
                             Block {
                                 tag: "print".to_string(),
@@ -217,28 +222,35 @@ mod tests {
                     },
                     Block {
                         tag: "fn".to_string(),
-                        header: vec![Token::Ident("f2".to_string()), Token::Group(Delimeter::Parens, vec![])],
-                        body: vec![
-                            Block {
-                                tag: "print".to_string(),
-                                header: vec![Token::Value(Value::String("one liner".to_string()))],
-                                body: vec![]
-                            },
-                        ]
+                        header: vec![
+                            Token::Ident("f2".to_string()),
+                            Token::Group(Delimeter::Parens, vec![])
+                        ],
+                        body: vec![Block {
+                            tag: "print".to_string(),
+                            header: vec![Token::Value(Value::String("one liner".to_string()))],
+                            body: vec![]
+                        },]
                     },
                     Block {
                         tag: "call".to_string(),
-                        header: vec![Token::Ident("f2".to_string()), Token::Group(Delimeter::Parens, vec![])],
+                        header: vec![
+                            Token::Ident("f2".to_string()),
+                            Token::Group(Delimeter::Parens, vec![])
+                        ],
                         body: vec![]
                     },
                     Block {
                         tag: "call".to_string(),
-                        header: vec![Token::Ident("function".to_string()), Token::Group(Delimeter::Parens, vec![])],
+                        header: vec![
+                            Token::Ident("function".to_string()),
+                            Token::Group(Delimeter::Parens, vec![])
+                        ],
                         body: vec![]
                     },
-				] 
-			}]
-		);
+                ]
+            }]
+        );
         Ok(())
     }
 }

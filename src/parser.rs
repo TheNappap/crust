@@ -6,11 +6,12 @@ use std::rc::Rc;
 pub use crate::error::Result;
 pub use syntax_tree::{fn_expr::Fn, Expression, Literal, SyntaxTree};
 
-use crate::{error::Error, lexer::{Block, BlockStream, Token, blockify}};
-
-use self::{
-    block_definitions::{call::Call, fn_def::FnDef, print::Print, BlockDefinitions},
+use crate::{
+    error::Error,
+    lexer::{blockify, Block, BlockStream, Token},
 };
+
+use self::block_definitions::BlockDefinitions;
 
 pub fn parse(source: &str) -> Result<SyntaxTree> {
     Parser::new().parse_code(source)
@@ -18,9 +19,10 @@ pub fn parse(source: &str) -> Result<SyntaxTree> {
 
 fn block_definitions() -> BlockDefinitions {
     let mut blockdefs = BlockDefinitions::new();
-    blockdefs.add(Rc::new(Call));
-    blockdefs.add(Rc::new(FnDef));
-    blockdefs.add(Rc::new(Print));
+    blockdefs.add(Rc::new(block_definitions::call::Call));
+    blockdefs.add(Rc::new(block_definitions::fn_def::FnDef));
+    blockdefs.add(Rc::new(block_definitions::print::Print));
+    blockdefs.add(Rc::new(block_definitions::let_def::Let));
     blockdefs
 }
 
@@ -86,26 +88,41 @@ mod tests {
 		"#;
         let syntax_tree = parse(s)?;
         assert_eq!(
-			syntax_tree,
-			SyntaxTree::new(vec![
-				Fn::new("main", vec![
-					Expression::Fn(Fn::new("function", vec![
-						Expression::Call("puts".to_string(), 
-							vec![Expression::Literal(Literal::String("Line1".to_string()))]), 
-						Expression::Call("puts".to_string(), 
-							vec![Expression::Literal(Literal::String("Line2".to_string()))]), 
-						Expression::Call("puts".to_string(), 
-							vec![Expression::Literal(Literal::String("Line3".to_string()))])
-					])),
-					Expression::Fn(Fn::new("f2", vec![
-						Expression::Call("puts".to_string(), 
-							vec![Expression::Literal(Literal::String("one liner".to_string()))])
-					])),
-					Expression::Call("f2".to_string(), vec![]),
-					Expression::Call("function".to_string(), vec![])
-				])
-			])
-		);
+            syntax_tree,
+            SyntaxTree::new(vec![Fn::new(
+                "main",
+                vec![
+                    Expression::Fn(Fn::new(
+                        "function",
+                        vec![
+                            Expression::Call(
+                                "puts".to_string(),
+                                vec![Expression::Literal(Literal::String("Line1".to_string()))]
+                            ),
+                            Expression::Call(
+                                "puts".to_string(),
+                                vec![Expression::Literal(Literal::String("Line2".to_string()))]
+                            ),
+                            Expression::Call(
+                                "puts".to_string(),
+                                vec![Expression::Literal(Literal::String("Line3".to_string()))]
+                            )
+                        ]
+                    )),
+                    Expression::Fn(Fn::new(
+                        "f2",
+                        vec![Expression::Call(
+                            "puts".to_string(),
+                            vec![Expression::Literal(Literal::String(
+                                "one liner".to_string()
+                            ))]
+                        )]
+                    )),
+                    Expression::Call("f2".to_string(), vec![]),
+                    Expression::Call("function".to_string(), vec![])
+                ]
+            )])
+        );
         Ok(())
     }
 }

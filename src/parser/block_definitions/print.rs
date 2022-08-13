@@ -1,7 +1,11 @@
-use crate::{error::{Error, Result}, lexer::{Block, Token, Value}, parser::{
+use crate::{
+    error::{Error, Result},
+    lexer::{Block, Token, Value},
+    parser::{
         syntax_tree::{Expression, Literal},
         Parser,
-    }};
+    },
+};
 
 use super::BlockDefinition;
 

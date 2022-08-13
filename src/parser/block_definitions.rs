@@ -1,12 +1,16 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{error::{Error, Result}, lexer::Block};
+use crate::{
+    error::{Error, Result},
+    lexer::Block,
+};
 
 use super::{syntax_tree::Expression, Parser};
 
 pub mod call;
 pub mod fn_def;
 pub mod print;
+pub mod let_def;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;
