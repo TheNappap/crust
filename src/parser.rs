@@ -4,7 +4,7 @@ mod syntax_tree;
 use std::rc::Rc;
 
 pub use crate::error::Result;
-pub use syntax_tree::{fn_expr::Fn, Expression, Literal, SyntaxTree};
+pub use syntax_tree::{fn_expr::Fn, Type, Expression, Literal, SyntaxTree};
 
 use crate::{
     error::Error,
@@ -97,15 +97,18 @@ mod tests {
                         vec![
                             Expression::Call(
                                 "puts".to_string(),
-                                vec![Expression::Literal(Literal::String("Line1".to_string()))]
+                                vec![Expression::Literal(Literal::String("Line1".to_string()))],
+                                vec![],
                             ),
                             Expression::Call(
                                 "puts".to_string(),
-                                vec![Expression::Literal(Literal::String("Line2".to_string()))]
+                                vec![Expression::Literal(Literal::String("Line2".to_string()))],
+                                vec![],
                             ),
                             Expression::Call(
                                 "puts".to_string(),
-                                vec![Expression::Literal(Literal::String("Line3".to_string()))]
+                                vec![Expression::Literal(Literal::String("Line3".to_string()))],
+                                vec![],
                             )
                         ]
                     )),
@@ -115,11 +118,12 @@ mod tests {
                             "puts".to_string(),
                             vec![Expression::Literal(Literal::String(
                                 "one liner".to_string()
-                            ))]
+                            ))],
+                            vec![],
                         )]
                     )),
-                    Expression::Call("f2".to_string(), vec![]),
-                    Expression::Call("function".to_string(), vec![])
+                    Expression::Call("f2".to_string(), vec![], vec![]),
+                    Expression::Call("function".to_string(), vec![], vec![])
                 ]
             )])
         );

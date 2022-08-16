@@ -35,7 +35,7 @@ impl BlockDefinition for Call {
                             .into()),
                         })
                         .collect::<Result<_>>()?;
-                    Ok(Expression::Call(id, exprs))
+                    Ok(Expression::Call(id, exprs, vec![]))
                 }
                 _ => Err(Error::syntax("Expected a parameter group".to_string(), 0).into()),
             },

@@ -5,19 +5,29 @@ use core::slice::Iter;
 
 pub mod fn_expr;
 
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Type {
+    Int,
+    Float,
+    String
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
-    Int(i32),
+    Int(i64),
     Float(f64),
     String(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    Call(String, Vec<Expression>),
+    Call(String, Vec<Expression>, Vec<Expression>),
     Fn(Fn),
     Let(String, Value),
     Literal(Literal),
+    Pointer(Literal),
+    Symbol(String, Type),
 }
 
 #[derive(Debug, PartialEq, Clone)]
