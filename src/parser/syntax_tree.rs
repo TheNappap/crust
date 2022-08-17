@@ -1,7 +1,7 @@
 use crate::lexer::Value;
 
 use self::fn_expr::Fn;
-use core::slice::Iter;
+use core::slice::{Iter, IterMut};
 
 pub mod fn_expr;
 
@@ -10,7 +10,8 @@ pub mod fn_expr;
 pub enum Type {
     Int,
     Float,
-    String
+    String,
+    Inferred
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -22,7 +23,7 @@ pub enum Literal {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    Call(String, Vec<Expression>, Vec<Expression>),
+    Call(String, Vec<Expression>, Vec<Type>),
     Fn(Fn),
     Let(String, Value),
     Literal(Literal),
@@ -42,5 +43,9 @@ impl SyntaxTree {
 
     pub fn fns(&self) -> Iter<Fn> {
         self.fns.iter()
+    }
+
+    pub fn fns_mut(&mut self) -> IterMut<Fn> {
+        self.fns.iter_mut()
     }
 }

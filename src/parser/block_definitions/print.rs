@@ -36,7 +36,7 @@ impl BlockDefinition for Print {
             "__stdio_common_vfprintf".to_string(),
             vec![
                 Expression::Literal(Literal::Int(0)),
-                Expression::Call("__acrt_iob_func".to_string(), vec![Expression::Literal(Literal::Int(1))], vec![Expression::Literal(Literal::Int(0))]),
+                Expression::Call("__acrt_iob_func".to_string(), vec![Expression::Literal(Literal::Int(1))], vec![Type::Int]),
                 string, Expression::Literal(Literal::Int(0)), args,
             ],
             vec![],

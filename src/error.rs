@@ -2,6 +2,7 @@
 pub enum ErrorKind {
     Lexer,
     Syntax,
+    Type,
     Codegen,
 }
 
@@ -10,6 +11,7 @@ impl std::fmt::Display for ErrorKind {
         match self {
             ErrorKind::Lexer => write!(f, "Lexer"),
             ErrorKind::Syntax => write!(f, "Syntax"),
+            ErrorKind::Type => write!(f, "Type"),
             ErrorKind::Codegen => write!(f, "Codegen"),
         }
     }
@@ -36,6 +38,14 @@ impl Error {
     pub fn syntax(message: String, line: usize) -> Error {
         Error {
             kind: ErrorKind::Syntax,
+            message,
+            line,
+        }
+    }
+
+    pub fn type_(message: String, line: usize) -> Error {
+        Error {
+            kind: ErrorKind::Type,
             message,
             line,
         }

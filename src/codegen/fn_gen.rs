@@ -1,11 +1,11 @@
 
 use std::collections::HashMap;
-use std::hash::Hash;
+
 use std::ops::RangeFrom;
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::types::{F64, I64};
-use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Inst};
+use cranelift_codegen::ir::types::{I64};
+use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder};
 
 use cranelift_codegen::verifier::verify_function;
 use cranelift_codegen::Context;
@@ -98,13 +98,13 @@ impl<'gen> FunctionCodegen<'gen> {
                     Literal::String(s) => self
                         .create_literal_string(s.clone(), &path)
                         .map(|data| Expression::Literal(Value::String(data))),
-                    _ => unimplemented!(),
+                    _ => todo!(),
                 },
                 parser::Expression::Pointer(literal) => match literal {
                     Literal::Int(i) => self
                         .create_pointer_to_int(*i, &path)
                         .map(|data| Expression::Literal(Value::String(data))),
-                    _ => unimplemented!(),
+                    _ => todo!(),
                 },
                 parser::Expression::Symbol(name,ty) => {
                     Ok(Expression::Symbol(name.clone(), ty.clone()))
@@ -142,11 +142,11 @@ impl<'gen> FunctionCodegen<'gen> {
                     let inst = builder.ins().call(callee, &params);
                     builder.inst_results(inst).to_vec()
                 }
-                Expression::Symbol(name, ty) => {
+                Expression::Symbol(name, _) => {
                     let var = variables.get(&name).unwrap();
                     vec![builder.use_var(*var)]
                 }
-                _ => unimplemented!(),
+                _ => todo!(),
             }
         }
 
@@ -195,7 +195,7 @@ impl<'gen> FunctionCodegen<'gen> {
         path: &str,
         call_name: &str,
         params: &Vec<parser::Expression>,
-        returns: &Vec<parser::Expression>,
+        returns: &Vec<Type>,
     ) -> Result<Expression> {
         let pointer = self.module.target_config().pointer_type();
 
@@ -240,7 +240,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 parser::Expression::Symbol(name, ty) => {
                     Expression::Symbol(name.clone(), ty.clone())
                 }
-                _ => unimplemented!(),
+                _ => todo!(),
             };
 
             args.push(value);

@@ -1,5 +1,5 @@
 use super::Expression;
-use core::slice::Iter;
+use core::slice::{Iter, IterMut};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Fn {
@@ -21,5 +21,9 @@ impl Fn {
 
     pub fn expressions(&self) -> Iter<Expression> {
         self.exprs.iter()
+    }
+
+    pub fn expressions_mut(&mut self) -> IterMut<Expression> {
+        self.exprs.iter_mut()
     }
 }

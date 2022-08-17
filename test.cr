@@ -9,8 +9,10 @@ fn main() {
     fn f2(): print "one liner";
 
     let var = "The number: ";
+    let var2 = 2;
 
     print var;
+    print var2;
     print 8;
 
     call f2();
