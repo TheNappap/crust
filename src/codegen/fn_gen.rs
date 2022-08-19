@@ -104,6 +104,9 @@ impl<'gen> FunctionCodegen<'gen> {
                     Literal::Int(i) => self
                         .create_pointer_to_int(*i, &path)
                         .map(|data| Expression::Literal(Value::String(data))),
+                    Literal::String(s) => self
+                        .create_literal_string(s.clone(), &path)
+                        .map(|data| Expression::Literal(Value::String(data))),
                     _ => todo!(),
                 },
                 parser::Expression::Symbol(name,ty) => {

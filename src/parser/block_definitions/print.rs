@@ -18,19 +18,11 @@ impl BlockDefinition for Print {
 
     fn parse(&self, block: Block, _parser: &Parser) -> Result<Expression> {
         assert!(block.tag == self.id());
-        let mut tokens = block.header.into_iter();
-        let (string, args) = match tokens.next() {
-            Some(Token::Value(Value::String(value))) => { 
-                (Expression::Literal(Literal::String(value+"\n")), Expression::Literal(Literal::Int(0)))
-            }
-            Some(Token::Value(Value::Int(i))) => { 
-                (Expression::Literal(Literal::String("%i\n".into())), Expression::Pointer(Literal::Int(i)))
-            }
-            Some(Token::Ident(name)) => { 
-                (Expression::Symbol(name, Type::String), Expression::Pointer(Literal::Int(0)))
-            }
-            _ => return Err(Error::syntax("Expected a string value as parameter".to_string(), 0).into()),
-        };
+        let mut tokens = block.header.into_iter().peekable();
+        println!("{:?}", tokens.peek());
+        let string = get_string(&mut tokens)?;
+        println!("{:?}", tokens.peek());
+        let args = get_args(&mut tokens)?;
 
         Ok(Expression::Call(
             "__stdio_common_vfprintf".to_string(),
@@ -42,4 +34,24 @@ impl BlockDefinition for Print {
             vec![],
         ))
     }
+}
+
+fn get_string(tokens: &mut impl Iterator<Item = Token>) -> Result<Expression> {
+    let str_expr = match tokens.next() {
+        Some(Token::Value(Value::String(value))) => Expression::Literal(Literal::String(value+"\n")),
+        Some(Token::Ident(name)) => Expression::Symbol(name, Type::String),
+        _ => return Err(Error::syntax("Expected a string value as parameter".to_string(), 0).into()),
+    };
+    Ok(str_expr)
+}
+
+fn get_args(tokens: &mut impl Iterator<Item = Token>) -> Result<Expression> {
+    let args= match tokens.next() {
+        Some(Token::Value(Value::String(value))) => Expression::Pointer(Literal::String(value)),
+        Some(Token::Value(Value::Int(i))) => Expression::Pointer(Literal::Int(i)),
+        Some(Token::Ident(name)) => Expression::Symbol(name, Type::String),
+        None => Expression::Literal(Literal::Int(0)),
+        _ => return Err(Error::syntax("Unexpected token instead of parameter".to_string(), 0).into()),
+    };
+    Ok(args)
 }
