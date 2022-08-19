@@ -1,6 +1,6 @@
-use crate::{error::{Error, Result}, lexer::{Block, Token}, parser::{
+use crate::{error::{Error, Result}, lexer::{Block, Token, Value}, parser::{
         syntax_tree::{Expression},
-        Parser,
+        Parser, Literal,
     }};
 
 use super::BlockDefinition;
@@ -18,9 +18,9 @@ impl BlockDefinition for Let {
         match tokens.next() {
             Some(Token::Ident(id)) => match tokens.next() {
                 Some(Token::Symbol('=')) => match tokens.next() {
-                    Some(Token::Value(value)) => {
-                        Ok(Expression::Let(id, value))
-                    },
+                    Some(Token::Value(Value::Int(i))) => Ok( Expression::Let(id, Box::new(Expression::Literal(Literal::Int(i))) )),
+                    Some(Token::Value(Value::Float(f))) => Ok( Expression::Let(id, Box::new(Expression::Literal(Literal::Float(f))) )),
+                    Some(Token::Value(Value::String(s))) => Ok( Expression::Let(id, Box::new(Expression::Literal(Literal::String(s))) )),
                     _ => Err(Error::syntax("Expected a value in assignment".to_string(), 0).into()),
                 }
                 _ => Err(Error::syntax("Expected '='".to_string(), 0).into()),

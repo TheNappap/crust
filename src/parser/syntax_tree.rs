@@ -25,7 +25,7 @@ pub enum Literal {
 pub enum Expression {
     Call(String, Vec<Expression>, Vec<Type>),
     Fn(Fn),
-    Let(String, Value),
+    Let(String, Box<Expression>),
     Literal(Literal),
     Pointer(Literal),
     Symbol(String, Type),

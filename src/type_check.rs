@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{parser::{SyntaxTree, Type, Fn, Expression}, error::{Result, Error}};
+use crate::{parser::{SyntaxTree, Type, Fn, Expression, Literal}, error::{Result, Error}};
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     for fun in syntax_tree.fns_mut() {
@@ -35,11 +35,16 @@ impl TypeCheck {
                 }
             },
             Expression::Fn(fun) => self.check_fun(fun)?,
-            Expression::Let(name, value) => {
-                let ty = match value {
-                    crate::lexer::Value::Int(_) => Type::Int,
-                    crate::lexer::Value::Float(_) => Type::Float,
-                    crate::lexer::Value::String(_) => Type::String,
+            Expression::Let(name, expr) => {
+                let ty = match **expr {
+                    Expression::Literal(Literal::Int(_)) => Type::Int,
+                    Expression::Literal(Literal::Float(_)) => Type::Float,
+                    Expression::Literal(Literal::String(_)) => Type::String,
+                    Expression::Call(_, _, _) => Type::Inferred,
+                    Expression::Fn(_) => Type::Inferred,
+                    Expression::Let(_, _) => Type::Inferred,
+                    Expression::Pointer(_) => Type::Inferred,
+                    Expression::Symbol(_, _) => Type::Inferred,
                 };
                 self.variables.insert(name.clone(), ty);
             },
