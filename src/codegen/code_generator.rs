@@ -6,9 +6,7 @@ use cranelift_module::{DataContext, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule, ObjectProduct};
 
 use crate::error::{Result, Error};
-use crate::parser::SyntaxTree;
-
-use super::fn_gen::FunctionCodegen;
+use crate::parser::{SyntaxTree, Fn, Expression};
 
 impl From<CodegenError> for Error {
     fn from(e: CodegenError) -> Self {
@@ -36,21 +34,33 @@ impl Codegen {
 
     pub fn compile(mut self, syntax_tree: SyntaxTree) -> Result<ObjectProduct> {
         for fun in syntax_tree.fns() {
-            let func = FunctionCodegen::create_fn(
-                &mut self.fun_ctx,
-                &mut self.data_ctx,
-                &mut self.module,
-                "",
-                fun,
-            )?;
+            for expr in fun.expressions() {
+                match expr {
+                    Expression::Fn(f) => self.compile_fn(&f, fun.name())?,
+                    _ => (),
+                }
+            }
 
-            let mut ctx = Context::for_function(func);
-            let id =
-                self.module
-                    .declare_function(fun.name(), Linkage::Export, &ctx.func.signature)?;
-            self.module
-                .define_function(id, &mut ctx)?;
+            self.compile_fn(fun, "")?;
         }
         Ok(self.module.finish())
+    }
+
+    pub fn compile_fn(&mut self, fun: &Fn, path: &str) -> Result<()> {
+        let func = super::fn_gen::create_fn(
+            &mut self.fun_ctx,
+            &mut self.data_ctx,
+            &mut self.module,
+            path,
+            fun,
+        )?;
+
+        let mut ctx = Context::for_function(func);
+        let id =
+            self.module
+                .declare_function(fun.name(), Linkage::Export, &ctx.func.signature)?;
+        self.module
+            .define_function(id, &mut ctx)?;
+        Ok(())
     }
 }

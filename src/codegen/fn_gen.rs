@@ -8,7 +8,6 @@ use cranelift_codegen::ir::types::{I64};
 use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder};
 
 use cranelift_codegen::verifier::verify_function;
-use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use cranelift_module::{DataContext, DataId, FuncId, Linkage, Module};
 use cranelift_object::ObjectModule;
@@ -16,6 +15,35 @@ use cranelift_object::ObjectModule;
 use crate::error::Result;
 use crate::lexer;
 use crate::parser::{self, Fn, Literal, Type};
+
+pub fn create_fn<'gen>(
+    fun_ctx: &'gen mut FunctionBuilderContext,
+    data_ctx: &'gen mut DataContext,
+    module: &'gen mut ObjectModule,
+    path: &str,
+    fun: &Fn,
+) -> Result<Function> {
+    let sig = module.make_signature();
+    let mut func = Function::with_name_signature(ExternalName::user(0, 0), sig);
+    let builder = FunctionBuilder::new(&mut func, fun_ctx);
+
+    let mut fun_codegen = FunctionCodegen {
+        data_ctx,
+        module,
+        builder,
+        variables: HashMap::new(),
+        str_counter: Counter::new(),
+        var_counter: Counter::new(),
+    };
+
+    fun_codegen.create_fn(path, fun)?;
+    
+
+    verify_function(&func, module.isa())?;
+    println!("{}", func.display());
+
+    Ok(func)
+}
 
 
 struct Counter {
@@ -33,164 +61,119 @@ impl Counter {
 }
 
 #[derive(Debug)]
-enum Value {
-    Int(i64),
-    Float(f64),
-    String(DataId),
-}
-
-#[derive(Debug)]
 enum Expression {
-    Call(FuncId, Vec<Expression>),
-    Fn(String, Function),
-    Let(Variable, Box<Expression>),
-    Literal(Value),
+    Call(String, Vec<parser::Expression>, Vec<Type>),
+    Fn(String),
+    Let(String, lexer::Value),
+    Literal(Literal),
+    Pointer(Literal),
     Symbol(String, Type),
 }
 
-pub struct FunctionCodegen<'gen> {
-    fun_ctx: &'gen mut FunctionBuilderContext,
+struct FunctionCodegen<'gen> {
     data_ctx: &'gen mut DataContext,
     module: &'gen mut ObjectModule,
+    builder: FunctionBuilder<'gen>,
     variables: HashMap<String, Variable>,
     str_counter: Counter,
     var_counter: Counter,
 }
 
 impl<'gen> FunctionCodegen<'gen> {
-    pub fn create_fn(
-        fun_ctx: &'gen mut FunctionBuilderContext,
-        data_ctx: &'gen mut DataContext,
-        module: &'gen mut ObjectModule,
-        path: &str,
-        fun: &Fn,
-    ) -> Result<Function> {
-        let mut fun_codegen = Self {
-            fun_ctx,
-            data_ctx,
-            module,
-            variables: HashMap::new(),
-            str_counter: Counter::new(),
-            var_counter: Counter::new(),
-        };
+    fn create_fn(&mut self, path: &str, fun: &Fn) -> Result<()> {
+        let block = self.builder.create_block();
+        self.builder.switch_to_block(block);
+        self.builder.seal_block(block);
 
-        let func = fun_codegen.create_fn_imp(path, fun)?;
-        Ok(func)
+        let path = path.to_string() + fun.name();
+        for expr in fun.expressions() {
+            self.create_expression(&path, expr)?
+        }
+
+        self.builder.ins().return_(&[]);
+        self.builder.finalize();
+        Ok(())
     }
 
-    fn create_fn_imp(&mut self, path: &str, fun: &Fn) -> Result<Function> {
-        let path = path.to_string() + fun.name();
-        let pointer = self.module.target_config().pointer_type();
-
-        let exprs: Vec<Expression> = fun
-            .expressions()
-            .map(|expr| match expr {
-                parser::Expression::Call(call_name, params, returns) => {
-                    self.create_fn_call(&path, call_name, params, returns)
-                }
-                parser::Expression::Fn(fun) => self
-                    .create_fn_imp(&path, fun)
-                    .map(|func| Expression::Fn(fun.name().to_string(), func)),
-                parser::Expression::Let(id, value) => self
-                    .create_variable(&path, id.clone(), value.clone())
-                    .map(|(var, expr)| Expression::Let(var, Box::new(expr))),
-                parser::Expression::Literal(literal) => match literal {
-                    Literal::String(s) => self
-                        .create_literal_string(s.clone(), &path)
-                        .map(|data| Expression::Literal(Value::String(data))),
-                    _ => todo!(),
-                },
-                parser::Expression::Pointer(literal) => match literal {
-                    Literal::Int(i) => self
-                        .create_pointer_to_int(*i, &path)
-                        .map(|data| Expression::Literal(Value::String(data))),
-                    Literal::String(s) => self
-                        .create_literal_string(s.clone(), &path)
-                        .map(|data| Expression::Literal(Value::String(data))),
-                    _ => todo!(),
-                },
-                parser::Expression::Symbol(name,ty) => {
-                    Ok(Expression::Symbol(name.clone(), ty.clone()))
-                },
-            })
-            .collect::<Result<_>>()?;
-
-        let sig = self.module.make_signature();
-        let mut func = Function::with_name_signature(ExternalName::user(0, 0), sig);
-        let mut builder = FunctionBuilder::new(&mut func, &mut self.fun_ctx);
-
-        let block = builder.create_block();
-        builder.switch_to_block(block);
-        builder.seal_block(block);
-
-        fn process_value(builder: &mut FunctionBuilder, module: &ObjectModule, variables: &HashMap<String,Variable>, expr: Expression) -> Vec<cranelift_codegen::ir::Value> {
+    
+    fn create_expression(&mut self, path: &str, expression: &parser::Expression) -> Result<()> {
+        fn process_value(codegen: &mut FunctionCodegen, path: &str, expr: Expression) -> Result<Vec<cranelift_codegen::ir::Value>> {
             match expr {
-                Expression::Literal(value) => match value {
-                    Value::Int(i) => vec![builder.ins().iconst(I64, i)],
-                    Value::Float(f) => vec![builder.ins().f64const(f)],
-                    Value::String(data) => {
-                        let value = module.declare_data_in_func(data, builder.func);
-                        let pointer = module.target_config().pointer_type();
-                        vec![builder.ins().symbol_value(pointer, value)]
+                Expression::Literal(literal) => Ok(match literal {
+                    Literal::Int(i) => vec![codegen.builder.ins().iconst(I64, i)],
+                    Literal::Float(f) => vec![codegen.builder.ins().f64const(f)],
+                    Literal::String(s) => {
+                        let data = codegen.create_literal_string(s.clone(), &path)?;
+                    
+                        let value = codegen.module.declare_data_in_func(data, codegen.builder.func);
+                        let pointer = codegen.module.target_config().pointer_type();
+                        vec![codegen.builder.ins().symbol_value(pointer, value)]
                     }
-                }
-                Expression::Call(id, params) => {
-                    let callee = module.declare_func_in_func(id, builder.func);
+                }),
+                Expression::Pointer(literal) => Ok(match literal {
+                    Literal::Int(i) => { 
+                        let data = codegen.create_pointer_to_int(i, &path)?;
+                        //.map(|data| Expression::Literal(Value::String(data)))
+                        let value = codegen.module.declare_data_in_func(data, codegen.builder.func);
+                        let pointer = codegen.module.target_config().pointer_type();
+                        vec![codegen.builder.ins().symbol_value(pointer, value)]
+                    },
+                    Literal::String(s) => {
+                        let data = codegen.create_literal_string(s.clone(), &path)?;
+                        //.map(|data| Expression::Literal(Value::String(data)))
+                        let value = codegen.module.declare_data_in_func(data, codegen.builder.func);
+                        let pointer = codegen.module.target_config().pointer_type();
+                        vec![codegen.builder.ins().symbol_value(pointer, value)]
+                    },
+                    _ => todo!(),
+                }),
+                Expression::Call(call_name, params, returns) => {
+                    let (id, params) = codegen.create_fn_call(&path, &call_name, &params, &returns)?;
+                    let callee = codegen.module.declare_func_in_func(id, codegen.builder.func);
                     let params = params
                         .into_iter()
                         .map(|expr: Expression| {
-                            process_value(builder, &module, variables, expr)[0]
+                            process_value(codegen, path, expr).map(|v|v[0])
                         })
-                        .collect::<Vec<_>>();
-                    let inst = builder.ins().call(callee, &params);
-                    builder.inst_results(inst).to_vec()
+                        .collect::<Result<Vec<_>>>()?;
+                    let inst = codegen.builder.ins().call(callee, &params);
+                    Ok(codegen.builder.inst_results(inst).to_vec())
                 }
                 Expression::Symbol(name, _) => {
-                    let var = variables.get(&name).unwrap();
-                    vec![builder.use_var(*var)]
+                    let var = codegen.variables.get(&name).unwrap();
+                    Ok(vec![codegen.builder.use_var(*var)])
                 }
                 _ => todo!(),
             }
         }
 
-        for expr in exprs {
-            match expr {
-                Expression::Call(id, params) => {
-                    let callee = self.module.declare_func_in_func(id, builder.func);
-                    let params = params
-                        .into_iter()
-                        .map(|value| {
-                            println!("{:?}", value);
-                            process_value(&mut builder, &self.module, &self.variables, value)[0]
-                        })
-                        .collect::<Vec<_>>();
-                    builder.ins().call(callee, &params);
-                }
-                Expression::Fn(name, func) => {
-                    let mut ctx = Context::for_function(func);
-
-                    let id =
-                        self.module
-                            .declare_function(&name, Linkage::Local, &ctx.func.signature)?;
-                    self.module
-                        .define_function(id, &mut ctx)?;
-                }
-                Expression::Let(var, expr) => {
-                    builder.declare_var(var, pointer);
-                    let value = process_value(&mut builder, &self.module, &self.variables,*expr);
-                    builder.def_var(var, value[0])
-                }
-                _ => (),
+        match expression {
+            parser::Expression::Call(call_name, params, returns) => {
+                let (id, params) = self.create_fn_call(&path, &call_name, &params, &returns)?;
+                let callee = self.module.declare_func_in_func(id, self.builder.func);
+                let params = params
+                    .into_iter()
+                    .map(|value| {
+                        println!("{:?}", value);
+                        process_value(self, &path, value)
+                            .map(|v| v[0])
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                    self.builder.ins().call(callee, &params);
             }
+            parser::Expression::Let(id, value) => {
+                let (var, expr) = self
+                    .create_variable(&path, id.clone(), value.clone())
+                    .map(|(var, expr)| (var, expr))?;
+                
+                let pointer = self.module.target_config().pointer_type();
+                self.builder.declare_var(var, pointer);
+                let value = process_value(self, &path, expr)?;
+                self.builder.def_var(var, value[0])
+            }
+            _ => (),
         }
-
-        builder.ins().return_(&[]);
-        builder.finalize();
-
-        verify_function(&func, self.module.isa())?;
-        println!("{}", func.display());
-
-        Ok(func)
+        Ok(())
     }
 
     fn create_fn_call(
@@ -199,7 +182,7 @@ impl<'gen> FunctionCodegen<'gen> {
         call_name: &str,
         params: &Vec<parser::Expression>,
         returns: &Vec<Type>,
-    ) -> Result<Expression> {
+    ) -> Result<(FuncId, Vec<Expression>)> {
         let pointer = self.module.target_config().pointer_type();
 
         let sig = {
@@ -221,24 +204,19 @@ impl<'gen> FunctionCodegen<'gen> {
         for param in params.into_iter() {
             let value = match param {
                 parser::Expression::Literal(literal) => {
-                    let value = match literal {
-                        Literal::Int(i) => Value::Int(*i),
-                        Literal::Float(f) => Value::Float(*f),
-                        Literal::String(s) => Value::String(self.create_literal_string(s.to_string(), path)?),
-                    };
-                    Expression::Literal(value)
+                    Expression::Literal(literal.clone())
                 },
                 parser::Expression::Pointer(literal) => {
-                    let value = match literal {
-                        Literal::Int(i) => Value::String(self.create_pointer_to_int(*i, path)?),
-                        Literal::Float(f) => Value::Float(*f),
-                        Literal::String(s) => Value::String(self.create_literal_string(s.to_string(), path)?),
-                    };
-                    Expression::Literal(value)
+                    // let value = match literal {
+                    //     Literal::Int(i) => Value::String(self.create_pointer_to_int(*i, path)?),
+                    //     Literal::Float(f) => Value::Float(*f),
+                    //     Literal::String(s) => Value::String(self.create_literal_string(s.to_string(), path)?),
+                    // }; //TODO
+                    Expression::Literal(literal.clone())
                 },
                 parser::Expression::Call(name, params, returns) => {
                     let path = path.to_string()+name;
-                    self.create_fn_call(&path, name, params, returns)?
+                    Expression::Call(name.clone(), params.clone(), returns.clone())
                 },
                 parser::Expression::Symbol(name, ty) => {
                     Expression::Symbol(name.clone(), ty.clone())
@@ -248,7 +226,7 @@ impl<'gen> FunctionCodegen<'gen> {
 
             args.push(value);
         }
-        Ok(Expression::Call(callee, args))
+        Ok((callee, args))
     }
 
     fn create_variable(
@@ -260,12 +238,9 @@ impl<'gen> FunctionCodegen<'gen> {
         let _pointer = self.module.target_config().pointer_type();
         let var = Variable::new(self.var_counter.next());
         let value = match value {
-            lexer::Value::Int(i) => Value::Int(i),
-            lexer::Value::Float(f) => Value::Float(f),
-            lexer::Value::String(s) => {
-                let data = self.create_literal_string(s, &path)?;
-                Value::String(data)
-            }
+            lexer::Value::Int(i) => Literal::Int(i),
+            lexer::Value::Float(f) => Literal::Float(f),
+            lexer::Value::String(s) => Literal::String(s),
         };
 
         self.variables.insert(name, var);
