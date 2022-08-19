@@ -1,4 +1,3 @@
-use crate::lexer::Value;
 
 use self::fn_expr::Fn;
 use core::slice::{Iter, IterMut};
@@ -11,6 +10,7 @@ pub enum Type {
     Int,
     Float,
     String,
+    Void,
     Inferred
 }
 
