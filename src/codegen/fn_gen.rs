@@ -86,47 +86,30 @@ impl<'gen> FunctionCodegen<'gen> {
 
     
     fn create_expression(&mut self, expression: &Expression) -> Result<Value> {
-        match expression {
+        let value = match expression {
             Expression::Call(call_name, params, returns) => {
-                self.create_fn_call(&call_name, &params, &returns)
+                self.create_fn_call(&call_name, &params, &returns)?
             }
             Expression::Let(id, expr) => {
-                self.create_variable(id.clone(), expr)
+                self.create_variable(id.clone(), expr)?
             }
-            Expression::Literal(literal) => Ok(match literal {
+            Expression::Literal(literal) => match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),
-                Literal::String(s) => {
-                    let data = self.create_literal_string(s.clone())?;
-                
-                    let value = self.module.declare_data_in_func(data, self.builder.func);
-                    let pointer = self.module.target_config().pointer_type();
-                    self.builder.ins().symbol_value(pointer, value)
-                }
-            }),
-            Expression::Pointer(literal) => Ok(match literal {
-                Literal::Int(i) => { 
-                    let data = self.create_pointer_to_int(*i)?;
-                    //.map(|data| Expression::Literal(Value::String(data)))
-                    let value = self.module.declare_data_in_func(data, self.builder.func);
-                    let pointer = self.module.target_config().pointer_type();
-                    self.builder.ins().symbol_value(pointer, value)
-                },
-                Literal::String(s) => {
-                    let data = self.create_literal_string(s.clone())?;
-                    //.map(|data| Expression::Literal(Value::String(data)))
-                    let value = self.module.declare_data_in_func(data, self.builder.func);
-                    let pointer = self.module.target_config().pointer_type();
-                    self.builder.ins().symbol_value(pointer, value)
-                },
+                Literal::String(s) => self.create_literal_string(s.clone())?
+            }
+            Expression::Pointer(literal) => match literal {
+                Literal::Int(i) => self.create_pointer_to_int(*i)?,
+                Literal::String(s) => self.create_literal_string(s.clone())?,
                 _ => todo!(),
-            }),
+            }
             Expression::Symbol(name, _) => {
                 let var = self.variables.get(name).unwrap();
-                Ok(self.builder.use_var(*var))
+                self.builder.use_var(*var)
             }
-            Expression::Fn(_) => Ok(Value::from_u32(0)), //ignore, handled before function codegen
-        }
+            Expression::Fn(_) => Value::from_u32(0), //ignore, handled before function codegen
+        };
+        Ok(value)
     }
 
     fn create_fn_call(
@@ -179,31 +162,33 @@ impl<'gen> FunctionCodegen<'gen> {
         Ok(value)
     }
 
-    fn create_literal_string(&mut self, mut str: String) -> Result<DataId> {
+    fn create_literal_string(&mut self, mut str: String) -> Result<Value> {
         str.push('\0');
-
         let name = self.path.clone() + "_string_" + &self.str_counter.next().to_string();
+        let contents = str.as_bytes().to_vec().into_boxed_slice();
 
-        self.data_ctx
-            .define(str.as_bytes().to_vec().into_boxed_slice());
-        let id = self
-            .module
-            .declare_data(&name, Linkage::Local, true, false)?;
-        self.module.define_data(id, &self.data_ctx)?;
-        self.data_ctx.clear();
-        Ok(id)
+        self.create_data(&name, contents)
     }
 
-    fn create_pointer_to_int(&mut self, i: i64) -> Result<DataId> {
+    fn create_pointer_to_int(&mut self, i: i64) -> Result<Value> {
         let name = self.path.clone() + "_int_" + &self.str_counter.next().to_string();
+        let contents = i.to_ne_bytes().to_vec().into_boxed_slice();
 
-        self.data_ctx
-            .define(i.to_ne_bytes().to_vec().into_boxed_slice());
-        let id = self
+        self.create_data(&name, contents)
+    }
+
+    fn create_data(&mut self, name: &str, contents: Box<[u8]>) -> Result<Value> {
+        self.data_ctx.define(contents);
+        let data = self
             .module
             .declare_data(&name, Linkage::Local, true, false)?;
-        self.module.define_data(id, &self.data_ctx)?;
+        self.module.define_data(data, &self.data_ctx)?;
         self.data_ctx.clear();
-        Ok(id)
+
+        
+        let global_value = self.module.declare_data_in_func(data, self.builder.func);
+        let pointer = self.module.target_config().pointer_type();
+        let value = self.builder.ins().symbol_value(pointer, global_value);
+        Ok(value)
     }
 }
