@@ -45,9 +45,9 @@ fn get_string(tokens: &mut impl Iterator<Item = Token>) -> Result<Expression> {
 
 fn get_args(tokens: &mut impl Iterator<Item = Token>) -> Result<Expression> {
     let args= match tokens.next() {
-        Some(Token::Value(Value::String(value))) => Expression::Pointer(Literal::String(value)),
-        Some(Token::Value(Value::Int(i))) => Expression::Pointer(Literal::Int(i)),
-        Some(Token::Ident(name)) => Expression::Symbol(name, Type::Inferred), 
+        Some(Token::Value(Value::String(value))) => Expression::Pointer(Box::new(Expression::Literal(Literal::String(value)))),
+        Some(Token::Value(Value::Int(i))) => Expression::Pointer(Box::new(Expression::Literal(Literal::Int(i)))),
+        Some(Token::Ident(name)) => Expression::Pointer(Box::new(Expression::Symbol(name, Type::Inferred))), 
         None => Expression::Literal(Literal::Int(0)),
         _ => return Err(Error::syntax("Unexpected token instead of parameter".to_string(), 0).into()),
     };

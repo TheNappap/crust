@@ -5,11 +5,11 @@ use std::ops::RangeFrom;
 
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::types::{I64};
-use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value};
+use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind};
 
 use cranelift_codegen::verifier::verify_function;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
-use cranelift_module::{DataContext, DataId, Linkage, Module};
+use cranelift_module::{DataContext, Linkage, Module};
 use cranelift_object::ObjectModule;
 
 use crate::error::Result;
@@ -98,10 +98,9 @@ impl<'gen> FunctionCodegen<'gen> {
                 Literal::Float(f) => self.builder.ins().f64const(*f),
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }
-            Expression::Pointer(literal) => match literal {
-                Literal::Int(i) => self.create_pointer_to_int(*i)?,
-                Literal::String(s) => self.create_literal_string(s.clone())?,
-                _ => todo!(),
+            Expression::Pointer(expression) => {
+                let value = self.create_expression(expression)?;
+                self.create_pointer_to_stack_slot(value)?
             }
             Expression::Symbol(name, _) => {
                 let var = self.variables.get(name).unwrap();
@@ -162,6 +161,12 @@ impl<'gen> FunctionCodegen<'gen> {
         Ok(value)
     }
 
+    fn create_pointer_to_stack_slot(&mut self, value: Value) -> Result<Value> {
+        let stack_slot = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8));
+        self.builder.ins().stack_store(value, stack_slot, 0);
+        Ok(self.builder.ins().stack_addr(I64, stack_slot, 0))
+    }
+
     fn create_literal_string(&mut self, mut str: String) -> Result<Value> {
         str.push('\0');
         let name = self.path.clone() + "_string_" + &self.str_counter.next().to_string();
@@ -169,14 +174,7 @@ impl<'gen> FunctionCodegen<'gen> {
 
         self.create_data(&name, contents)
     }
-
-    fn create_pointer_to_int(&mut self, i: i64) -> Result<Value> {
-        let name = self.path.clone() + "_int_" + &self.str_counter.next().to_string();
-        let contents = i.to_ne_bytes().to_vec().into_boxed_slice();
-
-        self.create_data(&name, contents)
-    }
-
+    
     fn create_data(&mut self, name: &str, contents: Box<[u8]>) -> Result<Value> {
         self.data_ctx.define(contents);
         let data = self
