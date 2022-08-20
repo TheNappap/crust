@@ -87,6 +87,24 @@ mod tests {
 			}
 		"#;
         let syntax_tree = parse(s)?;
+
+        let print_call = |string: String| {
+            Expression::Call(
+                "__stdio_common_vfprintf".to_string(),
+                vec![
+                    Expression::Literal(Literal::Int(0)), 
+                    Expression::Call(
+                        "__acrt_iob_func".to_string(), 
+                        vec![Expression::Literal(Literal::Int(1))], 
+                        vec![Type::Int]
+                    ), 
+                    Expression::Literal(Literal::String(string)), 
+                    Expression::Literal(Literal::Int(0)), 
+                    Expression::Literal(Literal::Int(0))
+                ],
+                vec![],
+            )
+        };
         assert_eq!(
             syntax_tree,
             SyntaxTree::new(vec![Fn::new(
@@ -95,32 +113,16 @@ mod tests {
                     Expression::Fn(Fn::new(
                         "function",
                         vec![
-                            Expression::Call(
-                                "puts".to_string(),
-                                vec![Expression::Literal(Literal::String("Line1".to_string()))],
-                                vec![],
-                            ),
-                            Expression::Call(
-                                "puts".to_string(),
-                                vec![Expression::Literal(Literal::String("Line2".to_string()))],
-                                vec![],
-                            ),
-                            Expression::Call(
-                                "puts".to_string(),
-                                vec![Expression::Literal(Literal::String("Line3".to_string()))],
-                                vec![],
-                            )
+                            print_call("Line1\n".to_string()),
+                            print_call("Line2\n".to_string()),
+                            print_call("Line3\n".to_string()),
                         ]
                     )),
                     Expression::Fn(Fn::new(
                         "f2",
-                        vec![Expression::Call(
-                            "puts".to_string(),
-                            vec![Expression::Literal(Literal::String(
-                                "one liner".to_string()
-                            ))],
-                            vec![],
-                        )]
+                        vec![
+                            print_call("one liner\n".to_string()),
+                        ]
                     )),
                     Expression::Call("f2".to_string(), vec![], vec![]),
                     Expression::Call("function".to_string(), vec![], vec![])
