@@ -27,7 +27,7 @@ pub enum Expression {
     Fn(Fn),
     Let(String, Box<Expression>),
     Literal(Literal),
-    Pointer(Box<Expression>),
+    AddrOf(Box<Expression>),
     Symbol(String, Type),
 }
 

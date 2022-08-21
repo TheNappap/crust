@@ -98,7 +98,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 Literal::Float(f) => self.builder.ins().f64const(*f),
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }
-            Expression::Pointer(expression) => {
+            Expression::AddrOf(expression) => {
                 let value = self.create_expression(expression)?;
                 self.create_pointer_to_stack_slot(value)?
             }

@@ -47,7 +47,7 @@ impl TypeCheck {
             Expression::Literal(Literal::Int(_)) => Type::Int,
             Expression::Literal(Literal::Float(_)) => Type::Float,
             Expression::Literal(Literal::String(_)) => Type::String,
-            Expression::Pointer(expr) => self.check_expression(expr)?,
+            Expression::AddrOf(expr) => self.check_expression(expr)?,
             Expression::Symbol(name, ty) => {
                 let var_type = self.variables.get(name);
                 match ty {
