@@ -39,15 +39,30 @@ impl TypeCheck {
                 self.check_fun(fun)?;
                 Type::Inferred
             }
-            Expression::Let(name, expr) => {
+            Expression::Let(name, expr, let_ty) => {
                 let ty = self.check_expression(expr)?;
+                if *let_ty != Type::Inferred && *let_ty != ty {
+                    return Err(Error::type_(format!("Mismatch types for assignment, expected: {:?}", let_ty), 0));
+                }
                 self.variables.insert(name.clone(), ty.clone());
+                *let_ty = ty.clone();
                 ty
             },
             Expression::Literal(Literal::Int(_)) => Type::Int,
             Expression::Literal(Literal::Float(_)) => Type::Float,
             Expression::Literal(Literal::String(_)) => Type::String,
             Expression::AddrOf(expr) => self.check_expression(expr)?,
+            Expression::Add(param1, param2, add_ty) => {
+                let ty = self.check_expression(param1)?;
+                if *add_ty != Type::Inferred && *add_ty != ty {
+                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", add_ty), 0));
+                }
+                if ty != self.check_expression(param2)? {
+                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", ty), 0));
+                }
+                *add_ty = ty.clone();
+                ty
+            },
             Expression::Symbol(name, ty) => {
                 let var_type = self.variables.get(name);
                 match ty {

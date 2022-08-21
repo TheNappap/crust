@@ -1,9 +1,9 @@
 use crate::{
     error::{Error, Result},
-    lexer::{Block, Delimeter, Token, Value},
+    lexer::{Block, Delimeter, Token, Literal},
     parser::{
-        syntax_tree::{Expression, Literal},
-        Parser,
+        syntax_tree::{Expression},
+        Parser, self
     },
 };
 
@@ -25,8 +25,8 @@ impl BlockDefinition for Call {
                     let exprs = tokens
                         .into_iter()
                         .map(|token| match token {
-                            Token::Value(Value::String(value)) => {
-                                Ok(Expression::Literal(Literal::String(value.clone())))
+                            Token::Literal(Literal::String(value)) => {
+                                Ok(Expression::Literal(parser::Literal::String(value.clone())))
                             }
                             _ => Err(Error::syntax(
                                 "Expected a string value as parameter".to_string(),

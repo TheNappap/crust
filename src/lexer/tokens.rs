@@ -46,7 +46,7 @@ fn is_end_delimeter(c: char) -> bool {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Value {
+pub enum Literal {
     Int(i64),
     Float(f64),
     String(String),
@@ -55,7 +55,7 @@ pub enum Value {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Ident(String),
-    Value(Value),
+    Literal(Literal),
     Symbol(char),
     Group(Delimeter, Vec<Token>),
     NewLine,
@@ -152,7 +152,7 @@ impl<'str> TokenStream<'str> {
                 .collect::<String>()
                 .parse::<f64>()
                 .unwrap();
-            Ok(Token::Value(Value::Float(num)))
+            Ok(Token::Literal(Literal::Float(num)))
         } else {
             let num = string
                 .chars()
@@ -160,7 +160,7 @@ impl<'str> TokenStream<'str> {
                 .collect::<String>()
                 .parse::<i64>()
                 .unwrap();
-            Ok(Token::Value(Value::Int(num)))
+            Ok(Token::Literal(Literal::Int(num)))
         }
     }
 
@@ -187,7 +187,7 @@ impl<'str> TokenStream<'str> {
                 ))
             }
         };
-        Ok(Token::Value(Value::String(string)))
+        Ok(Token::Literal(Literal::String(string)))
     }
 
     fn take_group_token(&mut self, delimeter: Delimeter) -> Result<Token> {
@@ -265,7 +265,7 @@ impl<'str> TokenStream<'str> {
 mod tests {
     use super::Delimeter::*;
     use super::Token::*;
-    use super::Value::*;
+    use super::Literal::*;
     use super::*;
 
     #[test]
@@ -281,11 +281,11 @@ mod tests {
                 Symbol(':'),
                 Ident("u32".into()),
                 Symbol('='),
-                Value(Int(30)),
+                Literal(Int(30)),
                 Symbol('+'),
-                Value(Float(50.)),
+                Literal(Float(50.)),
                 Symbol('+'),
-                Value(Float(8.9)),
+                Literal(Float(8.9)),
                 Symbol(';'),
                 NewLine
             ]
@@ -323,7 +323,7 @@ mod tests {
                         Symbol('='),
                         Ident("vec".into()),
                         Symbol('!'),
-                        Group(Brackets, vec![Value(String("A String".into()))]),
+                        Group(Brackets, vec![Literal(String("A String".into()))]),
                         Symbol(';'),
                         NewLine
                     ]
@@ -366,9 +366,9 @@ mod tests {
                     Braces,
                     vec![
                         NewLine,
-                        Value(Int(2)),
+                        Literal(Int(2)),
                         Symbol('*'),
-                        Value(Int(2)),
+                        Literal(Int(2)),
                         Symbol(';'),
                         NewLine,
                         Ident("while".into()),
@@ -379,9 +379,9 @@ mod tests {
                                 Ident("let".into()),
                                 Ident("x".into()),
                                 Symbol('='),
-                                Value(Float(5.)),
+                                Literal(Float(5.)),
                                 Symbol('+'),
-                                Value(Float(5.6)),
+                                Literal(Float(5.6)),
                                 Symbol(';'),
                                 NewLine
                             ]
@@ -394,22 +394,22 @@ mod tests {
                     ]
                 ),
                 NewLine,
-                Value(String("String}(]".into())),
+                Literal(String("String}(]".into())),
                 Symbol('.'),
                 Ident("into".into()),
                 Group(Parens, vec![]),
-                Group(Brackets, vec![Value(Int(0))]),
+                Group(Brackets, vec![Literal(Int(0))]),
                 Symbol(';'),
                 NewLine,
                 NewLine,
-                Value(Int(10)),
+                Literal(Int(10)),
                 Symbol('-'),
-                Value(Int(1)),
+                Literal(Int(1)),
                 Symbol(';'),
                 NewLine,
-                Value(Float(2.)),
+                Literal(Float(2.)),
                 Symbol('/'),
-                Value(Float(10.1)),
+                Literal(Float(10.1)),
                 Symbol(';'),
                 NewLine
             ]

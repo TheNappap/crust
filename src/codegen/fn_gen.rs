@@ -4,15 +4,15 @@ use std::collections::HashMap;
 use std::ops::RangeFrom;
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::types::{I64};
-use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind};
+use cranelift_codegen::ir::types::{I64, F64};
+use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, self};
 
 use cranelift_codegen::verifier::verify_function;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use cranelift_module::{DataContext, Linkage, Module};
 use cranelift_object::ObjectModule;
 
-use crate::error::Result;
+use crate::error::{Result, Error};
 use crate::parser::{Fn, Literal, Type, Expression};
 
 pub fn create_fn<'gen>(
@@ -90,8 +90,8 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Call(call_name, params, returns) => {
                 self.create_fn_call(&call_name, &params, &returns)?
             }
-            Expression::Let(id, expr) => {
-                self.create_variable(id.clone(), expr)?
+            Expression::Let(id, expr, ty) => {
+                self.create_variable(id.clone(), expr, ty)?
             }
             Expression::Literal(literal) => match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
@@ -105,6 +105,9 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Symbol(name, _) => {
                 let var = self.variables.get(name).unwrap();
                 self.builder.use_var(*var)
+            }
+            Expression::Add(param1, param2, ty) => {
+                self.create_addition(param1, param2, ty)?
             }
             Expression::Fn(_) => Value::from_u32(0), //ignore, handled before function codegen
         };
@@ -150,12 +153,18 @@ impl<'gen> FunctionCodegen<'gen> {
         &mut self,
         name: String,
         expr: &Expression,
+        ty: &Type
     ) -> Result<Value> {
-        let pointer = self.module.target_config().pointer_type();
+        let ty = match ty {
+            Type::Int => I64,
+            Type::Float => F64,
+            Type::String => self.module.target_config().pointer_type(),
+            _ => return Err(Error::codegen("Unexpected type for variable".to_string(), 0))
+        };
         let var = Variable::new(self.var_counter.next());
         let value = self.create_expression(expr)?;
 
-        self.builder.declare_var(var, pointer);
+        self.builder.declare_var(var, ty);
         self.builder.def_var(var, value);
         self.variables.insert(name, var);
         Ok(value)
@@ -188,5 +197,15 @@ impl<'gen> FunctionCodegen<'gen> {
         let pointer = self.module.target_config().pointer_type();
         let value = self.builder.ins().symbol_value(pointer, global_value);
         Ok(value)
+    }
+
+    fn create_addition(&mut self, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Value> {
+        let v1 = self.create_expression(param1)?;
+        let v2 = self.create_expression(param2)?;
+        match ty {
+            Type::Int => Ok(self.builder.ins().iadd(v1, v2)),
+            Type::Float => Ok(self.builder.ins().fadd(v1, v2)),
+            _ => Err(Error::codegen("Only numeral addition supported".to_string(), 0))
+        }
     }
 }

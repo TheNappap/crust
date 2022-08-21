@@ -169,7 +169,7 @@ impl<'str> BlockStream<'str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::Result, lexer::Value};
+    use crate::{error::Result, lexer::Literal};
 
     #[test]
     fn blocks_test() -> Result<()> {
@@ -205,17 +205,17 @@ mod tests {
                         body: vec![
                             Block {
                                 tag: "print".to_string(),
-                                header: vec![Token::Value(Value::String("Line1".to_string()))],
+                                header: vec![Token::Literal(Literal::String("Line1".to_string()))],
                                 body: vec![]
                             },
                             Block {
                                 tag: "print".to_string(),
-                                header: vec![Token::Value(Value::String("Line2".to_string()))],
+                                header: vec![Token::Literal(Literal::String("Line2".to_string()))],
                                 body: vec![]
                             },
                             Block {
                                 tag: "print".to_string(),
-                                header: vec![Token::Value(Value::String("Line3".to_string()))],
+                                header: vec![Token::Literal(Literal::String("Line3".to_string()))],
                                 body: vec![]
                             },
                         ]
@@ -228,7 +228,7 @@ mod tests {
                         ],
                         body: vec![Block {
                             tag: "print".to_string(),
-                            header: vec![Token::Value(Value::String("one liner".to_string()))],
+                            header: vec![Token::Literal(Literal::String("one liner".to_string()))],
                             body: vec![]
                         },]
                     },

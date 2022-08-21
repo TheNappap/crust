@@ -25,10 +25,11 @@ pub enum Literal {
 pub enum Expression {
     Call(String, Vec<Expression>, Vec<Type>),
     Fn(Fn),
-    Let(String, Box<Expression>),
+    Let(String, Box<Expression>, Type),
     Literal(Literal),
     AddrOf(Box<Expression>),
     Symbol(String, Type),
+    Add(Box<Expression>,Box<Expression>, Type),
 }
 
 #[derive(Debug, PartialEq, Clone)]

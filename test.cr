@@ -3,10 +3,10 @@ fn main() {
     fn f2(): print "one liner";
 
     let var = "The number: ";
-    let var2 = 2;
+    let var2 = add 2. 3.;
 
     print var;
-    print "%i" var2;
+    print "%.2f" var2;
     print "one word %s" "second word";
 
     call f2();

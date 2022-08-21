@@ -22,7 +22,8 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add(Rc::new(block_definitions::call::Call));
     blockdefs.add(Rc::new(block_definitions::fn_def::FnDef));
     blockdefs.add(Rc::new(block_definitions::print::Print));
-    blockdefs.add(Rc::new(block_definitions::let_def::Let));
+    blockdefs.add(Rc::new(block_definitions::assign::Let));
+    blockdefs.add(Rc::new(block_definitions::binary_ops::Add));
     blockdefs
 }
 
@@ -61,7 +62,7 @@ impl Parser {
         Ok(self.blockdefs.get(&block.tag)?.parse(block, self)?)
     }
 
-    pub fn _parse_tokens(&self, tokens: Vec<Token>) -> BlockStream {
+    pub fn parse_tokens(&self, tokens: Vec<Token>) -> BlockStream {
         BlockStream::new(tokens)
     }
 }

@@ -10,7 +10,8 @@ use super::{syntax_tree::Expression, Parser};
 pub mod call;
 pub mod fn_def;
 pub mod print;
-pub mod let_def;
+pub mod assign;
+pub mod binary_ops;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;
@@ -36,6 +37,10 @@ impl BlockDefinitions {
     }
 
     pub fn add(&mut self, definition: Rc<dyn BlockDefinition>) {
+        let key = definition.id().to_string();
+        if self.definitions.contains_key(&key) {
+            println!("Definition of block \"{}\" was overidden.", key);
+        }
         self.definitions
             .insert(definition.id().to_string(), definition);
     }
