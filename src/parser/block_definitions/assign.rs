@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{error::{Error, Result}, lexer::{Block, Token, Literal}, parser::{
+use crate::{error::{Error, Result}, lexer::{Block, Token}, parser::{
         syntax_tree::{Expression},
         Parser, Type,
     }};

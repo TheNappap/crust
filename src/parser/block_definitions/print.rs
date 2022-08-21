@@ -1,6 +1,6 @@
 use crate::{
-    error::{Error, Result},
-    lexer::{Block, Token, Literal},
+    error::{Result},
+    lexer::{Block, Literal},
     parser::{
         syntax_tree::{Expression, Type},
         Parser
