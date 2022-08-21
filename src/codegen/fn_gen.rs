@@ -206,7 +206,8 @@ impl<'gen> FunctionCodegen<'gen> {
         match ty {
             Type::Int => Ok(self.builder.ins().iadd(v1, v2)),
             Type::Float => Ok(self.builder.ins().fadd(v1, v2)),
-            _ => Err(Error::codegen("Only numeral addition supported".to_string(), 0))
+            Type::String => self.create_fn_call("strcat", &vec![param1.clone(), param2.clone()], &vec![Type::Int]),
+            _ => Err(Error::codegen("Addition for this type is not supported".to_string(), 0))
         }
     }
 }

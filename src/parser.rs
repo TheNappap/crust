@@ -22,6 +22,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add(Rc::new(block_definitions::call::Call));
     blockdefs.add(Rc::new(block_definitions::fn_def::FnDef));
     blockdefs.add(Rc::new(block_definitions::print::Print));
+    blockdefs.add(Rc::new(block_definitions::print::PrintLn));
     blockdefs.add(Rc::new(block_definitions::assign::Let));
     blockdefs.add(Rc::new(block_definitions::binary_ops::Add));
     blockdefs

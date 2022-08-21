@@ -1,13 +1,15 @@
 
 fn main() {
-    fn f2(): print "one liner";
+    fn f2(): println "one liner";
 
     let var = "The number: ";
     let var2 = add 2., 3.;
+    let concat = add "first", "second";
 
     print var;
-    print "%.2f", var2;
-    print "one word %s", "second word";
+    println "%.2f", var2;
+    println "one word %s", "second word";
+    println "concat string: %s", concat;
 
     call f2();
     call f2();
@@ -15,7 +17,7 @@ fn main() {
 }
 
 fn function() {
-	print "Line1";
-	print "Line2";
-	print "Line3";
+	println "Line1";
+	println "Line2";
+	println "Line3";
 }
