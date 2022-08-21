@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{parser::{SyntaxTree, Type, Fn, Expression, Literal}, error::{Result, Error}};
+use crate::{parser::{SyntaxTree, Type, Fn, Expression}, error::{Result, Error}, lexer::Literal};
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     for fun in syntax_tree.fns_mut() {

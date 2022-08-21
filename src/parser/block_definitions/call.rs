@@ -3,7 +3,7 @@ use crate::{
     lexer::{Block, Delimeter, Token, Literal},
     parser::{
         syntax_tree::{Expression},
-        Parser, self
+        Parser
     },
 };
 
@@ -26,7 +26,7 @@ impl BlockDefinition for Call {
                         .into_iter()
                         .map(|token| match token {
                             Token::Literal(Literal::String(value)) => {
-                                Ok(Expression::Literal(parser::Literal::String(value.clone())))
+                                Ok(Expression::Literal(Literal::String(value.clone())))
                             }
                             _ => Err(Error::syntax(
                                 "Expected a string value as parameter".to_string(),

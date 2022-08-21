@@ -4,11 +4,11 @@ mod syntax_tree;
 use std::rc::Rc;
 
 pub use crate::error::Result;
-pub use syntax_tree::{fn_expr::Fn, Type, Expression, Literal, SyntaxTree};
+pub use syntax_tree::{fn_expr::Fn, Type, Expression, SyntaxTree};
 
 use crate::{
     error::Error,
-    lexer::{blockify, Block, BlockStream, Token},
+    lexer::{blockify, Block, BlockStream, Token, Delimeter},
 };
 
 use self::block_definitions::BlockDefinitions;
@@ -62,15 +62,69 @@ impl Parser {
         Ok(self.blockdefs.get(&block.tag)?.parse(block, self)?)
     }
 
-    pub fn parse_tokens(&self, tokens: Vec<Token>) -> BlockStream {
-        BlockStream::new(tokens)
+    pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {
+        if tokens.len() == 1 {
+            match tokens.first().unwrap() {
+                Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
+                Token::Literal(literal) => return Ok(Expression::Literal(literal.clone())),
+                Token::Symbol(_) => todo!(),
+                _ => todo!(),
+            }
+        }
+
+        let mut blocks = BlockStream::new(tokens);
+        let first = blocks.next();
+        let second = blocks.next();
+        if first.is_none() {
+            return Err(Error::syntax("Expected an expression".to_string(), 0).into());
+        } else if second.is_some() {
+            return Err(Error::syntax("Unexpected block after expression".to_string(), 0).into());
+        }
+
+        self.parse_block(first.unwrap()?)
+    }
+
+    pub fn parse_list(&self, tokens: Vec<Token>) -> TokenList {
+        let tokens = if tokens.len() == 1 {
+            if let Some(Token::Group(Delimeter::Parens, tokens)) = tokens.first() {
+                tokens.clone()
+            } else { tokens }
+        } else { tokens };
+
+        TokenList::from(tokens)
+    }
+}
+
+pub struct TokenList {
+    contents: Vec<Vec<Token>>
+}
+
+impl TokenList {
+    fn from(tokens: Vec<Token>) -> TokenList {
+        let mut tokens = tokens.into_iter();
+        let mut contents = Vec::new();
+        while let Some(element) = Self::take_element(&mut tokens) {
+            contents.push(element)
+        }
+        TokenList { contents }
+    }
+
+    fn take_element(tokens: &mut impl Iterator<Item=Token>) -> Option<Vec<Token>> {
+        let mut element = Vec::new();
+        loop {
+            match tokens.next() {
+                None | Some(Token::Symbol(',')) => break,
+                Some(token) => element.push(token)
+            }
+        }
+        if element.is_empty() { None } else { Some(element) }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::Result;
+    use crate::{error::Result, lexer::Literal};
 
     #[test]
     fn parser_test() -> Result<()> {

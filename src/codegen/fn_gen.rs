@@ -5,7 +5,7 @@ use std::ops::RangeFrom;
 
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::types::{I64, F64};
-use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, self};
+use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind};
 
 use cranelift_codegen::verifier::verify_function;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
@@ -13,7 +13,8 @@ use cranelift_module::{DataContext, Linkage, Module};
 use cranelift_object::ObjectModule;
 
 use crate::error::{Result, Error};
-use crate::parser::{Fn, Literal, Type, Expression};
+use crate::lexer::Literal;
+use crate::parser::{Fn, Type, Expression};
 
 pub fn create_fn<'gen>(
     fun_ctx: &'gen mut FunctionBuilderContext,

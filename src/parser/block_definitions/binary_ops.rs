@@ -1,4 +1,4 @@
-use crate::{lexer::{Block, Token, Literal}, parser::{Parser, Expression, Type, self}, error::{Result, Error}};
+use crate::{lexer::{Block, Token, Literal}, parser::{Parser, Expression, Type}, error::{Result, Error}};
 
 use super::BlockDefinition;
 
@@ -9,20 +9,14 @@ impl BlockDefinition for Add {
         "add"
     }
 
-    fn parse(&self, block: Block, _parser: &Parser) -> Result<Expression> {
+    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
         assert!(block.tag == self.id());
-        let mut tokens = block.header.into_iter();
-        Ok(Expression::Add(Box::new(get_param(&mut tokens)?), Box::new(get_param(&mut tokens)?), Type::Inferred))
-    }
-}
+        let token_list = parser.parse_list(block.header);
+        if token_list.contents.len() != 2 {
+            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0).into());
+        }
 
-fn get_param(tokens: &mut impl Iterator<Item = Token>) -> Result<Expression> {
-    let args= match tokens.next() {
-        Some(Token::Literal(Literal::Int(i))) => Expression::Literal(parser::Literal::Int(i)),
-        Some(Token::Literal(Literal::Float(f))) => Expression::Literal(parser::Literal::Float(f)),
-        Some(Token::Literal(Literal::String(value))) => Expression::Literal(parser::Literal::String(value)),
-        Some(Token::Ident(name)) => Expression::Symbol(name, Type::Inferred),
-        a => return Err(Error::syntax(format!("Unexpected token instead of parameter {:?}", a), 0).into()),
-    };
-    Ok(args)
+        let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
+        Ok(Expression::Add(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+    }
 }

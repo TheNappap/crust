@@ -1,4 +1,6 @@
 
+use crate::lexer::Literal;
+
 use self::fn_expr::Fn;
 use core::slice::{Iter, IterMut};
 
@@ -12,13 +14,6 @@ pub enum Type {
     String,
     Void,
     Inferred
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Literal {
-    Int(i64),
-    Float(f64),
-    String(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
