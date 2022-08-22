@@ -3,7 +3,7 @@ use crate::{
     lexer::{Block, Literal},
     parser::{
         syntax_tree::{Expression, Type},
-        Parser
+        Parser, Signature
     },
 };
 
@@ -52,14 +52,13 @@ fn parse_print(block: Block, parser: &Parser, add: Option<String>) -> Result<Exp
     };
 
     Ok(Expression::Call(
-        "__stdio_common_vfprintf".to_string(),
+        Signature::new("__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
         vec![
             Expression::Literal(Literal::Int(0)),
-            Expression::Call("__acrt_iob_func".to_string(), vec![Expression::Literal(Literal::Int(1))], vec![Type::Int]),
+            Expression::Call(Signature::new("__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::Literal(Literal::Int(1))]),
             string_expr, 
             Expression::Literal(Literal::Int(0)), 
             args_expr,
         ],
-        vec![],
     ))
 }

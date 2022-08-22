@@ -3,7 +3,7 @@ use crate::{
     lexer::{Block, Delimeter, Token, Literal},
     parser::{
         syntax_tree::{Expression},
-        Parser
+        Parser, Type, Signature
     },
 };
 
@@ -35,7 +35,7 @@ impl BlockDefinition for Call {
                             .into()),
                         })
                         .collect::<Result<_>>()?;
-                    Ok(Expression::Call(id, exprs, vec![]))
+                    Ok(Expression::Call(Signature::new(&id, vec![], Type::Inferred), exprs))
                 }
                 _ => Err(Error::syntax("Expected a parameter group".to_string(), 0).into()),
             },

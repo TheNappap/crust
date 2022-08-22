@@ -1,7 +1,7 @@
 use crate::{
     error::{Error, Result},
     lexer::{Block, Delimeter, Token},
-    parser::{Expression, Fn, Parser},
+    parser::{Expression, Fn, Parser, Type, syntax_tree::fn_expr::Signature},
 };
 
 use super::BlockDefinition;
@@ -30,11 +30,12 @@ impl BlockDefinition for FnDef {
             _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0).into()),
         }
 
+        let signature = Signature::new(&name, vec![], Type::Void);
         let exprs = block
             .body
             .into_iter()
             .map(|block| parser.parse_block(block))
             .collect::<Result<Vec<Expression>>>()?;
-        Ok(Expression::Fn(Fn::new(&name, exprs)))
+        Ok(Expression::Fn(Fn::new(signature, exprs)))
     }
 }

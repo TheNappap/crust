@@ -29,11 +29,11 @@ impl TypeCheck {
 
     fn check_expression(&mut self, expr: &mut Expression) -> Result<Type> {
         let ty = match expr {
-            Expression::Call(_, params, return_type) => {
+            Expression::Call(signature, params) => {
                 for expr in params {
                     self.check_expression(expr)?;
                 }
-                return_type.get(0).unwrap_or(&Type::Void).clone()
+                signature.returns().clone()
             },
             Expression::Fn(fun) => {
                 self.check_fun(fun)?;

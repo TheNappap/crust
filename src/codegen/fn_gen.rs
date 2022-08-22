@@ -14,7 +14,7 @@ use cranelift_object::ObjectModule;
 
 use crate::error::{Result, Error};
 use crate::lexer::Literal;
-use crate::parser::{Fn, Type, Expression};
+use crate::parser::{Fn, Type, Expression, Signature};
 
 pub fn create_fn<'gen>(
     fun_ctx: &'gen mut FunctionBuilderContext,
@@ -31,7 +31,7 @@ pub fn create_fn<'gen>(
         data_ctx,
         module,
         builder,
-        path: path.to_string() + fun.name(),
+        path: path.to_string() + fun.signature().name(),
         variables: HashMap::new(),
         str_counter: Counter::new(),
         var_counter: Counter::new(),
@@ -88,8 +88,8 @@ impl<'gen> FunctionCodegen<'gen> {
     
     fn create_expression(&mut self, expression: &Expression) -> Result<Value> {
         let value = match expression {
-            Expression::Call(call_name, params, returns) => {
-                self.create_fn_call(&call_name, &params, &returns)?
+            Expression::Call(signature, params) => {
+                self.create_fn_call(signature, params)?
             }
             Expression::Let(id, expr, ty) => {
                 self.create_variable(id.clone(), expr, ty)?
@@ -117,9 +117,8 @@ impl<'gen> FunctionCodegen<'gen> {
 
     fn create_fn_call(
         &mut self,
-        call_name: &str,
+        signature: &Signature,
         params: &Vec<Expression>,
-        returns: &Vec<Type>,
     ) -> Result<Value> {
         let pointer = self.module.target_config().pointer_type();
 
@@ -128,8 +127,9 @@ impl<'gen> FunctionCodegen<'gen> {
             for _ in 0..params.len() {
                 sig.params.push(AbiParam::new(pointer));
             }
-            for _ in 0..returns.len() {
-                sig.returns.push(AbiParam::new(pointer));
+            match signature.returns() {
+                Type::Void | Type::Inferred => (),
+                _ => sig.returns.push(AbiParam::new(pointer))
             }
             sig
         };
@@ -141,7 +141,7 @@ impl<'gen> FunctionCodegen<'gen> {
 
         let id = self
             .module
-            .declare_function(&call_name, Linkage::Import, &sig)?;
+            .declare_function(signature.name(), Linkage::Import, &sig)?;
         
         let callee = self.module.declare_func_in_func(id, self.builder.func);
 
@@ -206,7 +206,7 @@ impl<'gen> FunctionCodegen<'gen> {
         match ty {
             Type::Int => Ok(self.builder.ins().iadd(v1, v2)),
             Type::Float => Ok(self.builder.ins().fadd(v1, v2)),
-            Type::String => self.create_fn_call("strcat", &vec![param1.clone(), param2.clone()], &vec![Type::Int]),
+            Type::String => self.create_fn_call(&Signature::new("strcat",vec![Type::Int,Type::Int],Type::Int), &vec![param1.clone(), param2.clone()]),
             _ => Err(Error::codegen("Addition for this type is not supported".to_string(), 0))
         }
     }

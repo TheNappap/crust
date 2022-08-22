@@ -4,7 +4,7 @@ mod syntax_tree;
 use std::rc::Rc;
 
 pub use crate::error::Result;
-pub use syntax_tree::{fn_expr::Fn, Type, Expression, SyntaxTree};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, Type, Expression, SyntaxTree};
 
 use crate::{
     error::Error,
@@ -125,7 +125,7 @@ impl TokenList {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::Result, lexer::Literal};
+    use crate::{error::Result, lexer::Literal, parser::syntax_tree::fn_expr::Signature};
 
     #[test]
     fn parser_test() -> Result<()> {
@@ -146,43 +146,38 @@ mod tests {
 
         let print_call = |string: String| {
             Expression::Call(
-                "__stdio_common_vfprintf".to_string(),
+                Signature::new("__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
                 vec![
                     Expression::Literal(Literal::Int(0)), 
-                    Expression::Call(
-                        "__acrt_iob_func".to_string(), 
-                        vec![Expression::Literal(Literal::Int(1))], 
-                        vec![Type::Int]
-                    ), 
+                    Expression::Call(Signature::new("__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::Literal(Literal::Int(1))]), 
                     Expression::Literal(Literal::String(string)), 
                     Expression::Literal(Literal::Int(0)), 
                     Expression::Literal(Literal::Int(0))
                 ],
-                vec![],
             )
         };
         assert_eq!(
             syntax_tree,
             SyntaxTree::new(vec![Fn::new(
-                "main",
+                Signature::new("main",vec![], Type::Void),
                 vec![
                     Expression::Fn(Fn::new(
-                        "function",
+                        Signature::new("function", vec![], Type::Void),
                         vec![
-                            print_call("Line1\n".to_string()),
-                            print_call("Line2\n".to_string()),
-                            print_call("Line3\n".to_string()),
-                        ]
+                            print_call("Line1".to_string()),
+                            print_call("Line2".to_string()),
+                            print_call("Line3".to_string()),
+                        ],
                     )),
                     Expression::Fn(Fn::new(
-                        "f2",
+                        Signature::new("f2", vec![], Type::Void),
                         vec![
-                            print_call("one liner\n".to_string()),
-                        ]
+                            print_call("one liner".to_string()),
+                        ],
                     )),
-                    Expression::Call("f2".to_string(), vec![], vec![]),
-                    Expression::Call("function".to_string(), vec![], vec![])
-                ]
+                    Expression::Call(Signature::new("f2", vec![], Type::Inferred), vec![]),
+                    Expression::Call(Signature::new("function", vec![], Type::Inferred), vec![]),
+                ],
             )])
         );
         Ok(())

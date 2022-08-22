@@ -36,7 +36,7 @@ impl Codegen {
         for fun in syntax_tree.fns() {
             for expr in fun.expressions() {
                 match expr {
-                    Expression::Fn(f) => self.compile_fn(&f, fun.name())?,
+                    Expression::Fn(f) => self.compile_fn(&f, fun.signature().name())?,
                     _ => (),
                 }
             }
@@ -58,7 +58,7 @@ impl Codegen {
         let mut ctx = Context::for_function(func);
         let id =
             self.module
-                .declare_function(fun.name(), Linkage::Export, &ctx.func.signature)?;
+                .declare_function(fun.signature().name(), Linkage::Export, &ctx.func.signature)?;
         self.module
             .define_function(id, &mut ctx)?;
         Ok(())

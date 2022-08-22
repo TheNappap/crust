@@ -1,7 +1,7 @@
 
 use crate::lexer::Literal;
 
-use self::fn_expr::Fn;
+use self::fn_expr::{Fn, Signature};
 use core::slice::{Iter, IterMut};
 
 pub mod fn_expr;
@@ -18,7 +18,7 @@ pub enum Type {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    Call(String, Vec<Expression>, Vec<Type>),
+    Call(Signature, Vec<Expression>),
     Fn(Fn),
     Let(String, Box<Expression>, Type),
     Literal(Literal),
