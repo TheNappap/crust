@@ -43,9 +43,18 @@ impl<'f> TypeCheck<'f> {
     fn check_expression(&mut self, expr: &mut Expression) -> Result<Type> {
         let ty = match expr {
             Expression::Call(signature, params) => {
-                for expr in params {
-                    self.check_expression(expr)?;
-                }
+                params.iter_mut()
+                      .map(|expr| self.check_expression(expr))
+                      .zip(signature.params())
+                      .map(|(r,t)| {
+                            r.and_then(|ty| {
+                                if *t != ty {
+                                    return Err(Error::type_("Mismatched types for parameter".to_string(), 0).into());
+                                }
+                                Ok(ty)
+                            })
+                      })
+                      .collect::<Result<Vec<_>>>()?;
 
                 if *signature.returns() == Type::Inferred {
                     let fun = self.functions.get(signature.name()).expect("Function not found");
@@ -70,7 +79,10 @@ impl<'f> TypeCheck<'f> {
             Expression::Literal(Literal::Int(_)) => Type::Int,
             Expression::Literal(Literal::Float(_)) => Type::Float,
             Expression::Literal(Literal::String(_)) => Type::String,
-            Expression::AddrOf(expr) => self.check_expression(expr)?,
+            Expression::AddrOf(expr) => {
+                self.check_expression(expr)?;
+                Type::Int
+            },
             Expression::Add(param1, param2, add_ty) => {
                 let ty = self.check_expression(param1)?;
                 if *add_ty != Type::Inferred && *add_ty != ty {
