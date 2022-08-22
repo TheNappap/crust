@@ -25,6 +25,7 @@ pub enum Expression {
     AddrOf(Box<Expression>),
     Symbol(String, Type),
     Add(Box<Expression>,Box<Expression>, Type),
+    Return(Box<Expression>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

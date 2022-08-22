@@ -20,6 +20,7 @@ pub fn parse(source: &str) -> Result<SyntaxTree> {
 fn block_definitions() -> BlockDefinitions {
     let mut blockdefs = BlockDefinitions::new();
     blockdefs.add(Rc::new(block_definitions::call::Call));
+    blockdefs.add(Rc::new(block_definitions::returns::Return));
     blockdefs.add(Rc::new(block_definitions::fn_def::FnDef));
     blockdefs.add(Rc::new(block_definitions::print::Print));
     blockdefs.add(Rc::new(block_definitions::print::PrintLn));

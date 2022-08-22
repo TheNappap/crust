@@ -23,7 +23,15 @@ pub fn create_fn<'gen>(
     path: &str,
     fun: &Fn,
 ) -> Result<Function> {
-    let sig = module.make_signature();
+    let mut sig = module.make_signature();
+    let pointer = module.target_config().pointer_type();
+    match fun.signature().returns() {
+        Type::Void | Type::Inferred => (),
+        Type::Int => sig.returns.push(AbiParam::new(I64)),
+        Type::Float => sig.returns.push(AbiParam::new(F64)),
+        Type::String => sig.returns.push(AbiParam::new(pointer)),
+    }
+
     let mut func = Function::with_name_signature(ExternalName::user(0, 0), sig);
     let builder = FunctionBuilder::new(&mut func, fun_ctx);
 
@@ -74,13 +82,16 @@ impl<'gen> FunctionCodegen<'gen> {
     fn create_fn(&mut self, fun: &Fn) -> Result<()> {
         let block = self.builder.create_block();
         self.builder.switch_to_block(block);
-        self.builder.seal_block(block);
 
         for statement in fun.expressions() {
             self.create_expression(statement)?;
         }
 
-        self.builder.ins().return_(&[]);
+        self.builder.seal_block(block);
+
+        if *fun.signature().returns() == Type::Void {
+            self.builder.ins().return_(&[]);
+        }
         self.builder.finalize();
         Ok(())
     }
@@ -90,6 +101,9 @@ impl<'gen> FunctionCodegen<'gen> {
         let value = match expression {
             Expression::Call(signature, params) => {
                 self.create_fn_call(signature, params)?
+            }
+            Expression::Return(expr) => {
+                self.create_return(expr)?
             }
             Expression::Let(id, expr, ty) => {
                 self.create_variable(id.clone(), expr, ty)?
@@ -129,7 +143,9 @@ impl<'gen> FunctionCodegen<'gen> {
             }
             match signature.returns() {
                 Type::Void | Type::Inferred => (),
-                _ => sig.returns.push(AbiParam::new(pointer))
+                Type::Int => sig.returns.push(AbiParam::new(I64)),
+                Type::Float => sig.returns.push(AbiParam::new(F64)),
+                Type::String => sig.returns.push(AbiParam::new(pointer)),
             }
             sig
         };
@@ -148,6 +164,15 @@ impl<'gen> FunctionCodegen<'gen> {
         let inst = self.builder.ins().call(callee, &param_values);
         let return_values = self.builder.inst_results(inst).to_vec();
         Ok(*return_values.first().unwrap_or(&Value::from_u32(0)))
+    }
+
+    fn create_return(
+        &mut self,
+        expr: &Expression
+    ) -> Result<Value> {
+        let value = self.create_expression(expr)?;
+        self.builder.ins().return_(&[value]);
+        Ok(value)
     }
 
     fn create_variable(

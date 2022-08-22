@@ -1,22 +1,35 @@
 use std::collections::HashMap;
 
-use crate::{parser::{SyntaxTree, Type, Fn, Expression}, error::{Result, Error}, lexer::Literal};
+use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature}, error::{Result, Error}, lexer::Literal};
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
+    let mut functions = HashMap::new();
+    for fun in syntax_tree.fns() {
+        for expr in fun.expressions() {
+            match expr {
+                Expression::Fn(f) => { functions.insert(f.signature().name().to_string(), f.signature().clone()); },
+                _ => (),
+            }
+        }
+        functions.insert(fun.signature().name().to_string().clone(), fun.signature().clone()); 
+    }
+
     for fun in syntax_tree.fns_mut() {
-        TypeCheck::new().check_fun(fun)?
+        TypeCheck::new(&functions).check_fun(fun)?
     }
     Ok(())
 }
 
-struct TypeCheck {
-    variables: HashMap<String, Type>
+struct TypeCheck<'f> {
+    variables: HashMap<String, Type>,
+    functions: &'f HashMap<String, Signature>
 }
 
-impl TypeCheck {
-    fn new() -> TypeCheck {
+impl<'f> TypeCheck<'f> {
+    fn new(functions: &HashMap<String, Signature>) -> TypeCheck {
         TypeCheck {
-            variables: HashMap::new()
+            variables: HashMap::new(),
+            functions
         }
     }
 
@@ -33,8 +46,14 @@ impl TypeCheck {
                 for expr in params {
                     self.check_expression(expr)?;
                 }
+
+                if *signature.returns() == Type::Inferred {
+                    let fun = self.functions.get(signature.name()).expect("Function not found");
+                    *signature = fun.clone();
+                }
                 signature.returns().clone()
             },
+            Expression::Return(_) => Type::Void,
             Expression::Fn(fun) => {
                 self.check_fun(fun)?;
                 Type::Inferred

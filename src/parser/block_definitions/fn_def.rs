@@ -25,12 +25,24 @@ impl BlockDefinition for FnDef {
                 )
             }
         };
-        match tokens.next() {
-            Some(Token::Group(Delimeter::Parens, _)) => (),
-            _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0).into()),
-        }
 
-        let signature = Signature::new(&name, vec![], Type::Void);
+        let _params = match tokens.next() {
+            Some(Token::Group(Delimeter::Parens, params)) => params,
+            _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0).into()),
+        };
+
+        let returns = match (tokens.next(), tokens.next(), tokens.next()) {
+            (None, None, None) => Type::Void,
+            (Some(Token::Symbol('-')), Some(Token::Symbol('>')), Some(Token::Ident(ty))) => match ty.as_str() {
+                "Int" => Type::Int,
+                "Float" => Type::Float,
+                "String" => Type::String,
+                _ => return Err(Error::syntax("Unknown return type".to_string(), 0).into())
+            },
+            _ => return Err(Error::syntax("Unexpected symbols after function header".to_string(), 0).into()),
+        };
+
+        let signature = Signature::new(&name, vec![], returns);
         let exprs = block
             .body
             .into_iter()

@@ -7,6 +7,7 @@ fn main() {
     let concat = add "first", "second";
 
     print var;
+    print "%i", call one();
     println "%.2f", var2;
     println "one word %s", "second word";
     println "concat string: %s", concat;
@@ -14,6 +15,10 @@ fn main() {
     call f2();
     call f2();
     call function();
+}
+
+fn one() -> Int {
+    return 1;
 }
 
 fn function() {
