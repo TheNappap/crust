@@ -34,6 +34,9 @@ impl<'f> TypeCheck<'f> {
     }
 
     fn check_fun(&mut self, fun: &mut Fn) -> Result<()> {
+        for (name, ty) in fun.params().zip(fun.signature().params()) {
+            self.variables.insert(name.clone(), ty.clone());
+        }
         for expr in fun.expressions_mut() {
             self.check_expression(expr)?;
         }
@@ -62,7 +65,10 @@ impl<'f> TypeCheck<'f> {
                 }
                 signature.returns().clone()
             },
-            Expression::Return(_) => Type::Void,
+            Expression::Return(expr) => {
+                self.check_expression(expr)?;
+                Type::Void
+            },
             Expression::Fn(fun) => {
                 self.check_fun(fun)?;
                 Type::Inferred
