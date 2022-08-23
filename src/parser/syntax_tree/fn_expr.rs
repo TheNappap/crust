@@ -33,19 +33,26 @@ impl Signature {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Fn {
     signature: Signature,
+    params: Vec<String>,
     exprs: Vec<Expression>,
 }
 
 impl Fn {
-    pub fn new(signature: Signature, exprs: Vec<Expression>) -> Fn {
+    pub fn new(signature: Signature, params: Vec<String>, exprs: Vec<Expression>) -> Fn {
+        assert_eq!(params.len(), signature.params().len());
         Fn {
             signature,
+            params,
             exprs,
         }
     }
 
     pub fn signature(&self) -> &Signature {
         &self.signature
+    }
+
+    pub fn params(&self) -> Iter<String> {
+        self.params.iter()
     }
 
     pub fn expressions(&self) -> Iter<Expression> {

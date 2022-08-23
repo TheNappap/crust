@@ -45,7 +45,7 @@ impl Parser {
             .map(|block| -> Result<Fn> {
                 let block = block?;
                 let tag = block.tag.clone();
-                match self.parse_block(block)? {
+                match self.parse_block_expression(block)? {
                     Expression::Fn(fun) => Ok(fun),
                     _ => {
                         return Err(Error::syntax(
@@ -60,7 +60,7 @@ impl Parser {
         Ok(SyntaxTree::new(fns))
     }
 
-    pub fn parse_block(&self, block: Block) -> Result<Expression> {
+    pub fn parse_block_expression(&self, block: Block) -> Result<Expression> {
         Ok(self.blockdefs.get(&block.tag)?.parse(block, self)?)
     }
 
@@ -83,7 +83,7 @@ impl Parser {
             return Err(Error::syntax("Unexpected block after expression".to_string(), 0).into());
         }
 
-        self.parse_block(first.unwrap()?)
+        self.parse_block_expression(first.unwrap()?)
     }
 
     pub fn parse_list(&self, tokens: Vec<Token>) -> TokenList {
@@ -161,9 +161,11 @@ mod tests {
             syntax_tree,
             SyntaxTree::new(vec![Fn::new(
                 Signature::new("main",vec![], Type::Void),
+                vec![],
                 vec![
                     Expression::Fn(Fn::new(
                         Signature::new("function", vec![], Type::Void),
+                        vec![],
                         vec![
                             print_call("Line1".to_string()),
                             print_call("Line2".to_string()),
@@ -172,6 +174,7 @@ mod tests {
                     )),
                     Expression::Fn(Fn::new(
                         Signature::new("f2", vec![], Type::Void),
+                        vec![],
                         vec![
                             print_call("one liner".to_string()),
                         ],

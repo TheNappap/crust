@@ -1,5 +1,5 @@
 
-use crate::lexer::Literal;
+use crate::lexer::{Literal, Token};
 
 use self::fn_expr::{Fn, Signature};
 use core::slice::{Iter, IterMut};
@@ -14,6 +14,23 @@ pub enum Type {
     String,
     Void,
     Inferred
+}
+
+impl From<Token> for Type {
+    fn from(token: Token) -> Self {
+        match token {
+            Token::Ident(ty) => match ty.as_str() {
+                "Int" => Type::Int,
+                "Float" => Type::Float,
+                "String" => Type::String,
+                ty => todo!()
+            }
+            Token::Literal(_) => todo!(),
+            Token::Symbol(_) => todo!(),
+            Token::Group(_, _) => todo!(),
+            Token::NewLine => todo!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
