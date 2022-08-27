@@ -16,22 +16,16 @@ impl BlockDefinition for Call {
         "call"
     }
 
-    fn parse(&self, block: Block, _parser: &Parser) -> Result<Expression> {
+    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
         assert!(block.tag == self.id());
         let mut tokens = block.header.into_iter();
         match tokens.next() {
             Some(Token::Ident(id)) => match tokens.next() {
                 Some(Token::Group(Delimeter::Parens, tokens)) => {
-                    let exprs = tokens
+                    let exprs = parser.parse_list(tokens)
+                        .contents
                         .into_iter()
-                        .map(|token| match token {
-                            Token::Literal(literal) => Ok(Expression::Literal(literal)),
-                            _ => Err(Error::syntax(
-                                "Expected a string value as parameter".to_string(),
-                                0,
-                            )
-                            .into()),
-                        })
+                        .map(|tokens| parser.parse_expression(tokens))
                         .collect::<Result<_>>()?;
                     Ok(Expression::Call(Signature::new(&id, vec![], Type::Inferred), exprs))
                 }
