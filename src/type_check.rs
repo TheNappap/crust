@@ -95,8 +95,10 @@ impl<'f> TypeCheck<'f> {
             Expression::Literal(Literal::Float(_)) => Type::Float,
             Expression::Literal(Literal::Bool(_)) => Type::Bool,
             Expression::Literal(Literal::String(_)) => Type::String,
-            Expression::AddrOf(expr) => {
-                self.check_expression(expr)?;
+            Expression::AddrOf(exprs) => {
+                for expr in exprs {
+                    self.check_expression(expr)?;
+                }
                 Type::Int
             },
             Expression::Add(param1, param2, add_ty) => {

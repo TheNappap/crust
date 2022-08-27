@@ -41,7 +41,7 @@ pub enum Expression {
     If(Box<Expression>, Vec<Expression>),
     Let(String, Box<Expression>, Type),
     Literal(Literal),
-    AddrOf(Box<Expression>),
+    AddrOf(Vec<Expression>),
     Symbol(String, Type),
     Add(Box<Expression>,Box<Expression>, Type),
     Sub(Box<Expression>,Box<Expression>, Type),

@@ -45,8 +45,9 @@ fn parse_print(block: Block, parser: &Parser, add: Option<String>) -> Result<Exp
         Expression::Add(Box::new(params[0].clone()), Box::new(Expression::Literal(Literal::String(add_str))), Type::String)
     } else { params[0].clone() };
 
-    let args_expr = if params.len() > 1 { 
-        Expression::AddrOf(Box::new(params[1].clone()))
+    let args_expr = if params.len() > 1 {
+        let exprs = params.into_iter().skip(1).collect();
+        Expression::AddrOf(exprs)
     } else {
         Expression::Literal(Literal::Int(0))
     };

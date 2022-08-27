@@ -125,9 +125,11 @@ impl<'gen> FunctionCodegen<'gen> {
                 Literal::Bool(b) => self.builder.ins().iconst(I64, *b),
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }
-            Expression::AddrOf(expression) => {
-                let value = self.create_expression(expression)?;
-                self.create_pointer_to_stack_slot(value)?
+            Expression::AddrOf(expressions) => {
+                let values = expressions.iter()
+                        .map(|expr|self.create_expression(expr))
+                        .collect::<Result<Vec<_>>>()?;
+                self.create_pointer_to_stack_slot(&values)?
             }
             Expression::Symbol(name, _) => {
                 let var = self.variables.get(name).unwrap();
@@ -259,9 +261,11 @@ impl<'gen> FunctionCodegen<'gen> {
         Ok(Value::from_u32(0))
     }
 
-    fn create_pointer_to_stack_slot(&mut self, value: Value) -> Result<Value> {
-        let stack_slot = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8));
-        self.builder.ins().stack_store(value, stack_slot, 0);
+    fn create_pointer_to_stack_slot(&mut self, values: &[Value]) -> Result<Value> {
+        let stack_slot = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8*values.len() as u32));
+        for (i, &value) in values.into_iter().enumerate() {
+            self.builder.ins().stack_store(value, stack_slot, 8*i as u8);
+        }
         Ok(self.builder.ins().stack_addr(I64, stack_slot, 0))
     }
 

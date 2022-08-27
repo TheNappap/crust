@@ -17,7 +17,7 @@ fn main() {
         println "bool: %i", false;
     }
 
-    println "%i", div(6, 3);
+    println "%s %i %i %i %i", "Operations:", div(6, 3), mul(5,6), add(4,4), sub(34,35);
 
     call f2();
     call f2();
