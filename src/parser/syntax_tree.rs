@@ -6,7 +6,6 @@ use core::slice::{Iter, IterMut};
 
 pub mod fn_expr;
 
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Int,
@@ -39,6 +38,7 @@ impl From<Token> for Type {
 pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
+    If(Box<Expression>, Vec<Expression>),
     Let(String, Box<Expression>, Type),
     Literal(Literal),
     AddrOf(Box<Expression>),

@@ -28,6 +28,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add(Rc::new(block_definitions::binary_ops::Add));
     blockdefs.add(Rc::new(block_definitions::bool::True));
     blockdefs.add(Rc::new(block_definitions::bool::False));
+    blockdefs.add(Rc::new(block_definitions::conditional::If));
     blockdefs
 }
 

@@ -87,6 +87,8 @@ impl<'gen> FunctionCodegen<'gen> {
         self.builder.append_block_params_for_function_params(block);
         
         self.builder.switch_to_block(block);
+        self.builder.seal_block(block);
+
         for (index, (name, ty)) in fun.params().zip(fun.signature().params()).enumerate() {
             self.create_parameter(name.clone(), index, ty, block)?;
         }
@@ -94,8 +96,6 @@ impl<'gen> FunctionCodegen<'gen> {
         for statement in fun.expressions() {
             self.create_expression(statement)?;
         }
-
-        self.builder.seal_block(block);
 
         if *fun.signature().returns() == Type::Void {
             self.builder.ins().return_(&[]);
@@ -115,6 +115,9 @@ impl<'gen> FunctionCodegen<'gen> {
             }
             Expression::Let(id, expr, ty) => {
                 self.create_local_variable(id.clone(), expr, ty)?
+            }
+            Expression::If(condition, body) => {
+                self.create_if(condition, body)?
             }
             Expression::Literal(literal) => match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
@@ -223,6 +226,28 @@ impl<'gen> FunctionCodegen<'gen> {
         self.builder.def_var(var, value);
         self.variables.insert(name, var);
         Ok(value)
+    }
+
+    fn create_if(&mut self, condition: &Expression, body: &Vec<Expression>) -> Result<Value> {
+        let if_block = self.builder.create_block();
+        let after_block = self.builder.create_block();
+
+        let cond = self.create_expression(condition)?;
+        self.builder.ins().brz(cond, after_block, &[]);
+        self.builder.ins().jump(if_block, &[]);
+
+        self.builder.switch_to_block(if_block);
+        self.builder.seal_block(if_block);
+
+        for statement in body {
+            self.create_expression(&statement)?;
+        }
+        
+        self.builder.ins().jump(after_block, &[]);
+        
+        self.builder.switch_to_block(after_block);
+        self.builder.seal_block(after_block);
+        Ok(Value::from_u32(0))
     }
 
     fn create_pointer_to_stack_slot(&mut self, value: Value) -> Result<Value> {
