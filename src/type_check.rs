@@ -84,6 +84,7 @@ impl<'f> TypeCheck<'f> {
             },
             Expression::Literal(Literal::Int(_)) => Type::Int,
             Expression::Literal(Literal::Float(_)) => Type::Float,
+            Expression::Literal(Literal::Bool(_)) => Type::Bool,
             Expression::Literal(Literal::String(_)) => Type::String,
             Expression::AddrOf(expr) => {
                 self.check_expression(expr)?;

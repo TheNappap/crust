@@ -13,6 +13,7 @@ pub mod print;
 pub mod assign;
 pub mod binary_ops;
 pub mod returns;
+pub mod bool;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;

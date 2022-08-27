@@ -5,7 +5,7 @@ use std::ops::RangeFrom;
 
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::types::{I64, F64};
-use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, FuncRef, Block};
+use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, FuncRef, Block, self};
 
 use cranelift_codegen::verifier::verify_function;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
@@ -24,20 +24,13 @@ pub fn create_fn<'gen>(
     fun: &Fn,
 ) -> Result<Function> {
     let mut sig = module.make_signature();
-    let pointer = module.target_config().pointer_type();
     for param in fun.signature().params() {
-        match param {
-            Type::Void | Type::Inferred => (),
-            Type::Int => sig.params.push(AbiParam::new(I64)),
-            Type::Float => sig.params.push(AbiParam::new(F64)),
-            Type::String => sig.params.push(AbiParam::new(pointer)),
+        if let Some(ty) = get_type(param, module) {
+            sig.params.push(AbiParam::new(ty))
         }
     }
-    match fun.signature().returns() {
-        Type::Void | Type::Inferred => (),
-        Type::Int => sig.returns.push(AbiParam::new(I64)),
-        Type::Float => sig.returns.push(AbiParam::new(F64)),
-        Type::String => sig.returns.push(AbiParam::new(pointer)),
+    if let Some(ty) = get_type(fun.signature().returns(), module) {
+        sig.returns.push(AbiParam::new(ty))
     }
 
     let mut func = Function::with_name_signature(ExternalName::user(0, 0), sig);
@@ -126,6 +119,7 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Literal(literal) => match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),
+                Literal::Bool(b) => self.builder.ins().iconst(I64, *b),
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }
             Expression::AddrOf(expression) => {
@@ -152,24 +146,15 @@ impl<'gen> FunctionCodegen<'gen> {
         let callee = if let Some(f) = self.functions.get(signature.name()) {
             *f
         } else {
-            let pointer = self.module.target_config().pointer_type();
-
             let sig = {
                 let mut sig = self.module.make_signature();
                 for param_type in signature.params() {
-                    let ty = match param_type {
-                        Type::Void | Type::Inferred => unreachable!(),
-                        Type::Int => I64,
-                        Type::Float => F64,
-                        Type::String => pointer,
-                    };
-                    sig.params.push(AbiParam::new(ty));
+                    if let Some(ty) = get_type(param_type, self.module) {
+                        sig.params.push(AbiParam::new(ty));
+                    }
                 }
-                match signature.returns() {
-                    Type::Void | Type::Inferred => (),
-                    Type::Int => sig.returns.push(AbiParam::new(I64)),
-                    Type::Float => sig.returns.push(AbiParam::new(F64)),
-                    Type::String => sig.returns.push(AbiParam::new(pointer)),
+                if let Some(ty) = get_type(signature.returns(), self.module) {
+                    sig.returns.push(AbiParam::new(ty))
                 }
                 sig
             };
@@ -229,12 +214,8 @@ impl<'gen> FunctionCodegen<'gen> {
         value: Value,
         ty: &Type
     ) -> Result<Value> {
-        let ty = match ty {
-            Type::Int => I64,
-            Type::Float => F64,
-            Type::String => self.module.target_config().pointer_type(),
-            _ => return Err(Error::codegen("Unexpected type for variable".to_string(), 0))
-        };
+        let ty = get_type(ty, self.module)
+                .ok_or(Error::codegen("Unexpected type for variable".to_string(), 0))?;
         
         let var = Variable::new(self.var_counter.next());
 
@@ -289,4 +270,15 @@ impl<'gen> FunctionCodegen<'gen> {
             _ => Err(Error::codegen("Addition for this type is not supported".to_string(), 0))
         }
     }
+}
+
+fn get_type(ty: &Type, module: &ObjectModule) -> Option<ir::Type> {
+    let ty = match ty {
+        Type::Int => I64,
+        Type::Float => F64,
+        Type::Bool => I64,
+        Type::String => module.target_config().pointer_type(),
+        Type::Void | Type::Inferred => return None,
+    };
+    Some(ty)
 }

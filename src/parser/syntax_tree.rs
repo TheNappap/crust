@@ -11,6 +11,7 @@ pub mod fn_expr;
 pub enum Type {
     Int,
     Float,
+    Bool,
     String,
     Void,
     Inferred
@@ -23,6 +24,7 @@ impl From<Token> for Type {
                 "Int" => Type::Int,
                 "Float" => Type::Float,
                 "String" => Type::String,
+                "Bool" => Type::Bool,
                 ty => todo!()
             }
             Token::Literal(_) => todo!(),
