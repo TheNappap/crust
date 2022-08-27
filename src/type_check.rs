@@ -6,9 +6,8 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     let mut functions = HashMap::new();
     for fun in syntax_tree.fns() {
         for expr in fun.expressions() {
-            match expr {
-                Expression::Fn(f) => { functions.insert(f.signature().name().to_string(), f.signature().clone()); },
-                _ => (),
+            if let Expression::Fn(f) = expr {
+                functions.insert(f.signature().name().to_string(), f.signature().clone());
             }
         }
         functions.insert(fun.signature().name().to_string().clone(), fun.signature().clone()); 
@@ -52,7 +51,7 @@ impl<'f> TypeCheck<'f> {
                       .map(|(r,t)| {
                             r.and_then(|ty| {
                                 if *t != ty {
-                                    return Err(Error::type_("Mismatched types for parameter".to_string(), 0).into());
+                                    return Err(Error::type_("Mismatched types for parameter".to_string(), 0));
                                 }
                                 Ok(ty)
                             })
@@ -85,7 +84,7 @@ impl<'f> TypeCheck<'f> {
             Expression::If(condition, body) => {
                 let ty = self.check_expression(condition)?;
                 if ty != Type::Bool {
-                    return Err(Error::type_(format!("Expected a boolean type as condition"), 0));
+                    return Err(Error::type_("Expected a boolean type as condition".to_string(), 0));
                 }
                 for expr in body {
                     self.check_expression(expr)?;

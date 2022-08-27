@@ -3,7 +3,7 @@ use crate::error::{Error, Result};
 use super::no_comments::NoCommentsStream;
 use itertools::{Itertools, PeekingNext};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Delimeter {
     Braces,
     Parens,

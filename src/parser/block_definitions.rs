@@ -36,7 +36,7 @@ impl BlockDefinitions {
         self.definitions
             .get(tag)
             .cloned()
-            .ok_or(Error::syntax(format!("Definition for block not found: {}", tag), 0).into())
+            .ok_or_else(|| Error::syntax(format!("Definition for block not found: {}", tag), 0))
     }
 
     pub fn add(&mut self, definition: Rc<dyn BlockDefinition>) {

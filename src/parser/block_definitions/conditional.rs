@@ -1,4 +1,4 @@
-use crate::{lexer::{Block, Literal}, parser::{Parser, Expression, Type}, error::{Result, Error}};
+use crate::{lexer::{Block}, parser::{Parser, Expression}, error::{Result}};
 
 use super::BlockDefinition;
 

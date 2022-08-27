@@ -153,7 +153,7 @@ impl<'gen> FunctionCodegen<'gen> {
     fn create_fn_call(
         &mut self,
         signature: &Signature,
-        params: &Vec<Expression>,
+        params: &[Expression],
     ) -> Result<Value> {
         let callee = if let Some(f) = self.functions.get(signature.name()) {
             *f
@@ -181,7 +181,7 @@ impl<'gen> FunctionCodegen<'gen> {
         };
 
         let mut param_values = Vec::new();
-        for param in params.into_iter() {
+        for param in params.iter() {
             param_values.push(self.create_expression(param)?);
         }
 
@@ -227,7 +227,7 @@ impl<'gen> FunctionCodegen<'gen> {
         ty: &Type
     ) -> Result<Value> {
         let ty = get_type(ty, self.module)
-                .ok_or(Error::codegen("Unexpected type for variable".to_string(), 0))?;
+                .ok_or_else(|| Error::codegen("Unexpected type for variable".to_string(), 0))?;
         
         let var = Variable::new(self.var_counter.next());
 
@@ -237,7 +237,7 @@ impl<'gen> FunctionCodegen<'gen> {
         Ok(value)
     }
 
-    fn create_if(&mut self, condition: &Expression, body: &Vec<Expression>) -> Result<Value> {
+    fn create_if(&mut self, condition: &Expression, body: &[Expression]) -> Result<Value> {
         let if_block = self.builder.create_block();
         let after_block = self.builder.create_block();
 
@@ -249,7 +249,7 @@ impl<'gen> FunctionCodegen<'gen> {
         self.builder.seal_block(if_block);
 
         for statement in body {
-            self.create_expression(&statement)?;
+            self.create_expression(statement)?;
         }
         
         self.builder.ins().jump(after_block, &[]);
@@ -277,8 +277,8 @@ impl<'gen> FunctionCodegen<'gen> {
         self.data_ctx.define(contents);
         let data = self
             .module
-            .declare_data(&name, Linkage::Local, true, false)?;
-        self.module.define_data(data, &self.data_ctx)?;
+            .declare_data(name, Linkage::Local, true, false)?;
+        self.module.define_data(data, self.data_ctx)?;
         self.data_ctx.clear();
 
         

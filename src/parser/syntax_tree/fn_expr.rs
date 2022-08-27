@@ -1,7 +1,7 @@
 use super::{Expression, Type};
 use core::slice::{Iter, IterMut};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Signature {
     name: String,
     params: Vec<Type>,

@@ -29,10 +29,10 @@ impl BlockDefinition for Call {
                         .collect::<Result<_>>()?;
                     Ok(Expression::Call(Signature::new(&id, vec![], Type::Inferred), exprs))
                 }
-                _ => Err(Error::syntax("Expected a parameter group".to_string(), 0).into()),
+                _ => Err(Error::syntax("Expected a parameter group".to_string(), 0)),
             },
             _ => {
-                Err(Error::syntax("Expected an identifier as function name".to_string(), 0).into())
+                Err(Error::syntax("Expected an identifier as function name".to_string(), 0))
             }
         }
     }

@@ -21,14 +21,14 @@ impl BlockDefinition for FnDef {
             Some(Token::Ident(value)) => value,
             _ => {
                 return Err(
-                    Error::syntax("Expected an identifier as function name".to_string(), 0).into(),
+                    Error::syntax("Expected an identifier as function name".to_string(), 0),
                 )
             }
         };
 
         let (param_names, param_types) = match tokens.next() {
             Some(Token::Group(Delimeter::Parens, params)) => parser.parse_list(params),
-            _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0).into()),
+            _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0)),
         }
         .contents.into_iter()
                  .map(|tokens|{
@@ -53,7 +53,7 @@ impl BlockDefinition for FnDef {
         let returns = match (tokens.next(), tokens.next(), tokens.next()) {
             (None, None, None) => Type::Void,
             (Some(Token::Symbol('-')), Some(Token::Symbol('>')), Some(token)) => token.into(),
-            _ => return Err(Error::syntax("Unexpected symbols after function header".to_string(), 0).into()),
+            _ => return Err(Error::syntax("Unexpected symbols after function header".to_string(), 0)),
         };
 
         let signature = Signature::new(&name, param_types, returns);

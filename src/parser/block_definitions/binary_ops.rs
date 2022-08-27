@@ -13,7 +13,7 @@ impl BlockDefinition for Add {
         assert!(block.tag == self.id());
         let token_list = parser.parse_list(block.header);
         if token_list.contents.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0).into());
+            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
@@ -32,7 +32,7 @@ impl BlockDefinition for Subtract {
         assert!(block.tag == self.id());
         let token_list = parser.parse_list(block.header);
         if token_list.contents.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0).into());
+            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
@@ -51,7 +51,7 @@ impl BlockDefinition for Multiply {
         assert!(block.tag == self.id());
         let token_list = parser.parse_list(block.header);
         if token_list.contents.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0).into());
+            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
@@ -69,7 +69,7 @@ impl BlockDefinition for Divide {
         assert!(block.tag == self.id());
         let token_list = parser.parse_list(block.header);
         if token_list.contents.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0).into());
+            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));

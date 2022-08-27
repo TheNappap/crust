@@ -35,9 +35,8 @@ impl Codegen {
     pub fn compile(mut self, syntax_tree: SyntaxTree) -> Result<ObjectProduct> {
         for fun in syntax_tree.fns() {
             for expr in fun.expressions() {
-                match expr {
-                    Expression::Fn(f) => self.compile_fn(&f, fun.signature().name())?,
-                    _ => (),
+                if let Expression::Fn(f) = expr {
+                    self.compile_fn(f, fun.signature().name())?;
                 }
             }
 

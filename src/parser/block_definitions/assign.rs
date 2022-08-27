@@ -23,10 +23,10 @@ impl BlockDefinition for Let {
                     let expression = parser.parse_expression(tokens.collect_vec())?;
                     Ok( Expression::Let(id, Box::new(expression), Type::Inferred) )
                 }
-                _ => Err(Error::syntax("Expected '='".to_string(), 0).into()),
+                _ => Err(Error::syntax("Expected '='".to_string(), 0)),
             },
             _ => {
-                Err(Error::syntax("Expected an identifier as variable name".to_string(), 0).into())
+                Err(Error::syntax("Expected an identifier as variable name".to_string(), 0))
             }
         }
     }

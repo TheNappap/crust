@@ -54,11 +54,10 @@ impl Parser {
                 match self.parse_block_expression(block)? {
                     Expression::Fn(fun) => Ok(fun),
                     _ => {
-                        return Err(Error::syntax(
+                        Err(Error::syntax(
                             format!("The block '{}' cannot be used in this position.", tag),
                             0,
-                        )
-                        .into())
+                        ))
                     }
                 }
             })
@@ -67,7 +66,7 @@ impl Parser {
     }
 
     pub fn parse_block_expression(&self, block: Block) -> Result<Expression> {
-        Ok(self.blockdefs.get(&block.tag)?.parse(block, self)?)
+        self.blockdefs.get(&block.tag)?.parse(block, self)
     }
 
     pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {
@@ -84,9 +83,9 @@ impl Parser {
         let first = blocks.next();
         let second = blocks.next();
         if first.is_none() {
-            return Err(Error::syntax("Expected an expression".to_string(), 0).into());
+            return Err(Error::syntax("Expected an expression".to_string(), 0));
         } else if second.is_some() {
-            return Err(Error::syntax("Unexpected block after expression".to_string(), 0).into());
+            return Err(Error::syntax("Unexpected block after expression".to_string(), 0));
         }
 
         self.parse_block_expression(first.unwrap()?)

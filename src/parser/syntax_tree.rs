@@ -6,7 +6,7 @@ use core::slice::{Iter, IterMut};
 
 pub mod fn_expr;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Type {
     Int,
     Float,
@@ -24,7 +24,7 @@ impl From<Token> for Type {
                 "Float" => Type::Float,
                 "String" => Type::String,
                 "Bool" => Type::Bool,
-                ty => todo!()
+                _ty => todo!()
             }
             Token::Literal(_) => todo!(),
             Token::Symbol(_) => todo!(),

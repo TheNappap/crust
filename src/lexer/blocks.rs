@@ -106,9 +106,8 @@ impl<'str> BlockStream<'str> {
                 Ok(token) => Some(Err(Error::syntax(
                     format!("Expected identifier: found {:?}", token),
                     0,
-                )
-                .into())),
-                Err(e) => Some(Err(e.into())),
+                ))),
+                Err(e) => Some(Err(e)),
             };
         }
     }
@@ -156,10 +155,10 @@ impl<'str> BlockStream<'str> {
                 Ok(body_tokens)
             }
             Some(Ok(Token::NewLine)) => {
-                Err(Error::syntax("Expected a ';' as end of one liner block".to_string(), 0).into())
+                Err(Error::syntax("Expected a ';' as end of one liner block".to_string(), 0))
             }
             Some(Err(e)) => Err(e),
-            _ => Err(Error::syntax("Expected an end to block".to_string(), 0).into()),
+            _ => Err(Error::syntax("Expected an end to block".to_string(), 0)),
         }?;
 
         BlockStream::new(tokens).collect()
