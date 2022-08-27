@@ -111,6 +111,39 @@ impl<'f> TypeCheck<'f> {
                 *add_ty = ty.clone();
                 ty
             },
+            Expression::Sub(param1, param2, sub_ty) => {
+                let ty = self.check_expression(param1)?;
+                if *sub_ty != Type::Inferred && *sub_ty != ty {
+                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", sub_ty), 0));
+                }
+                if ty != self.check_expression(param2)? {
+                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", ty), 0));
+                }
+                *sub_ty = ty.clone();
+                ty
+            },
+            Expression::Mul(param1, param2, mul_ty) => {
+                let ty = self.check_expression(param1)?;
+                if *mul_ty != Type::Inferred && *mul_ty != ty {
+                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", mul_ty), 0));
+                }
+                if ty != self.check_expression(param2)? {
+                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", ty), 0));
+                }
+                *mul_ty = ty.clone();
+                ty
+            },
+            Expression::Div(param1, param2, div_ty) => {
+                let ty = self.check_expression(param1)?;
+                if *div_ty != Type::Inferred && *div_ty != ty {
+                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", div_ty), 0));
+                }
+                if ty != self.check_expression(param2)? {
+                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", ty), 0));
+                }
+                *div_ty = ty.clone();
+                ty
+            },
             Expression::Symbol(name, ty) => {
                 let var_type = self.variables.get(name);
                 match ty {

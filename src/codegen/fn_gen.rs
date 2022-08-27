@@ -136,6 +136,15 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Add(param1, param2, ty) => {
                 self.create_addition(param1, param2, ty)?
             }
+            Expression::Sub(param1, param2, ty) => {
+                self.create_subtraction(param1, param2, ty)?
+            }
+            Expression::Mul(param1, param2, ty) => {
+                self.create_multiplication(param1, param2, ty)?
+            }
+            Expression::Div(param1, param2, ty) => {
+                self.create_division(param1, param2, ty)?
+            }
             Expression::Fn(_) => Value::from_u32(0), //ignore, handled before function codegen
         };
         Ok(value)
@@ -293,6 +302,54 @@ impl<'gen> FunctionCodegen<'gen> {
             },
             Type::String => self.create_fn_call(&Signature::new("strcat",vec![Type::Int,Type::Int],Type::Int), &vec![param1.clone(), param2.clone()]),
             _ => Err(Error::codegen("Addition for this type is not supported".to_string(), 0))
+        }
+    }
+    
+    fn create_subtraction(&mut self, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Value> {
+        match ty {
+            Type::Int => {
+                let v1 = self.create_expression(param1)?;
+                let v2 = self.create_expression(param2)?;
+                Ok(self.builder.ins().isub(v1, v2))
+            },
+            Type::Float => {
+                let v1 = self.create_expression(param1)?;
+                let v2 = self.create_expression(param2)?;
+                Ok(self.builder.ins().fsub(v1, v2))
+            },
+            _ => Err(Error::codegen("Subtration for this type is not supported".to_string(), 0))
+        }
+    }
+    
+    fn create_multiplication(&mut self, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Value> {
+        match ty {
+            Type::Int => {
+                let v1 = self.create_expression(param1)?;
+                let v2 = self.create_expression(param2)?;
+                Ok(self.builder.ins().imul(v1, v2))
+            },
+            Type::Float => {
+                let v1 = self.create_expression(param1)?;
+                let v2 = self.create_expression(param2)?;
+                Ok(self.builder.ins().fmul(v1, v2))
+            },
+            _ => Err(Error::codegen("Multiplication for this type is not supported".to_string(), 0))
+        }
+    }
+    
+    fn create_division(&mut self, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Value> {
+        match ty {
+            Type::Int => {
+                let v1 = self.create_expression(param1)?;
+                let v2 = self.create_expression(param2)?;
+                Ok(self.builder.ins().sdiv(v1, v2))
+            },
+            Type::Float => {
+                let v1 = self.create_expression(param1)?;
+                let v2 = self.create_expression(param2)?;
+                Ok(self.builder.ins().fdiv(v1, v2))
+            },
+            _ => Err(Error::codegen("Division for this type is not supported".to_string(), 0))
         }
     }
 }

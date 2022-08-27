@@ -44,6 +44,9 @@ pub enum Expression {
     AddrOf(Box<Expression>),
     Symbol(String, Type),
     Add(Box<Expression>,Box<Expression>, Type),
+    Sub(Box<Expression>,Box<Expression>, Type),
+    Mul(Box<Expression>,Box<Expression>, Type),
+    Div(Box<Expression>,Box<Expression>, Type),
     Return(Box<Expression>),
 }
 

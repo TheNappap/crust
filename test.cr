@@ -17,6 +17,8 @@ fn main() {
         println "bool: %i", false;
     }
 
+    println "%i", div(6, 3);
+
     call f2();
     call f2();
     call function();
