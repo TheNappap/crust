@@ -7,6 +7,8 @@ use crate::{error::{Error, Result}, lexer::{Block, Token}, parser::{
 
 use super::BlockDefinition;
 
+
+#[derive(Default)]
 pub struct Let;
 
 impl BlockDefinition for Let {
@@ -14,9 +16,8 @@ impl BlockDefinition for Let {
         "let"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        let mut tokens = block.header.into_iter();
+    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let mut tokens = header.into_iter();
         match tokens.next() {
             Some(Token::Ident(id)) => match tokens.next() {
                 Some(Token::Symbol('=')) => {
@@ -29,5 +30,9 @@ impl BlockDefinition for Let {
                 Err(Error::syntax("Expected an identifier as variable name".to_string(), 0))
             }
         }
+    }
+
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

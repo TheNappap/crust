@@ -2,7 +2,8 @@
 fn main() {
     fn f2(): println "one liner";
 
-    if true!: println "if one liner";
+    if true!: println "if one liner"
+    else: println "else one liner";
     if false! {
         let var = "The number: ";
         let var2 = add 2., 3.;
@@ -15,9 +16,9 @@ fn main() {
         println "one word %s", "second word";
         println "concat string: %s", concat;
         println "bool: %i", false;
+    } else {
+        println "%s %i %i %i %i", "Operations:", div(6, 3), mul(5,6), add(4,4), sub(34,35);
     }
-
-    println "%s %i %i %i %i", "Operations:", div(6, 3), mul(5,6), add(4,4), sub(34,35);
 
     call f2();
     call f2();

@@ -81,13 +81,18 @@ impl<'f> TypeCheck<'f> {
                 *let_ty = ty.clone();
                 ty
             },
-            Expression::If(condition, body) => {
+            Expression::If(condition, if_body, else_body) => {
                 let ty = self.check_expression(condition)?;
                 if ty != Type::Bool {
                     return Err(Error::type_("Expected a boolean type as condition".to_string(), 0));
                 }
-                for expr in body {
+                for expr in if_body {
                     self.check_expression(expr)?;
+                }
+                if let Some(else_body) = else_body {
+                    for expr in else_body {
+                        self.check_expression(expr)?;
+                    }
                 }
                 Type::Void
             },

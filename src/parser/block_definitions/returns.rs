@@ -1,6 +1,6 @@
 use crate::{
-    error::{Result},
-    lexer::{Block},
+    error::{Result, Error},
+    lexer::{Block, Token},
     parser::{
         syntax_tree::{Expression},
         Parser
@@ -9,6 +9,7 @@ use crate::{
 
 use super::BlockDefinition;
 
+#[derive(Default)]
 pub struct Return;
 
 impl BlockDefinition for Return {
@@ -16,9 +17,12 @@ impl BlockDefinition for Return {
         "return"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        let expr = parser.parse_expression(block.header)?;
+    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let expr = parser.parse_expression(header)?;
         Ok(Expression::Return(Box::new(expr)))
+    }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

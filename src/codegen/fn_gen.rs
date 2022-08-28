@@ -116,8 +116,8 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Let(id, expr, ty) => {
                 self.create_local_variable(id.clone(), expr, ty)?
             }
-            Expression::If(condition, body) => {
-                self.create_if(condition, body)?
+            Expression::If(condition, if_body, else_body) => {
+                self.create_if(condition, if_body, else_body)?
             }
             Expression::Literal(literal) => match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
@@ -239,23 +239,41 @@ impl<'gen> FunctionCodegen<'gen> {
         Ok(value)
     }
 
-    fn create_if(&mut self, condition: &Expression, body: &[Expression]) -> Result<Value> {
+    fn create_if(&mut self, condition: &Expression, if_body: &[Expression], else_body: &Option<Vec<Expression>>) -> Result<Value> {
+        let has_else = else_body.is_some();
         let if_block = self.builder.create_block();
         let after_block = self.builder.create_block();
+        let branch_block = if has_else { 
+            self.builder.create_block()
+        } else { after_block };
 
         let cond = self.create_expression(condition)?;
-        self.builder.ins().brz(cond, after_block, &[]);
+        self.builder.ins().brz(cond, branch_block, &[]);
         self.builder.ins().jump(if_block, &[]);
 
+        //if block
         self.builder.switch_to_block(if_block);
         self.builder.seal_block(if_block);
 
-        for statement in body {
+        for statement in if_body {
             self.create_expression(statement)?;
         }
         
         self.builder.ins().jump(after_block, &[]);
+
+        //else block
+        if let Some(else_body) = else_body {
+            self.builder.switch_to_block(branch_block);
+            self.builder.seal_block(branch_block);
+    
+            for statement in else_body {
+                self.create_expression(statement)?;
+            }
+            
+            self.builder.ins().jump(after_block, &[]);
+        }
         
+        //after block
         self.builder.switch_to_block(after_block);
         self.builder.seal_block(after_block);
         Ok(Value::from_u32(0))

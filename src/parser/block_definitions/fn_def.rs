@@ -6,6 +6,7 @@ use crate::{
 
 use super::BlockDefinition;
 
+#[derive(Default)]
 pub struct FnDef;
 
 impl BlockDefinition for FnDef {
@@ -13,9 +14,8 @@ impl BlockDefinition for FnDef {
         "fn"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        let mut tokens = block.header.into_iter();
+    fn parse(&self, header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let mut tokens = header.into_iter();
 
         let name = match tokens.next() {
             Some(Token::Ident(value)) => value,
@@ -57,11 +57,14 @@ impl BlockDefinition for FnDef {
         };
 
         let signature = Signature::new(&name, param_types, returns);
-        let exprs = block
-            .body
+        let exprs = body
             .into_iter()
             .map(|block| parser.parse_block_expression(block))
             .collect::<Result<Vec<Expression>>>()?;
         Ok(Expression::Fn(Fn::new(signature, param_names, exprs)))
+    }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

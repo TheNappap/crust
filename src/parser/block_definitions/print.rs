@@ -1,6 +1,6 @@
 use crate::{
-    error::{Result},
-    lexer::{Block, Literal},
+    error::{Result, Error},
+    lexer::{Block, Literal, Token},
     parser::{
         syntax_tree::{Expression, Type},
         Parser, Signature
@@ -8,6 +8,9 @@ use crate::{
 };
 
 use super::BlockDefinition;
+
+
+#[derive(Default)]
 pub struct Print;
 
 impl BlockDefinition for Print {
@@ -15,12 +18,17 @@ impl BlockDefinition for Print {
         "print"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        parse_print(block, parser, None)
+    fn parse(&self, header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        parse_print(header, body, parser, None)
+    }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }
 
+
+#[derive(Default)]
 pub struct PrintLn;
 
 impl BlockDefinition for PrintLn {
@@ -28,15 +36,18 @@ impl BlockDefinition for PrintLn {
         "println"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        parse_print(block, parser, Some("\n".into()))
+    fn parse(&self, header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        parse_print(header, body, parser, Some("\n".into()))
+    }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }
 
-fn parse_print(block: Block, parser: &Parser, add: Option<String>) -> Result<Expression> {
-    assert!(block.body.is_empty());
-    let params = parser.parse_list(block.header)
+fn parse_print(header: Vec<Token>, body: Vec<Block>, parser: &Parser, add: Option<String>) -> Result<Expression> {
+    assert!(body.is_empty());
+    let params = parser.parse_list(header)
                                     .contents.into_iter()
                                     .map(|tokens| parser.parse_expression(tokens))
                                     .collect::<Result<Vec<_>>>()?;

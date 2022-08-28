@@ -8,6 +8,7 @@ pub struct Block {
     pub tag: String,
     pub header: Vec<Token>,
     pub body: Vec<Block>,
+    pub chain: Option<Box<Block>>
 }
 
 enum TokenStream2<'str> {
@@ -114,8 +115,8 @@ impl<'str> BlockStream<'str> {
 
     fn collect_block(&mut self, tag: String) -> Result<Block> {
         let header = self.collect_block_header()?;
-        let body = self.collect_block_body()?;
-        Ok(Block { tag, header, body })
+        let (body, chain) = self.collect_block_body_and_chain()?;
+        Ok(Block { tag, header, body, chain })
     }
 
     fn collect_block_header(&mut self) -> Result<Vec<Token>> {
@@ -128,6 +129,12 @@ impl<'str> BlockStream<'str> {
                 ),
                 Err(_) => false,
             })
+            .filter(|token| {
+                if let Ok(token) = token {
+                    return *token != Token::NewLine;
+                }
+                true
+            })
             .collect::<Result<Vec<_>>>();
 
         if let Some(Ok(Token::Symbol(':'))) = self.stream.peek() {
@@ -136,7 +143,7 @@ impl<'str> BlockStream<'str> {
         tokens
     }
 
-    fn collect_block_body(&mut self) -> Result<Vec<Block>> {
+    fn collect_block_body_and_chain(&mut self) -> Result<(Vec<Block>, Option<Box<Block>>)> {
         let tokens = self
             .stream
             .peeking_take_while(|token| match token {
@@ -148,21 +155,26 @@ impl<'str> BlockStream<'str> {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let tokens = match self.stream.next() {
-            Some(Ok(Token::Symbol(';'))) | None => Ok(tokens),
+        let (tokens, chained_block) = match self.stream.next() {
+            Some(Ok(Token::Symbol(';'))) | None => (tokens, None),
+            Some(Ok(Token::NewLine)) => {
+                (tokens, self.take_block().transpose()?)
+            }
             Some(Ok(Token::Group(Delimeter::Braces, body_tokens))) => {
                 assert!(tokens.is_empty());
-                Ok(body_tokens)
+                if let Some(Ok(Token::NewLine)) = self.stream.peek() {
+                    (body_tokens, None)
+                } else {
+                    (body_tokens, self.take_block().transpose()?)
+                }
             }
-            Some(Ok(Token::NewLine)) => {
-                Err(Error::syntax("Expected a ';' as end of one liner block".to_string(), 0))
-            }
-            Some(Err(e)) => Err(e),
-            _ => Err(Error::syntax("Expected an end to block".to_string(), 0)),
-        }?;
+            Some(Err(e)) => return Err(e),
+            _ => return Err(Error::syntax("Expected an end to block".to_string(), 0)),
+        };
 
-        BlockStream::new(tokens).collect()
+        Ok((BlockStream::new(tokens).collect::<Result<_>>()?, chained_block.map(Box::new)))
     }
+
 }
 
 #[cfg(test)]
@@ -205,19 +217,23 @@ mod tests {
                             Block {
                                 tag: "print".to_string(),
                                 header: vec![Token::Literal(Literal::String("Line1".to_string()))],
-                                body: vec![]
+                                body: vec![],
+                                chain: None,
                             },
                             Block {
                                 tag: "print".to_string(),
                                 header: vec![Token::Literal(Literal::String("Line2".to_string()))],
-                                body: vec![]
+                                body: vec![],
+                                chain: None,
                             },
                             Block {
                                 tag: "print".to_string(),
                                 header: vec![Token::Literal(Literal::String("Line3".to_string()))],
-                                body: vec![]
+                                body: vec![],
+                                chain: None,
                             },
-                        ]
+                        ],
+                        chain: None,
                     },
                     Block {
                         tag: "fn".to_string(),
@@ -228,8 +244,10 @@ mod tests {
                         body: vec![Block {
                             tag: "print".to_string(),
                             header: vec![Token::Literal(Literal::String("one liner".to_string()))],
-                            body: vec![]
-                        },]
+                            body: vec![],
+                            chain: None,
+                        },],
+                        chain: None,
                     },
                     Block {
                         tag: "call".to_string(),
@@ -237,7 +255,8 @@ mod tests {
                             Token::Ident("f2".to_string()),
                             Token::Group(Delimeter::Parens, vec![])
                         ],
-                        body: vec![]
+                        body: vec![],
+                        chain: None,
                     },
                     Block {
                         tag: "call".to_string(),
@@ -245,10 +264,93 @@ mod tests {
                             Token::Ident("function".to_string()),
                             Token::Group(Delimeter::Parens, vec![])
                         ],
-                        body: vec![]
+                        body: vec![],
+                        chain: None,
                     },
-                ]
-            }]
+                ],
+                chain: None,
+            }],
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn chained_blocks_test() -> Result<()> {
+        let s = r#"	
+			fn main() {
+				if true: println "Line1.0"
+				else: println "Line1.1";
+
+				if false {
+                    println "Line2.0"
+                } else {
+                    println "Line2.1"
+                }
+			}
+		"#;
+        let blocks = BlockStream::from(s).collect::<Result<Vec<_>>>()?;
+        assert_eq!(
+            blocks,
+            vec![Block {
+                tag: "fn".to_string(),
+                header: vec![
+                    Token::Ident("main".to_string()),
+                    Token::Group(Delimeter::Parens, vec![])
+                ],
+                body: vec![
+                    Block {
+                        tag: "if".to_string(),
+                        header: vec![Token::Ident("true".to_string())],
+                        body: vec![
+                            Block {
+                                tag: "println".to_string(),
+                                header: vec![Token::Literal(Literal::String("Line1.0".to_string()))],
+                                body: vec![],
+                                chain: None,
+                            },
+                        ],
+                        chain: Some(Box::new(Block {
+                            tag: "else".to_string(),
+                            header: vec![],
+                            body: vec![
+                                Block {
+                                    tag: "println".to_string(),
+                                    header: vec![Token::Literal(Literal::String("Line1.1".to_string()))],
+                                    body: vec![],
+                                    chain: None,
+                                },
+                            ],
+                            chain: None,
+                        })),
+                    },
+                    Block {
+                        tag: "if".to_string(),
+                        header: vec![Token::Ident("false".to_string())],
+                        body: vec![
+                            Block {
+                                tag: "println".to_string(),
+                                header: vec![Token::Literal(Literal::String("Line2.0".to_string()))],
+                                body: vec![],
+                                chain: None,
+                            },
+                        ],
+                        chain: Some(Box::new(Block {
+                            tag: "else".to_string(),
+                            header: vec![],
+                            body: vec![
+                                Block {
+                                    tag: "println".to_string(),
+                                    header: vec![Token::Literal(Literal::String("Line2.1".to_string()))],
+                                    body: vec![],
+                                    chain: None,
+                                },
+                            ],
+                            chain: None,
+                        })),
+                    },
+                ],
+                chain: None,
+            }],
         );
         Ok(())
     }

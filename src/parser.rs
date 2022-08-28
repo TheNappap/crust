@@ -1,7 +1,7 @@
 mod block_definitions;
 mod syntax_tree;
 
-use std::rc::Rc;
+
 
 pub use crate::error::Result;
 pub use syntax_tree::{fn_expr::{Fn, Signature}, Type, Expression, SyntaxTree};
@@ -11,7 +11,7 @@ use crate::{
     lexer::{blockify, Block, BlockStream, Token, Delimeter},
 };
 
-use self::block_definitions::BlockDefinitions;
+use self::block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, bools, conditional};
 
 pub fn parse(source: &str) -> Result<SyntaxTree> {
     Parser::new().parse_code(source)
@@ -19,19 +19,20 @@ pub fn parse(source: &str) -> Result<SyntaxTree> {
 
 fn block_definitions() -> BlockDefinitions {
     let mut blockdefs = BlockDefinitions::new();
-    blockdefs.add(Rc::new(block_definitions::call::Call));
-    blockdefs.add(Rc::new(block_definitions::returns::Return));
-    blockdefs.add(Rc::new(block_definitions::fn_def::FnDef));
-    blockdefs.add(Rc::new(block_definitions::print::Print));
-    blockdefs.add(Rc::new(block_definitions::print::PrintLn));
-    blockdefs.add(Rc::new(block_definitions::assign::Let));
-    blockdefs.add(Rc::new(block_definitions::binary_ops::Add));
-    blockdefs.add(Rc::new(block_definitions::binary_ops::Subtract));
-    blockdefs.add(Rc::new(block_definitions::binary_ops::Multiply));
-    blockdefs.add(Rc::new(block_definitions::binary_ops::Divide));
-    blockdefs.add(Rc::new(block_definitions::bool::True));
-    blockdefs.add(Rc::new(block_definitions::bool::False));
-    blockdefs.add(Rc::new(block_definitions::conditional::If));
+    blockdefs.add::<call::Call>();
+    blockdefs.add::<returns::Return>();
+    blockdefs.add::<fn_def::FnDef>();
+    blockdefs.add::<print::Print>();
+    blockdefs.add::<print::PrintLn>();
+    blockdefs.add::<assign::Let>();
+    blockdefs.add::<binary_ops::Add>();
+    blockdefs.add::<binary_ops::Subtract>();
+    blockdefs.add::<binary_ops::Multiply>();
+    blockdefs.add::<binary_ops::Divide>();
+    blockdefs.add::<bools::True>();
+    blockdefs.add::<bools::False>();
+    blockdefs.add::<conditional::If>();
+    blockdefs.add::<conditional::Else>();
     blockdefs
 }
 
@@ -66,7 +67,19 @@ impl Parser {
     }
 
     pub fn parse_block_expression(&self, block: Block) -> Result<Expression> {
-        self.blockdefs.get(&block.tag)?.parse(block, self)
+        let expr = self.blockdefs.get(&block.tag)?.parse(block.header, block.body, self);
+        match block.chain {
+            Some(chain) => self.parse_chained_block_expression(*chain, expr?),
+            None => expr,
+        } 
+    }
+    
+    pub fn parse_chained_block_expression(&self, block: Block, input: Expression) -> Result<Expression> {
+        let expr = self.blockdefs.get(&block.tag)?.parse_chained(block.header, block.body, input, self);
+        match block.chain {
+            Some(chain) => self.parse_chained_block_expression(*chain, expr?),
+            None => expr,
+        }
     }
 
     pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {

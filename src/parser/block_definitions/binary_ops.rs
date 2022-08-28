@@ -1,7 +1,9 @@
-use crate::{lexer::{Block}, parser::{Parser, Expression, Type}, error::{Result, Error}};
+use crate::{lexer::{Block, Token}, parser::{Parser, Expression, Type}, error::{Result, Error}};
 
 use super::BlockDefinition;
 
+
+#[derive(Default)]
 pub struct Add;
 
 impl BlockDefinition for Add {
@@ -9,9 +11,8 @@ impl BlockDefinition for Add {
         "add"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        let token_list = parser.parse_list(block.header);
+    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let token_list = parser.parse_list(header);
         if token_list.contents.len() != 2 {
             return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
         }
@@ -19,8 +20,14 @@ impl BlockDefinition for Add {
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
         Ok(Expression::Add(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    }
 }
 
+
+#[derive(Default)]
 pub struct Subtract;
 
 impl BlockDefinition for Subtract {
@@ -28,9 +35,8 @@ impl BlockDefinition for Subtract {
         "sub"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        let token_list = parser.parse_list(block.header);
+    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let token_list = parser.parse_list(header);
         if token_list.contents.len() != 2 {
             return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
         }
@@ -38,8 +44,14 @@ impl BlockDefinition for Subtract {
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
         Ok(Expression::Sub(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    }
 }
 
+
+#[derive(Default)]
 pub struct Multiply;
 
 impl BlockDefinition for Multiply {
@@ -47,9 +59,8 @@ impl BlockDefinition for Multiply {
         "mul"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        let token_list = parser.parse_list(block.header);
+    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let token_list = parser.parse_list(header);
         if token_list.contents.len() != 2 {
             return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
         }
@@ -57,7 +68,13 @@ impl BlockDefinition for Multiply {
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
         Ok(Expression::Mul(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    }
 }
+
+#[derive(Default)]
 pub struct Divide;
 
 impl BlockDefinition for Divide {
@@ -65,14 +82,17 @@ impl BlockDefinition for Divide {
         "div"
     }
 
-    fn parse(&self, block: Block, parser: &Parser) -> Result<Expression> {
-        assert!(block.tag == self.id());
-        let token_list = parser.parse_list(block.header);
+    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let token_list = parser.parse_list(header);
         if token_list.contents.len() != 2 {
             return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
         Ok(Expression::Div(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+    }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

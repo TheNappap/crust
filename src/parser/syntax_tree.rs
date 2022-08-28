@@ -38,7 +38,7 @@ impl From<Token> for Type {
 pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
-    If(Box<Expression>, Vec<Expression>),
+    If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
     Let(String, Box<Expression>, Type),
     Literal(Literal),
     AddrOf(Vec<Expression>),
