@@ -4,7 +4,7 @@ mod syntax_tree;
 
 
 pub use crate::error::Result;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, Type, Expression, SyntaxTree};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, Type, BinOpKind, Expression, SyntaxTree};
 
 use crate::{
     error::Error,

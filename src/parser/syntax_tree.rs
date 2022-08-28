@@ -35,6 +35,11 @@ impl From<Token> for Type {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum BinOpKind {
+    Add, Sub, Mul, Div
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
@@ -43,10 +48,7 @@ pub enum Expression {
     Literal(Literal),
     AddrOf(Vec<Expression>),
     Symbol(String, Type),
-    Add(Box<Expression>,Box<Expression>, Type),
-    Sub(Box<Expression>,Box<Expression>, Type),
-    Mul(Box<Expression>,Box<Expression>, Type),
-    Div(Box<Expression>,Box<Expression>, Type),
+    BinOp(BinOpKind , Box<Expression>, Box<Expression>, Type),
     Return(Box<Expression>),
 }
 

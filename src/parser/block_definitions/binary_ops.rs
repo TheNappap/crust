@@ -1,4 +1,4 @@
-use crate::{lexer::{Block, Token}, parser::{Parser, Expression, Type}, error::{Result, Error}};
+use crate::{lexer::{Block, Token}, parser::{Parser, Expression, Type, BinOpKind}, error::{Result, Error}};
 
 use super::BlockDefinition;
 
@@ -18,7 +18,7 @@ impl BlockDefinition for Add {
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::Add(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(Expression::BinOp(BinOpKind::Add, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
@@ -42,7 +42,7 @@ impl BlockDefinition for Subtract {
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::Sub(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(Expression::BinOp(BinOpKind::Sub, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
@@ -66,7 +66,7 @@ impl BlockDefinition for Multiply {
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::Mul(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(Expression::BinOp(BinOpKind::Mul, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
@@ -89,7 +89,7 @@ impl BlockDefinition for Divide {
         }
 
         let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::Div(Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(Expression::BinOp(BinOpKind::Div, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {

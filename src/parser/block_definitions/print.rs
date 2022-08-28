@@ -3,7 +3,7 @@ use crate::{
     lexer::{Block, Literal, Token},
     parser::{
         syntax_tree::{Expression, Type},
-        Parser, Signature
+        Parser, Signature, BinOpKind
     },
 };
 
@@ -53,7 +53,7 @@ fn parse_print(header: Vec<Token>, body: Vec<Block>, parser: &Parser, add: Optio
                                     .collect::<Result<Vec<_>>>()?;
     
     let string_expr = if let Some(add_str) = add {
-        Expression::Add(Box::new(params[0].clone()), Box::new(Expression::Literal(Literal::String(add_str))), Type::String)
+        Expression::BinOp(BinOpKind::Add, Box::new(params[0].clone()), Box::new(Expression::Literal(Literal::String(add_str))), Type::String)
     } else { params[0].clone() };
 
     let args_expr = if params.len() > 1 {

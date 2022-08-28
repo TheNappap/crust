@@ -21,10 +21,6 @@ impl Signature {
         self.params.iter()
     }
 
-    pub fn params_mut(&mut self) -> IterMut<Type> {
-        self.params.iter_mut()
-    }
-
     pub fn returns(&self) -> &Type {
         &self.returns
     }

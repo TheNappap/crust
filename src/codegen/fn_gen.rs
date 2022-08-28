@@ -14,7 +14,7 @@ use cranelift_object::ObjectModule;
 
 use crate::error::{Result, Error};
 use crate::lexer::Literal;
-use crate::parser::{Fn, Type, Expression, Signature};
+use crate::parser::{Fn, Type, Expression, Signature, BinOpKind};
 
 pub fn create_fn<'gen>(
     fun_ctx: &'gen mut FunctionBuilderContext,
@@ -50,7 +50,7 @@ pub fn create_fn<'gen>(
     fun_codegen.create_fn(fun)?;
 
     verify_function(&func, module.isa())?;
-    println!("{}", func.display());
+    //println!("{}", func.display());
 
     Ok(func)
 }
@@ -135,17 +135,13 @@ impl<'gen> FunctionCodegen<'gen> {
                 let var = self.variables.get(name).unwrap();
                 self.builder.use_var(*var)
             }
-            Expression::Add(param1, param2, ty) => {
-                self.create_addition(param1, param2, ty)?
-            }
-            Expression::Sub(param1, param2, ty) => {
-                self.create_subtraction(param1, param2, ty)?
-            }
-            Expression::Mul(param1, param2, ty) => {
-                self.create_multiplication(param1, param2, ty)?
-            }
-            Expression::Div(param1, param2, ty) => {
-                self.create_division(param1, param2, ty)?
+            Expression::BinOp(kind, param1, param2, ty) => {
+                match kind {
+                    BinOpKind::Add => self.create_addition(param1, param2, ty)?,
+                    BinOpKind::Sub => self.create_subtraction(param1, param2, ty)?,
+                    BinOpKind::Mul => self.create_multiplication(param1, param2, ty)?,
+                    BinOpKind::Div => self.create_division(param1, param2, ty)?,
+                }
             }
             Expression::Fn(_) => Value::from_u32(0), //ignore, handled before function codegen
         };
