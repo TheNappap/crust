@@ -44,6 +44,7 @@ pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
+    While(Box<Expression>, Vec<Expression>),
     Let(String, Box<Expression>, Type),
     Literal(Literal),
     AddrOf(Vec<Expression>),

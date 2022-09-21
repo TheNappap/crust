@@ -119,6 +119,9 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::If(condition, if_body, else_body) => {
                 self.create_if(condition, if_body, else_body)?
             }
+            Expression::While(condition, while_body) => {
+                self.create_while(condition, while_body)?
+            }
             Expression::Literal(literal) => match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),
@@ -272,6 +275,37 @@ impl<'gen> FunctionCodegen<'gen> {
         //after block
         self.builder.switch_to_block(after_block);
         self.builder.seal_block(after_block);
+        Ok(Value::from_u32(0))
+    }
+
+    fn create_while(&mut self, condition: &Expression, while_body: &[Expression]) -> Result<Value> {  
+        let check_block = self.builder.create_block();
+        let while_block = self.builder.create_block();
+        let after_block = self.builder.create_block();
+
+        self.builder.ins().jump(check_block, &[]);
+
+        //check block
+        self.builder.switch_to_block(check_block);
+
+        let cond = self.create_expression(condition)?;
+        self.builder.ins().brz(cond, after_block, &[]);
+        self.builder.ins().jump(while_block, &[]);
+
+        //while block
+        self.builder.switch_to_block(while_block);
+
+        for statement in while_body {
+            self.create_expression(statement)?;
+        }
+        
+        self.builder.ins().jump(check_block, &[]);
+        
+        //after block
+        self.builder.switch_to_block(after_block);
+        self.builder.seal_block(after_block);
+        self.builder.seal_block(check_block);
+        self.builder.seal_block(while_block);
         Ok(Value::from_u32(0))
     }
 

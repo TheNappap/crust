@@ -15,6 +15,7 @@ pub mod binary_ops;
 pub mod returns;
 pub mod bools;
 pub mod conditional;
+pub mod loops;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;

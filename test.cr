@@ -20,6 +20,8 @@ fn main() {
         println "%s %i %i %i %i", "Operations:", div(6, 3), mul(5,6), add(4,4), sub(34,35);
     }
 
+    while true!: call f2();
+
     call f2();
     call f2();
     call function();
