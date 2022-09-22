@@ -81,6 +81,18 @@ impl<'f> TypeCheck<'f> {
                 *let_ty = ty.clone();
                 ty
             },
+            Expression::Mut(name, expr) => {
+                let ty = self.check_expression(expr)?;
+                let var_type = self.variables.get(name);
+                if let Some(var_ty) = var_type {
+                    if *var_ty != Type::Inferred && *var_ty != ty {
+                        return Err(Error::type_(format!("Mismatch types for assignment, expected: {:?}", var_ty), 0));
+                    }
+                    ty
+                } else {
+                    return Err(Error::type_(format!("No variable found with this name: {:?}", name), 0));
+                }
+            },
             Expression::If(condition, if_body, else_body) => {
                 let ty = self.check_expression(condition)?;
                 if ty != Type::Bool {

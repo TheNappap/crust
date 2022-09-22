@@ -43,9 +43,10 @@ pub enum BinOpKind {
 pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
+    Let(String, Box<Expression>, Type),
+    Mut(String, Box<Expression>),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
     While(Box<Expression>, Vec<Expression>),
-    Let(String, Box<Expression>, Type),
     Literal(Literal),
     AddrOf(Vec<Expression>),
     Symbol(String, Type),

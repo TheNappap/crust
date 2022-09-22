@@ -25,6 +25,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<print::Print>();
     blockdefs.add::<print::PrintLn>();
     blockdefs.add::<assign::Let>();
+    blockdefs.add::<assign::Mut>();
     blockdefs.add::<binary_ops::Add>();
     blockdefs.add::<binary_ops::Subtract>();
     blockdefs.add::<binary_ops::Multiply>();

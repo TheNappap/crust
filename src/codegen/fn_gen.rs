@@ -116,6 +116,9 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Let(id, expr, ty) => {
                 self.create_local_variable(id.clone(), expr, ty)?
             }
+            Expression::Mut(id, expr) => {
+                self.create_variable_mutation(id, expr)?
+            }
             Expression::If(condition, if_body, else_body) => {
                 self.create_if(condition, if_body, else_body)?
             }
@@ -236,6 +239,17 @@ impl<'gen> FunctionCodegen<'gen> {
         self.builder.def_var(var, value);
         self.variables.insert(name, var);
         Ok(value)
+    }
+
+    fn create_variable_mutation(
+        &mut self,
+        name: &str,
+        expr: &Expression
+    ) -> Result<Value> {
+        let val = self.create_expression(expr)?;
+        let var = self.variables.get(name).unwrap();
+        self.builder.def_var(*var, val);
+        Ok(val)
     }
 
     fn create_if(&mut self, condition: &Expression, if_body: &[Expression], else_body: &Option<Vec<Expression>>) -> Result<Value> {
