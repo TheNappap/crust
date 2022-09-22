@@ -1,6 +1,6 @@
 use crate::{
     error::{Error, Result},
-    lexer::{Block, Delimeter, Token},
+    lexer::{Block, Delimeter, Token, Operator},
     parser::{Expression, Fn, Parser, Type, syntax_tree::fn_expr::Signature},
 };
 
@@ -38,7 +38,7 @@ impl BlockDefinition for FnDef {
                         _ => return Err(Error::syntax("Expected an identifier as parameter name".to_string(), 0))
                     };
 
-                    if !matches!(tokens.next(), Some(Token::Symbol(':'))) {  
+                    if !matches!(tokens.next(), Some(Token::Operator(Operator::Colon))) {  
                         return Err(Error::syntax("Expected an ':' and a type name".to_string(), 0))
                     }
                     let ty = match tokens.next() {
@@ -50,9 +50,9 @@ impl BlockDefinition for FnDef {
                  .collect::<Result<Vec<_>>>()?
                  .into_iter().unzip();
 
-        let returns = match (tokens.next(), tokens.next(), tokens.next()) {
-            (None, None, None) => Type::Void,
-            (Some(Token::Symbol('-')), Some(Token::Symbol('>')), Some(token)) => token.into(),
+        let returns = match (tokens.next(), tokens.next()) {
+            (None, None) => Type::Void,
+            (Some(Token::Operator(Operator::Arrow)), Some(token)) => token.into(),
             _ => return Err(Error::syntax("Unexpected symbols after function header".to_string(), 0)),
         };
 

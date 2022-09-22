@@ -3,6 +3,8 @@ use crate::lexer::{Delimeter, Token, TokenStream};
 use itertools::{Itertools, PeekingNext};
 use std::{fmt::Debug, iter::Peekable, vec::IntoIter};
 
+use super::Operator;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     pub tag: String,
@@ -125,7 +127,7 @@ impl<'str> BlockStream<'str> {
             .peeking_take_while(|token| match token {
                 Ok(token) => !matches!(
                     token,
-                    Token::Symbol(':') | Token::Symbol(';') | Token::Group(Delimeter::Braces, _)
+                    Token::Operator(Operator::Colon) | Token::Operator(Operator::Semicolon) | Token::Group(Delimeter::Braces, _)
                 ),
                 Err(_) => false,
             })
@@ -137,7 +139,7 @@ impl<'str> BlockStream<'str> {
             })
             .collect::<Result<Vec<_>>>();
 
-        if let Some(Ok(Token::Symbol(':'))) = self.stream.peek() {
+        if let Some(Ok(Token::Operator(Operator::Colon))) = self.stream.peek() {
             self.stream.next();
         }
         tokens
@@ -149,14 +151,14 @@ impl<'str> BlockStream<'str> {
             .peeking_take_while(|token| match token {
                 Ok(token) => !matches!(
                     token,
-                    Token::Symbol(';') | Token::Group(Delimeter::Braces, _) | Token::NewLine
+                    Token::Operator(Operator::Semicolon) | Token::Group(Delimeter::Braces, _) | Token::NewLine
                 ),
                 Err(_) => false,
             })
             .collect::<Result<Vec<_>>>()?;
 
         let (tokens, chained_block) = match self.stream.next() {
-            Some(Ok(Token::Symbol(';'))) | None => (tokens, None),
+            Some(Ok(Token::Operator(Operator::Semicolon))) | None => (tokens, None),
             Some(Ok(Token::NewLine)) => {
                 (tokens, self.take_block().transpose()?)
             }

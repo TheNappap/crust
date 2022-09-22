@@ -28,6 +28,7 @@ impl From<Token> for Type {
             }
             Token::Literal(_) => todo!(),
             Token::Symbol(_) => todo!(),
+            Token::Operator(_) => todo!(),
             Token::Group(_, _) => todo!(),
             Token::NewLine => todo!(),
         }

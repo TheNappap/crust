@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{error::{Error, Result}, lexer::{Block, Token}, parser::{
+use crate::{error::{Error, Result}, lexer::{Block, Token, Operator}, parser::{
         syntax_tree::{Expression},
         Parser, Type,
     }};
@@ -20,7 +20,7 @@ impl BlockDefinition for Let {
         let mut tokens = header.into_iter();
         match tokens.next() {
             Some(Token::Ident(id)) => match tokens.next() {
-                Some(Token::Symbol('=')) => {
+                Some(Token::Operator(Operator::Assign)) => {
                     let expression = parser.parse_expression(tokens.collect_vec())?;
                     Ok( Expression::Let(id, Box::new(expression), Type::Inferred) )
                 }
@@ -50,7 +50,7 @@ impl BlockDefinition for Mut {
         let mut tokens = header.into_iter();
         match tokens.next() {
             Some(Token::Ident(id)) => match tokens.next() {
-                Some(Token::Symbol('=')) => {
+                Some(Token::Operator(Operator::Assign)) => {
                     let expression = parser.parse_expression(tokens.collect_vec())?;
                     Ok( Expression::Mut(id, Box::new(expression)) )
                 }

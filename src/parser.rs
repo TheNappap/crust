@@ -8,7 +8,7 @@ pub use syntax_tree::{fn_expr::{Fn, Signature}, Type, BinOpKind, Expression, Syn
 
 use crate::{
     error::Error,
-    lexer::{blockify, Block, BlockStream, Token, Delimeter},
+    lexer::{blockify, Block, BlockStream, Token, Delimeter, Operator},
 };
 
 use self::block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, bools, conditional, loops};
@@ -91,7 +91,7 @@ impl Parser {
             match tokens.first().unwrap() {
                 Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
                 Token::Literal(literal) => return Ok(Expression::Literal(literal.clone())),
-                Token::Symbol(_) => todo!(),
+                Token::Operator(_) => todo!(),
                 _ => todo!(),
             }
         }
@@ -137,7 +137,7 @@ impl TokenList {
         let mut element = Vec::new();
         loop {
             match tokens.next() {
-                None | Some(Token::Symbol(',')) => break,
+                None | Some(Token::Operator(Operator::Comma)) => break,
                 Some(token) => element.push(token)
             }
         }

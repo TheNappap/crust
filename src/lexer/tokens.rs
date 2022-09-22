@@ -54,9 +54,28 @@ pub enum Literal {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum Operator {
+    Dot,
+    Comma,
+    Colon,
+    Semicolon,
+    Assign,
+    Not,
+    Arrow,
+    Arrow2,
+    Plus,
+    Dash,
+    Star,
+    Slash,
+    Eq,
+    Neq
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Ident(String),
     Literal(Literal),
+    Operator(Operator),
     Symbol(char),
     Group(Delimeter, Vec<Token>),
     NewLine,
@@ -222,6 +241,45 @@ impl<'str> TokenStream<'str> {
         }
     }
 
+    fn take_symbol(&mut self, c: char) -> Result<Token> {
+        let token = match c {
+            '.' => Token::Operator(Operator::Dot),
+            ',' => Token::Operator(Operator::Comma),
+            ':' => Token::Operator(Operator::Colon),
+            ';' => Token::Operator(Operator::Semicolon),
+            '+' => Token::Operator(Operator::Plus),
+            '-' => match self.stream.peek() {
+                Some(Ok('>')) => {
+                    self.stream.next();
+                    Token::Operator(Operator::Arrow)
+                }
+                _ => Token::Operator(Operator::Dash),
+            }
+            '*' => Token::Operator(Operator::Star),
+            '/' => Token::Operator(Operator::Slash),
+            '=' => match self.stream.peek() {
+                Some(Ok('=')) => {
+                    self.stream.next();
+                    Token::Operator(Operator::Eq)
+                }
+                Some(Ok('>')) => {
+                    self.stream.next();
+                    Token::Operator(Operator::Arrow2)
+                }
+                _ => Token::Operator(Operator::Assign)
+            }
+            '!' => match self.stream.peek() {
+                Some(Ok('=')) => {
+                    self.stream.next();
+                    Token::Operator(Operator::Neq)
+                }
+                _ => Token::Operator(Operator::Not)
+            }
+            _ => Token::Symbol(c)
+        };
+        Ok(token)
+    }
+
     fn take_token(&mut self) -> Option<Result<Token>> {
         match self.take_ungrouped_token()? {
             Ok(Token::Symbol(c)) if is_end_delimeter(c) => Some(Err(Error::lexer(
@@ -247,14 +305,12 @@ impl<'str> TokenStream<'str> {
         let token = match peek {
             c if c.is_alphanumeric() || c == '_' => self.take_alphanumeric_token(),
             c if c == '\"' => self.take_string_token(),
-            c => {
-                if let Some(Err(err)) = self.stream.next() {
-                    return Some(Err(err));
-                }
+            _ => {
+                let c = self.stream.next()?.unwrap();
                 if c == '\n' {
                     Ok(Token::NewLine)
                 } else {
-                    Ok(Token::Symbol(c))
+                    self.take_symbol(c)
                 }
             }
         };
@@ -267,6 +323,7 @@ mod tests {
     use super::Delimeter::*;
     use super::Token::*;
     use super::Literal::*;
+    use super::Operator::*;
     use super::*;
 
     #[test]
@@ -279,15 +336,15 @@ mod tests {
             vec![
                 Ident("let".into()),
                 Ident("v_a_r".into()),
-                Symbol(':'),
+                Operator(Colon),
                 Ident("u32".into()),
-                Symbol('='),
+                Operator(Assign),
                 Literal(Int(30)),
-                Symbol('+'),
+                Operator(Plus),
                 Literal(Float(50.)),
-                Symbol('+'),
+                Operator(Plus),
                 Literal(Float(8.9)),
-                Symbol(';'),
+                Operator(Semicolon),
                 NewLine
             ]
         );
@@ -310,10 +367,9 @@ mod tests {
                 Ident("function".into()),
                 Group(
                     Parens,
-                    vec![Ident("c".into()), Symbol(':'), Ident("char".into())]
+                    vec![Ident("c".into()), Operator(Colon), Ident("char".into())]
                 ),
-                Symbol('-'),
-                Symbol('>'),
+                Operator(Arrow),
                 Ident("return".into()),
                 Group(
                     Braces,
@@ -321,11 +377,11 @@ mod tests {
                         NewLine,
                         Ident("let".into()),
                         Ident("strings".into()),
-                        Symbol('='),
+                        Operator(Assign),
                         Ident("vec".into()),
-                        Symbol('!'),
+                        Operator(Not),
                         Group(Brackets, vec![Literal(String("A String".into()))]),
-                        Symbol(';'),
+                        Operator(Semicolon),
                         NewLine
                     ]
                 ),
@@ -368,9 +424,9 @@ mod tests {
                     vec![
                         NewLine,
                         Literal(Int(2)),
-                        Symbol('*'),
+                        Operator(Star),
                         Literal(Int(2)),
-                        Symbol(';'),
+                        Operator(Semicolon),
                         NewLine,
                         Ident("while".into()),
                         Group(
@@ -379,39 +435,39 @@ mod tests {
                                 NewLine,
                                 Ident("let".into()),
                                 Ident("x".into()),
-                                Symbol('='),
+                                Operator(Assign),
                                 Literal(Float(5.)),
-                                Symbol('+'),
+                                Operator(Plus),
                                 Literal(Float(5.6)),
-                                Symbol(';'),
+                                Operator(Semicolon),
                                 NewLine
                             ]
                         ),
                         NewLine,
                         Ident("function_call".into()),
                         Group(Parens, vec![]),
-                        Symbol(';'),
+                        Operator(Semicolon),
                         NewLine
                     ]
                 ),
                 NewLine,
                 Literal(String("String}(]".into())),
-                Symbol('.'),
+                Operator(Dot),
                 Ident("into".into()),
                 Group(Parens, vec![]),
                 Group(Brackets, vec![Literal(Int(0))]),
-                Symbol(';'),
+                Operator(Semicolon),
                 NewLine,
                 NewLine,
                 Literal(Int(10)),
-                Symbol('-'),
+                Operator(Dash),
                 Literal(Int(1)),
-                Symbol(';'),
+                Operator(Semicolon),
                 NewLine,
                 Literal(Float(2.)),
-                Symbol('/'),
+                Operator(Slash),
                 Literal(Float(10.1)),
-                Symbol(';'),
+                Operator(Semicolon),
                 NewLine
             ]
         );
