@@ -30,6 +30,8 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<binary_ops::Subtract>();
     blockdefs.add::<binary_ops::Multiply>();
     blockdefs.add::<binary_ops::Divide>();
+    blockdefs.add::<binary_ops::Eq>();
+    blockdefs.add::<binary_ops::NotEq>();
     blockdefs.add::<bools::True>();
     blockdefs.add::<bools::False>();
     blockdefs.add::<conditional::If>();

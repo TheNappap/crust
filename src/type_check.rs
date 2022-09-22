@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature}, error::{Result, Error}, lexer::Literal};
+use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature, BinOpKind}, error::{Result, Error}, lexer::Literal};
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     let mut functions = HashMap::new();
@@ -128,16 +128,22 @@ impl<'f> TypeCheck<'f> {
                 }
                 Type::Int
             },
-            Expression::BinOp(_, param1, param2, op_ty) => {
+            Expression::BinOp(kind, param1, param2, op_ty) => {
                 let ty = self.check_expression(param1)?;
-                if *op_ty != Type::Inferred && *op_ty != ty {
+                if ty != self.check_expression(param2)? {
+                    return Err(Error::type_(format!("Mismatch types for operands, expected: {:?}", ty), 0));
+                }
+
+                let out_ty = match kind {
+                    BinOpKind::Eq | BinOpKind::Neq => Type::Bool,
+                    _ => ty.clone()
+                };
+
+                if *op_ty != Type::Inferred && *op_ty != out_ty {
                     return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", op_ty), 0));
                 }
-                if ty != self.check_expression(param2)? {
-                    return Err(Error::type_(format!("Mismatch types for binary operation, expected: {:?}", ty), 0));
-                }
-                *op_ty = ty.clone();
-                ty
+                *op_ty = ty;
+                out_ty
             },
             Expression::Symbol(name, ty) => {
                 let var_type = self.variables.get(name);

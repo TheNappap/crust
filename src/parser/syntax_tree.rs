@@ -36,7 +36,7 @@ impl From<Token> for Type {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinOpKind {
-    Add, Sub, Mul, Div
+    Add, Sub, Mul, Div, Eq, Neq
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -4,8 +4,9 @@ use std::collections::HashMap;
 use std::ops::RangeFrom;
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::types::{I64, F64};
-use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, FuncRef, Block, self};
+use cranelift_codegen::ir::condcodes::{IntCC, FloatCC};
+use cranelift_codegen::ir::types::{I64, F64, B64};
+use cranelift_codegen::ir::{AbiParam, ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, FuncRef, Block, self, InstBuilderBase};
 
 use cranelift_codegen::verifier::verify_function;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
@@ -128,7 +129,7 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Literal(literal) => match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),
-                Literal::Bool(b) => self.builder.ins().iconst(I64, *b),
+                Literal::Bool(b) => self.builder.ins().bconst(B64, *b),
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }
             Expression::AddrOf(expressions) => {
@@ -147,6 +148,8 @@ impl<'gen> FunctionCodegen<'gen> {
                     BinOpKind::Sub => self.create_subtraction(param1, param2, ty)?,
                     BinOpKind::Mul => self.create_multiplication(param1, param2, ty)?,
                     BinOpKind::Div => self.create_division(param1, param2, ty)?,
+                    BinOpKind::Eq => self.create_compare(CompKind::Equal, param1, param2, ty)?,
+                    BinOpKind::Neq => self.create_compare(CompKind::NotEqual, param1, param2, ty)?,
                 }
             }
             Expression::Fn(_) => Value::from_u32(0), //ignore, handled before function codegen
@@ -326,7 +329,12 @@ impl<'gen> FunctionCodegen<'gen> {
     fn create_pointer_to_stack_slot(&mut self, values: &[Value]) -> Result<Value> {
         let stack_slot = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8*values.len() as u32));
         for (i, &value) in values.into_iter().enumerate() {
-            self.builder.ins().stack_store(value, stack_slot, 8*i as u8);
+            if self.builder.ins().data_flow_graph().value_type(value).is_bool() {
+                let value = self.builder.ins().bint(I64, value);
+                self.builder.ins().stack_store(value, stack_slot, 8*i as u8);
+            } else {
+                self.builder.ins().stack_store(value, stack_slot, 8*i as u8);
+            }
         }
         Ok(self.builder.ins().stack_addr(I64, stack_slot, 0))
     }
@@ -418,15 +426,50 @@ impl<'gen> FunctionCodegen<'gen> {
             _ => Err(Error::codegen("Division for this type is not supported".to_string(), 0))
         }
     }
+
+    fn create_compare(&mut self, kind: CompKind, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Value> {
+        match ty {
+            Type::Int => {
+                let v1 = self.create_expression(param1)?;
+                let v2 = self.create_expression(param2)?;
+                Ok(self.builder.ins().icmp(get_int_compare(kind), v1, v2))
+            },
+            Type::Float => {
+                let v1 = self.create_expression(param1)?;
+                let v2 = self.create_expression(param2)?;
+                Ok(self.builder.ins().fcmp(get_float_compare(kind), v1, v2))
+            },
+            _ => Err(Error::codegen("Compare for this type is not supported".to_string(), 0))
+        }
+    }
 }
 
 fn get_type(ty: &Type, module: &ObjectModule) -> Option<ir::Type> {
     let ty = match ty {
         Type::Int => I64,
         Type::Float => F64,
-        Type::Bool => I64,
+        Type::Bool => B64,
         Type::String => module.target_config().pointer_type(),
         Type::Void | Type::Inferred => return None,
     };
     Some(ty)
+}
+
+enum CompKind {
+    Equal,
+    NotEqual
+}
+
+fn get_int_compare(kind: CompKind) -> IntCC {
+    match kind {
+        CompKind::Equal => IntCC::Equal,
+        CompKind::NotEqual => IntCC::NotEqual,
+    }
+}
+
+fn get_float_compare(kind: CompKind) -> FloatCC {
+    match kind {
+        CompKind::Equal => FloatCC::Equal,
+        CompKind::NotEqual => FloatCC::NotEqual,
+    }
 }

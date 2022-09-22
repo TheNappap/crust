@@ -96,3 +96,49 @@ impl BlockDefinition for Divide {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }
+
+#[derive(Default)]
+pub struct Eq;
+
+impl BlockDefinition for Eq {
+    fn id(&self) -> &str {
+        "eq"
+    }
+
+    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let token_list = parser.parse_list(header);
+        if token_list.contents.len() != 2 {
+            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
+        }
+
+        let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
+        Ok(Expression::BinOp(BinOpKind::Eq, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+    }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    }
+}
+
+#[derive(Default)]
+pub struct NotEq;
+
+impl BlockDefinition for NotEq {
+    fn id(&self) -> &str {
+        "neq"
+    }
+
+    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        let token_list = parser.parse_list(header);
+        if token_list.contents.len() != 2 {
+            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
+        }
+
+        let mut operands = token_list.contents.into_iter().map(|tokens| parser.parse_expression(tokens));
+        Ok(Expression::BinOp(BinOpKind::Neq, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+    }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    }
+}

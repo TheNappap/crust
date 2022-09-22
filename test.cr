@@ -21,9 +21,9 @@ fn main() {
     }
 
     let add = 0;
-    while true!{
-        println "%i", add;
-        mut add = add(add,1);
+    while neq(add,100) {
+        println "%i %i", add, eq(add,50);
+        mut add = add(add,25);
     }
 
     call f2();

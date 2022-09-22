@@ -12,7 +12,7 @@ impl BlockDefinition for True {
     }
 
     fn parse(&self, _header: Vec<Token>, _body: Vec<Block>, _parser: &Parser) -> Result<Expression> {
-        Ok(Expression::Literal(Literal::Bool(1)))
+        Ok(Expression::Literal(Literal::Bool(true)))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
@@ -29,7 +29,7 @@ impl BlockDefinition for False {
     }
 
     fn parse(&self, _header: Vec<Token>, _body: Vec<Block>, _parser: &Parser) -> Result<Expression> {
-        Ok(Expression::Literal(Literal::Bool(0)))
+        Ok(Expression::Literal(Literal::Bool(false)))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {

@@ -49,7 +49,7 @@ fn is_end_delimeter(c: char) -> bool {
 pub enum Literal {
     Int(i64),
     Float(f64),
-    Bool(i64),
+    Bool(bool),
     String(String),
 }
 
