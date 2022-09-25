@@ -6,7 +6,7 @@ fn main() {
     else: println "else one liner";
     if false! {
         let var = "The number: ";
-        let var2 = add 2., 3.;
+        let var2 = 2.+3.;
         let concat = add "first", "second";
         let false = false!;
 
@@ -17,13 +17,13 @@ fn main() {
         println "concat string: %s", concat;
         println "bool: %i", false;
     } else {
-        println "%s %i %i %i %i", "Operations:", div(6, 3), mul(5,6), add(4,4), sub(34,35);
+        println "%s %i %i %i %i %i", "Operations:", 6/3, 5*6, 4+4, 34-35, 5*4 - 9/3;
     }
 
     let add = 0;
-    while neq(add,100) {
-        println "%i %i", add, eq(add,50);
-        mut add = add(add,25);
+    while add != 100 {
+        println "%i %i", add, add == 50;
+        mut add = 25 + add;
     }
 
     call f2();
@@ -32,7 +32,7 @@ fn main() {
 }
 
 fn plus_one(a: Int, b: Int) -> Int {
-    return add add(a,b), 1;
+    return a + b + 1;
 }
 
 fn function() {

@@ -98,9 +98,9 @@ impl BlockDefinition for Divide {
 }
 
 #[derive(Default)]
-pub struct Eq;
+pub struct Equals;
 
-impl BlockDefinition for Eq {
+impl BlockDefinition for Equals {
     fn id(&self) -> &str {
         "eq"
     }
@@ -121,9 +121,9 @@ impl BlockDefinition for Eq {
 }
 
 #[derive(Default)]
-pub struct NotEq;
+pub struct NotEquals;
 
-impl BlockDefinition for NotEq {
+impl BlockDefinition for NotEquals {
     fn id(&self) -> &str {
         "neq"
     }

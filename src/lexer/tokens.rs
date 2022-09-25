@@ -60,7 +60,7 @@ pub enum Operator {
     Colon,
     Semicolon,
     Assign,
-    Not,
+    Excl,
     Arrow,
     Arrow2,
     Plus,
@@ -273,7 +273,7 @@ impl<'str> TokenStream<'str> {
                     self.stream.next();
                     Token::Operator(Operator::Neq)
                 }
-                _ => Token::Operator(Operator::Not)
+                _ => Token::Operator(Operator::Excl)
             }
             _ => Token::Symbol(c)
         };
@@ -379,7 +379,7 @@ mod tests {
                         Ident("strings".into()),
                         Operator(Assign),
                         Ident("vec".into()),
-                        Operator(Not),
+                        Operator(Excl),
                         Group(Brackets, vec![Literal(String("A String".into()))]),
                         Operator(Semicolon),
                         NewLine

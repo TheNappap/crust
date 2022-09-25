@@ -1,6 +1,6 @@
 mod block_definitions;
 mod syntax_tree;
-
+mod parse_ops;
 
 
 pub use crate::error::Result;
@@ -8,10 +8,10 @@ pub use syntax_tree::{fn_expr::{Fn, Signature}, Type, BinOpKind, Expression, Syn
 
 use crate::{
     error::Error,
-    lexer::{blockify, Block, BlockStream, Token, Delimeter, Operator},
+    lexer::{blockify, Block, Token, Delimeter},
 };
 
-use self::block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, bools, conditional, loops};
+use self::{block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, bools, conditional, loops}, parse_ops::TokenList};
 
 pub fn parse(source: &str) -> Result<SyntaxTree> {
     Parser::new().parse_code(source)
@@ -30,8 +30,8 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<binary_ops::Subtract>();
     blockdefs.add::<binary_ops::Multiply>();
     blockdefs.add::<binary_ops::Divide>();
-    blockdefs.add::<binary_ops::Eq>();
-    blockdefs.add::<binary_ops::NotEq>();
+    blockdefs.add::<binary_ops::Equals>();
+    blockdefs.add::<binary_ops::NotEquals>();
     blockdefs.add::<bools::True>();
     blockdefs.add::<bools::False>();
     blockdefs.add::<conditional::If>();
@@ -70,7 +70,25 @@ impl Parser {
         Ok(SyntaxTree::new(fns))
     }
 
-    pub fn parse_block_expression(&self, block: Block) -> Result<Expression> {
+    pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {
+        if tokens.len() == 1 {
+            match tokens.first().unwrap() {
+                Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
+                Token::Literal(literal) => return Ok(Expression::Literal(literal.clone())),
+                Token::Group(Delimeter::Parens, tokens) => return self.parse_expression(tokens.clone()),
+                _ => todo!(),
+            }
+        }
+
+        let block = parse_ops::parse_expression(tokens)?;
+        self.parse_block_expression(block)
+    }
+
+    pub fn parse_list(&self, tokens: Vec<Token>) -> TokenList {
+        parse_ops::parse_list(tokens)
+    }
+
+    fn parse_block_expression(&self, block: Block) -> Result<Expression> {
         let expr = self.blockdefs.get(&block.tag)?.parse(block.header, block.body, self);
         match block.chain {
             Some(chain) => self.parse_chained_block_expression(*chain, expr?),
@@ -78,70 +96,12 @@ impl Parser {
         } 
     }
     
-    pub fn parse_chained_block_expression(&self, block: Block, input: Expression) -> Result<Expression> {
+    fn parse_chained_block_expression(&self, block: Block, input: Expression) -> Result<Expression> {
         let expr = self.blockdefs.get(&block.tag)?.parse_chained(block.header, block.body, input, self);
         match block.chain {
             Some(chain) => self.parse_chained_block_expression(*chain, expr?),
             None => expr,
         }
-    }
-
-    pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {
-        if tokens.len() == 1 {
-            match tokens.first().unwrap() {
-                Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
-                Token::Literal(literal) => return Ok(Expression::Literal(literal.clone())),
-                Token::Operator(_) => todo!(),
-                _ => todo!(),
-            }
-        }
-
-        let mut blocks = BlockStream::new(tokens);
-        let first = blocks.next();
-        let second = blocks.next();
-        if first.is_none() {
-            return Err(Error::syntax("Expected an expression".to_string(), 0));
-        } else if second.is_some() {
-            return Err(Error::syntax("Unexpected block after expression".to_string(), 0));
-        }
-
-        self.parse_block_expression(first.unwrap()?)
-    }
-
-    pub fn parse_list(&self, tokens: Vec<Token>) -> TokenList {
-        let tokens = if tokens.len() == 1 {
-            if let Some(Token::Group(Delimeter::Parens, tokens)) = tokens.first() {
-                tokens.clone()
-            } else { tokens }
-        } else { tokens };
-
-        TokenList::from(tokens)
-    }
-}
-
-pub struct TokenList {
-    contents: Vec<Vec<Token>>
-}
-
-impl TokenList {
-    fn from(tokens: Vec<Token>) -> TokenList {
-        let mut tokens = tokens.into_iter();
-        let mut contents = Vec::new();
-        while let Some(element) = Self::take_element(&mut tokens) {
-            contents.push(element)
-        }
-        TokenList { contents }
-    }
-
-    fn take_element(tokens: &mut impl Iterator<Item=Token>) -> Option<Vec<Token>> {
-        let mut element = Vec::new();
-        loop {
-            match tokens.next() {
-                None | Some(Token::Operator(Operator::Comma)) => break,
-                Some(token) => element.push(token)
-            }
-        }
-        if element.is_empty() { None } else { Some(element) }
     }
 }
 
