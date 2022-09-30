@@ -59,8 +59,6 @@ pub enum Operator {
     Comma,
     Colon,
     Semicolon,
-    Assign,
-    Excl,
     Arrow,
     Arrow2,
     Plus,
@@ -68,7 +66,9 @@ pub enum Operator {
     Star,
     Slash,
     Eq,
-    Neq
+    EqEq,
+    Neq,
+    Not,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -260,20 +260,20 @@ impl<'str> TokenStream<'str> {
             '=' => match self.stream.peek() {
                 Some(Ok('=')) => {
                     self.stream.next();
-                    Token::Operator(Operator::Eq)
+                    Token::Operator(Operator::EqEq)
                 }
                 Some(Ok('>')) => {
                     self.stream.next();
                     Token::Operator(Operator::Arrow2)
                 }
-                _ => Token::Operator(Operator::Assign)
+                _ => Token::Operator(Operator::Eq)
             }
             '!' => match self.stream.peek() {
                 Some(Ok('=')) => {
                     self.stream.next();
                     Token::Operator(Operator::Neq)
                 }
-                _ => Token::Operator(Operator::Excl)
+                _ => Token::Operator(Operator::Not)
             }
             _ => Token::Symbol(c)
         };
@@ -338,7 +338,7 @@ mod tests {
                 Ident("v_a_r".into()),
                 Operator(Colon),
                 Ident("u32".into()),
-                Operator(Assign),
+                Operator(Eq),
                 Literal(Int(30)),
                 Operator(Plus),
                 Literal(Float(50.)),
@@ -377,9 +377,9 @@ mod tests {
                         NewLine,
                         Ident("let".into()),
                         Ident("strings".into()),
-                        Operator(Assign),
+                        Operator(Eq),
                         Ident("vec".into()),
-                        Operator(Excl),
+                        Operator(Not),
                         Group(Brackets, vec![Literal(String("A String".into()))]),
                         Operator(Semicolon),
                         NewLine
@@ -435,7 +435,7 @@ mod tests {
                                 NewLine,
                                 Ident("let".into()),
                                 Ident("x".into()),
-                                Operator(Assign),
+                                Operator(Eq),
                                 Literal(Float(5.)),
                                 Operator(Plus),
                                 Literal(Float(5.6)),

@@ -1,50 +1,75 @@
 
+use std::convert::identity;
+
 use crate::{error::{Result, Error}, lexer::{Block, Token, Delimeter, Operator, BlockStream}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition}};
 
-fn precedence(op: &Operator) -> Option<u8> {
+enum OpKind {
+    Prefix,
+    //Postfix,
+    Binary
+}
+
+fn precedence( kind: OpKind, op: &Operator) -> Option<u8> {
     use Operator::*;
-    match op {
-        //Dash | Excl => Some(1), TODO unary ops
-        Star | Slash => Some(2),
-        Plus | Dash => Some(3),
-        Eq | Neq => Some(4),
+    use OpKind::*;
+    match (kind, op) {
+        (Prefix, Dash | Not) => Some(1),
+        (Binary, Star | Slash) => Some(2),
+        (Binary, Plus | Dash) => Some(3),
+        (Binary, EqEq | Neq) => Some(4),
         _ => None,
     }
 }
 
-fn id_of_operator(op: &Operator) -> Option<String> {
+fn id_of_operator(kind:OpKind, op: &Operator) -> Option<String> {
     use Operator::*;
-    Some(match op {
-        Excl => todo!(),
-        Star => Multiply.id(),
-        Slash => Divide.id(),
-        Plus => Add.id(),
-        Dash => Subtract.id(),
-        Eq => Equals.id(),
-        Neq => NotEquals.id(),
-        _ => todo!(),
-    }.to_string())
+    use OpKind::*;
+    let id = match (kind, op) {
+        (Prefix, Not) => todo!(),
+        (Prefix, Dash) => todo!(),
+        (Binary, Star) => Multiply.id(),
+        (Binary, Slash) => Divide.id(),
+        (Binary, Plus) => Add.id(),
+        (Binary, Dash) => Subtract.id(),
+        (Binary, EqEq) => Equals.id(),
+        (Binary, Neq) => NotEquals.id(),
+        _ => return None,
+    }.to_string();
+    Some(id)
 }
 
-pub fn parse_expression(tokens: Vec<Token>) -> Result<Block> {
-    let (op_index, _, op) = tokens.iter()
+fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, OpKind, Operator)> {
+    let (_, op) = tokens.iter()
         .enumerate()
-        .filter_map(|(i,token)| if let Token::Operator(op) = token { Some((i,op)) } else {None})    
-        .fold((0, None, None), |acc, op| {
-            match (acc.1, precedence(op.1), op.0) {
-                (None, Some(pr), i) => (i, Some(pr), Some(op.1)),
-                (Some(acc), Some(pr), i) if pr > acc => (i, Some(pr), Some(op.1)),
+        .scan(None::<Token>, |last_token,(i,token)| {
+            let out = match (&last_token, &token) {
+                (Some(Token::Operator(_)) | None, Token::Operator(op)) => Some(Some((i,OpKind::Prefix,op))),
+                (_,Token::Operator(op)) => Some(Some((i,OpKind::Binary,op))),
+                (_,_) => Some(None),
+            };
+            *last_token = Some(token.clone());
+            out
+        })  
+        .filter_map(identity)
+        .fold((None, None), |acc, op| {
+            match (acc.0, precedence(OpKind::Binary, op.2)) {
+                (None, Some(pr)) => (Some(pr), Some(op)),
+                (Some(acc), Some(pr)) if pr > acc => (Some(pr), Some(op)),
                 _ => acc
             }
         });
 
-    if let Some(op) = op {
-        if let Some(tag) = id_of_operator(op) {
+    op.map(|(index,kind, op)| (index, kind, op.clone()))
+}
+
+pub fn parse_expression(tokens: Vec<Token>) -> Result<Block> {
+    if let Some((index, kind, op)) = next_operator_index(&tokens) {
+        if let Some(tag) = id_of_operator(kind, &op) {
             let mut tokens = tokens;
-            if op_index == 0 {
+            if index == 0 {
                 tokens.remove(0);
             } else {
-                tokens[op_index] = Token::Operator(Operator::Comma);
+                tokens[index] = Token::Operator(Operator::Comma);
             }
             return Ok(Block{tag, header: tokens, body: vec![], chain: None});
         }
