@@ -15,7 +15,7 @@ use cranelift_object::ObjectModule;
 
 use crate::error::{Result, Error};
 use crate::lexer::Literal;
-use crate::parser::{Fn, Type, Expression, Signature, BinOpKind};
+use crate::parser::{Fn, Type, Expression, Signature, BinOpKind, UnOpKind};
 
 pub fn create_fn<'gen>(
     fun_ctx: &'gen mut FunctionBuilderContext,
@@ -150,6 +150,11 @@ impl<'gen> FunctionCodegen<'gen> {
                     BinOpKind::Div => self.create_division(param1, param2, ty)?,
                     BinOpKind::Eq => self.create_compare(CompKind::Equal, param1, param2, ty)?,
                     BinOpKind::Neq => self.create_compare(CompKind::NotEqual, param1, param2, ty)?,
+                }
+            }
+            Expression::UnOp(kind, param, ty) => {
+                match kind {
+                    UnOpKind::Neg => self.create_negation(param, ty)?,
                 }
             }
             Expression::Fn(_) => Value::from_u32(0), //ignore, handled before function codegen
@@ -422,6 +427,20 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v1 = self.create_expression(param1)?;
                 let v2 = self.create_expression(param2)?;
                 Ok(self.builder.ins().fdiv(v1, v2))
+            },
+            _ => Err(Error::codegen("Division for this type is not supported".to_string(), 0))
+        }
+    }
+
+    fn create_negation(&mut self, param: &Expression, ty: &Type) -> Result<Value> {
+        match ty {
+            Type::Int => {
+                let v = self.create_expression(param)?;
+                Ok(self.builder.ins().ineg(v))
+            },
+            Type::Float => {
+                let v = self.create_expression(param)?;
+                Ok(self.builder.ins().fneg(v))
             },
             _ => Err(Error::codegen("Division for this type is not supported".to_string(), 0))
         }

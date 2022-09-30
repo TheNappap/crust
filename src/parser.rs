@@ -4,14 +4,14 @@ mod parse_ops;
 
 
 pub use crate::error::Result;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, Type, BinOpKind, Expression, SyntaxTree};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, Type, BinOpKind, UnOpKind, Expression, SyntaxTree};
 
 use crate::{
     error::Error,
     lexer::{blockify, Block, Token, Delimeter},
 };
 
-use self::{block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, bools, conditional, loops}, parse_ops::TokenList};
+use self::{block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, unary_ops, bools, conditional, loops}, parse_ops::TokenList};
 
 pub fn parse(source: &str) -> Result<SyntaxTree> {
     Parser::new().parse_code(source)
@@ -32,6 +32,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<binary_ops::Divide>();
     blockdefs.add::<binary_ops::Equals>();
     blockdefs.add::<binary_ops::NotEquals>();
+    blockdefs.add::<unary_ops::Negate>();
     blockdefs.add::<bools::True>();
     blockdefs.add::<bools::False>();
     blockdefs.add::<conditional::If>();

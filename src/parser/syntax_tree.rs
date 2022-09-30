@@ -41,6 +41,11 @@ pub enum BinOpKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum UnOpKind {
+    Neg
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
@@ -51,7 +56,8 @@ pub enum Expression {
     Literal(Literal),
     AddrOf(Vec<Expression>),
     Symbol(String, Type),
-    BinOp(BinOpKind , Box<Expression>, Box<Expression>, Type),
+    BinOp(BinOpKind, Box<Expression>, Box<Expression>, Type),
+    UnOp(UnOpKind, Box<Expression>, Type),
     Return(Box<Expression>),
 }
 

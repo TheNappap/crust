@@ -12,6 +12,7 @@ pub mod fn_def;
 pub mod print;
 pub mod assign;
 pub mod binary_ops;
+pub mod unary_ops;
 pub mod returns;
 pub mod bools;
 pub mod conditional;

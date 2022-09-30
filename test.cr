@@ -17,7 +17,7 @@ fn main() {
         println "concat string: %s", concat;
         println "bool: %i", false;
     } else {
-        println "%s %i %i %i %i %i", "Operations:", 6/3, 5*6, 4+4, 34-35, 5*4 - -9/3;
+        println "%s %i %i %i %i %i", "Operations:", 6/3, 5*6, 4+4, 34-35, 5*-4 - --9/3;
     }
 
     let add = 0;

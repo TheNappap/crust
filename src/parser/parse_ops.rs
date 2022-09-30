@@ -1,7 +1,7 @@
 
 use std::convert::identity;
 
-use crate::{error::{Result, Error}, lexer::{Block, Token, Delimeter, Operator, BlockStream}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition}};
+use crate::{error::{Result, Error}, lexer::{Block, Token, Delimeter, Operator, BlockStream}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate}};
 
 enum OpKind {
     Prefix,
@@ -26,7 +26,7 @@ fn id_of_operator(kind:OpKind, op: &Operator) -> Option<String> {
     use OpKind::*;
     let id = match (kind, op) {
         (Prefix, Not) => todo!(),
-        (Prefix, Dash) => todo!(),
+        (Prefix, Dash) => Negate.id(),
         (Binary, Star) => Multiply.id(),
         (Binary, Slash) => Divide.id(),
         (Binary, Plus) => Add.id(),
@@ -43,7 +43,8 @@ fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, OpKind, Operator)>
         .enumerate()
         .scan(None::<Token>, |last_token,(i,token)| {
             let out = match (&last_token, &token) {
-                (Some(Token::Operator(_)) | None, Token::Operator(op)) => Some(Some((i,OpKind::Prefix,op))),
+                (None, Token::Operator(op)) => Some(Some((i,OpKind::Prefix,op))),
+                (Some(Token::Operator(_)), Token::Operator(_)) => Some(None),
                 (_,Token::Operator(op)) => Some(Some((i,OpKind::Binary,op))),
                 (_,_) => Some(None),
             };
