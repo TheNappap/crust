@@ -2,20 +2,20 @@
 fn main() {
     fn f2(): println "one liner";
 
-    if true!: println "if one liner"
+    if true$: println "if one liner"
     else: println "else one liner";
-    if false! {
+    if false$ {
         let var = "The number: ";
         let var2 = 2.+3.;
         let concat = add "first", "second";
-        let false = false!;
+        let false = false$;
 
         print var;
         print "%i", call plus_one(2,3);
         println "%.2f", var2;
         println "one word %s", "second word";
         println "concat string: %s", concat;
-        println "bool: %i", false;
+        println "bool: %i", !false;
     } else {
         println "%s %i %i %i %i %i", "Operations:", 6/3, 5*6, 4+4, 34-35, 5*-4 - --9/3;
     }

@@ -442,6 +442,10 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v = self.create_expression(param)?;
                 Ok(self.builder.ins().fneg(v))
             },
+            Type::Bool => {
+                let v = self.create_expression(param)?;
+                Ok(self.builder.ins().bnot(v))
+            },
             _ => Err(Error::codegen("Division for this type is not supported".to_string(), 0))
         }
     }

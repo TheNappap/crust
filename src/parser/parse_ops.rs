@@ -3,6 +3,7 @@ use std::convert::identity;
 
 use crate::{error::{Result, Error}, lexer::{Block, Token, Delimeter, Operator, BlockStream}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate}};
 
+#[derive(Debug, PartialEq, Clone)]
 enum OpKind {
     Prefix,
     //Postfix,
@@ -25,7 +26,7 @@ fn id_of_operator(kind:OpKind, op: &Operator) -> Option<String> {
     use Operator::*;
     use OpKind::*;
     let id = match (kind, op) {
-        (Prefix, Not) => todo!(),
+        (Prefix, Not) => Negate.id(),
         (Prefix, Dash) => Negate.id(),
         (Binary, Star) => Multiply.id(),
         (Binary, Slash) => Divide.id(),
@@ -53,7 +54,7 @@ fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, OpKind, Operator)>
         })  
         .filter_map(identity)
         .fold((None, None), |acc, op| {
-            match (acc.0, precedence(OpKind::Binary, op.2)) {
+            match (acc.0, precedence(op.1.clone(), op.2)) {
                 (None, Some(pr)) => (Some(pr), Some(op)),
                 (Some(acc), Some(pr)) if pr > acc => (Some(pr), Some(op)),
                 _ => acc

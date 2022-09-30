@@ -145,7 +145,7 @@ impl<'f> TypeCheck<'f> {
                 *op_ty = ty;
                 out_ty
             },
-            Expression::UnOp(kind, param, op_ty) => {
+            Expression::UnOp(_, param, op_ty) => {
                 let ty = self.check_expression(param)?;
                 if *op_ty != Type::Inferred && *op_ty != ty {
                     return Err(Error::type_(format!("Mismatch types for unary operation, expected: {:?}", op_ty), 0));
