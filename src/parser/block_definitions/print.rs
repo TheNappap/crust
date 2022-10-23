@@ -2,8 +2,8 @@ use crate::{
     error::{Result, Error},
     lexer::{Block, Literal, Token},
     parser::{
-        syntax_tree::{Expression, Type},
-        Parser, Signature, BinOpKind
+        syntax_tree::{Expression},
+        Parser, Signature, BinOpKind, Type
     },
 };
 

@@ -9,6 +9,8 @@ use std::{fs::File, io::Write};
 
 mod code_generator;
 mod fn_gen;
+mod types;
+mod comp_kind;
 
 pub fn build(syntax_tree: SyntaxTree) -> Result<()> {
     let mem = Codegen::new()?

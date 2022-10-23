@@ -176,6 +176,19 @@ impl<'f> TypeCheck<'f> {
                     }
                 }
             },
+            Expression::Array(list) => {
+                let mut ty = Type::Inferred;
+                for expr in list.iter_mut() {
+                    let el_ty = self.check_expression(expr)?;
+                    if ty == Type::Inferred {
+                        ty = el_ty.clone();
+                    }
+                    if ty != el_ty {
+                        return Err(Error::type_(format!("Mismatch types for array elements, expected: {:?}", el_ty), 0));
+                    }
+                }
+                Type::Array(Box::new(ty), list.len())
+            },
         };
         Ok(ty)
     }

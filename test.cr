@@ -4,7 +4,7 @@ fn main() {
 
     if true$: println "if one liner"
     else: println "else one liner";
-    if false$ {
+    if true$ {
         let var = "The number: ";
         let var2 = 2.+3.;
         let concat = add "first", "second";
@@ -25,6 +25,9 @@ fn main() {
         println "%i %i", add, add == 50;
         mut add = 25 + add;
     }
+
+    let arr = array[5,6,7];
+    println "array: %i, %i, %i", arr;
 
     call f2();
     call f2();

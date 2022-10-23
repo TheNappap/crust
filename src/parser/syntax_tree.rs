@@ -1,39 +1,11 @@
 
-use crate::lexer::{Literal, Token};
+use crate::lexer::{Literal};
 
-use self::fn_expr::{Fn, Signature};
+use self::{fn_expr::{Fn, Signature}, types::Type};
 use core::slice::{Iter, IterMut};
 
 pub mod fn_expr;
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Type {
-    Int,
-    Float,
-    Bool,
-    String,
-    Void,
-    Inferred
-}
-
-impl From<Token> for Type {
-    fn from(token: Token) -> Self {
-        match token {
-            Token::Ident(ty) => match ty.as_str() {
-                "Int" => Type::Int,
-                "Float" => Type::Float,
-                "String" => Type::String,
-                "Bool" => Type::Bool,
-                _ty => todo!()
-            }
-            Token::Literal(_) => todo!(),
-            Token::Symbol(_) => todo!(),
-            Token::Operator(_) => todo!(),
-            Token::Group(_, _) => todo!(),
-            Token::NewLine => todo!(),
-        }
-    }
-}
+pub mod types;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinOpKind {
@@ -59,6 +31,7 @@ pub enum Expression {
     BinOp(BinOpKind, Box<Expression>, Box<Expression>, Type),
     UnOp(UnOpKind, Box<Expression>, Type),
     Return(Box<Expression>),
+    Array(Vec<Expression>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
