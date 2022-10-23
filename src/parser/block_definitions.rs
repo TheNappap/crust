@@ -18,6 +18,7 @@ pub mod bools;
 pub mod conditional;
 pub mod loops;
 pub mod array;
+pub mod iter;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;

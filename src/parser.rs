@@ -12,7 +12,7 @@ use crate::{
     lexer::{blockify, Block, Token, Delimeter},
 };
 
-use self::{block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, unary_ops, bools, conditional, loops, array}, parse_ops::TokenList};
+use self::{block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, unary_ops, bools, conditional, loops, array, iter}, parse_ops::TokenList};
 
 pub fn parse(source: &str) -> Result<SyntaxTree> {
     Parser::new().parse_code(source)
@@ -40,6 +40,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<conditional::Else>();
     blockdefs.add::<loops::While>();
     blockdefs.add::<array::Array>();
+    blockdefs.add::<iter::Iter>();
     blockdefs
 }
 

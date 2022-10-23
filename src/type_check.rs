@@ -118,6 +118,13 @@ impl<'f> TypeCheck<'f> {
                 }
                 Type::Void
             },
+            Expression::Iter(iter) => {
+                let ty = self.check_expression(iter)?;
+                match ty {
+                    Type::Array(ty, _) => Type::Iter(ty),
+                    _ => return Err(Error::type_("Expected array as iterable".to_string(), 0)),
+                }
+            },
             Expression::Literal(Literal::Int(_)) => Type::Int,
             Expression::Literal(Literal::Float(_)) => Type::Float,
             Expression::Literal(Literal::Bool(_)) => Type::Bool,

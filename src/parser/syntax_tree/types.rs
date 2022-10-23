@@ -11,6 +11,7 @@ pub enum Type {
     Inferred,
     Array(Box<Type>, usize),
     //Struct(Vec<Type>, usize),
+    Iter(Box<Type>),
 }
 
 impl From<Token> for Type {

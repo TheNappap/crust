@@ -28,6 +28,8 @@ fn main() {
 
     let arr = array[5,6,7];
     println "array: %i, %i, %i", arr;
+    iter array[6,2,4];
+    iter arr;
 
     call f2();
     call f2();

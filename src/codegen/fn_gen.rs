@@ -127,6 +127,9 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::While(condition, while_body) => {
                 self.create_while(condition, while_body)?
             }
+            Expression::Iter(iter) => {
+                self.create_expression(iter)?
+            }
             Expression::Literal(literal) => vec![match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),

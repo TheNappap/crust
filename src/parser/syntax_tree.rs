@@ -25,6 +25,7 @@ pub enum Expression {
     Mut(String, Box<Expression>),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
     While(Box<Expression>, Vec<Expression>),
+    Iter(Box<Expression>),
     Literal(Literal),
     AddrOf(Vec<Expression>),
     Symbol(String, Type),

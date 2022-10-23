@@ -31,6 +31,7 @@ impl GenType {
                 let size = types.iter().fold(0,|acc, ty| acc+ty.size);
                 (GenTypeKind::Vec(types), size)
             },
+            Type::Iter(_) => (GenTypeKind::Type(module.target_config().pointer_type()), 8),
             Type::Void | Type::Inferred => (GenTypeKind::Vec(vec![]), 0),
         };
         Ok(GenType{ kind, size })
