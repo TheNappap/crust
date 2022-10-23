@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{lexer::{Block, Token}, parser::{Parser, Expression}, error::{Result, Error}};
 
 use super::BlockDefinition;
@@ -15,7 +17,7 @@ impl BlockDefinition for If {
         let body = body
             .into_iter()
             .map(|b| parser.parse_block_expression(b))
-            .collect::<Result<_>>()?;
+            .try_collect()?;
         Ok(Expression::If(Box::new(condition), body, None))
     }
 
@@ -41,7 +43,7 @@ impl BlockDefinition for Else {
         let else_body = body
             .into_iter()
             .map(|b| parser.parse_block_expression(b))
-            .collect::<Result<_>>()?;
+            .try_collect()?;
 
         let if_else_expr = match input {
             Expression::If(condition, if_body, None) => Expression::If(condition, if_body, Some(else_body)),

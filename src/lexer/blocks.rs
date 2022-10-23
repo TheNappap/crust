@@ -137,7 +137,7 @@ impl<'str> BlockStream<'str> {
                 }
                 true
             })
-            .collect::<Result<Vec<_>>>();
+            .try_collect();
 
         if let Some(Ok(Token::Operator(Operator::Colon))) = self.stream.peek() {
             self.stream.next();
@@ -146,7 +146,7 @@ impl<'str> BlockStream<'str> {
     }
 
     fn collect_block_body_and_chain(&mut self) -> Result<(Vec<Block>, Option<Box<Block>>)> {
-        let tokens = self
+        let tokens: Vec<Token> = self
             .stream
             .peeking_take_while(|token| match token {
                 Ok(token) => !matches!(
@@ -155,7 +155,7 @@ impl<'str> BlockStream<'str> {
                 ),
                 Err(_) => false,
             })
-            .collect::<Result<Vec<_>>>()?;
+            .try_collect()?;
 
         let (tokens, chained_block) = match self.stream.next() {
             Some(Ok(Token::Operator(Operator::Semicolon))) | None => (tokens, None),
@@ -174,7 +174,7 @@ impl<'str> BlockStream<'str> {
             _ => return Err(Error::syntax("Expected an end to block".to_string(), 0)),
         };
 
-        Ok((BlockStream::new(tokens).collect::<Result<_>>()?, chained_block.map(Box::new)))
+        Ok((BlockStream::new(tokens).try_collect()?, chained_block.map(Box::new)))
     }
 
 }
@@ -199,7 +199,7 @@ mod tests {
 				call function();
 			}
 		"#;
-        let blocks = BlockStream::from(s).collect::<Result<Vec<_>>>()?;
+        let blocks: Vec<Block> = BlockStream::from(s).try_collect()?;
         assert_eq!(
             blocks,
             vec![Block {
@@ -290,7 +290,7 @@ mod tests {
                 }
 			}
 		"#;
-        let blocks = BlockStream::from(s).collect::<Result<Vec<_>>>()?;
+        let blocks: Vec<Block> = BlockStream::from(s).try_collect()?;
         assert_eq!(
             blocks,
             vec![Block {

@@ -3,6 +3,7 @@ use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_module::Module;
 use cranelift_object::ObjectModule;
 use cranelift_codegen::ir::types::{I64, F64, B64};
+use itertools::Itertools;
 
 use crate::{parser::Type, error::Result};
 
@@ -26,7 +27,7 @@ impl GenType {
             Type::Array(ty, len) => {
                 let types: Vec<_> = (0..*len)
                     .filter_map(|_| Some(GenType::from_type(ty, module)))
-                    .collect::<Result<_>>()?;
+                    .try_collect()?;
                 let size = types.iter().fold(0,|acc, ty| acc+ty.size);
                 (GenTypeKind::Vec(types), size)
             },
@@ -58,7 +59,7 @@ impl GenType {
                     *s += ty.size() as i32;
                     Some(ty.offsets().iter()
                         .map(|offset| cur_offset+*offset)
-                        .collect::<Vec<_>>())
+                        .collect_vec())
                 })
                 .flatten()
                 .collect(),

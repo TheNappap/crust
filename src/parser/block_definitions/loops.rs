@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{lexer::{Block, Token}, parser::{Parser, Expression}, error::{Result, Error}};
 
 use super::BlockDefinition;
@@ -16,7 +18,7 @@ impl BlockDefinition for While {
         let body = body
             .into_iter()
             .map(|b| parser.parse_block_expression(b))
-            .collect::<Result<_>>()?;
+            .try_collect()?;
         Ok(Expression::While(Box::new(condition), body))
     }
     

@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{
     error::{Error, Result},
     lexer::{Block, Delimeter, Token},
@@ -26,7 +28,7 @@ impl BlockDefinition for Call {
                         .contents
                         .into_iter()
                         .map(|tokens| parser.parse_expression(tokens))
-                        .collect::<Result<_>>()?;
+                        .try_collect()?;
                     Ok(Expression::Call(Signature::new(&id, vec![], Type::Inferred), exprs))
                 }
                 _ => Err(Error::syntax("Expected a parameter group".to_string(), 0)),

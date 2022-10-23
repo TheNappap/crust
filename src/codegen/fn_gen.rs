@@ -134,19 +134,16 @@ impl<'gen> FunctionCodegen<'gen> {
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }],
             Expression::AddrOf(expressions) => {
-                let values = expressions.iter()
+                let values: Vec<_> = expressions.iter()
                         .map(|expr|self.create_expression(expr))
-                        .collect::<Result<Vec<_>>>()?
-                        .into_iter()
-                        .flatten()
-                        .collect::<Vec<_>>();
+                        .flatten_ok()
+                        .try_collect()?;
                 self.create_pointer_to_stack_slot(&values)?
             }
             Expression::Symbol(name, ty) => {
                 let ss = *self.variables.get(name).unwrap();
                 let ty = GenType::from_type(ty, self.module)?;
                 ty.types().into_iter().zip(ty.offsets()).map(|(ty, offset)|{
-                    println!("{name}: {offset}");
                     self.stack_load(*ty, ss, offset)
                 }).collect()
             }

@@ -166,7 +166,7 @@ mod tests {
 		//line
 		"#;
         let stream = NoCommentsStream::from(s);
-        let result: String = stream.collect::<Result<_>>()?;
+        let result: String = stream.try_collect()?;
         assert_eq!("\n\t\t\n\t\t", result);
         Ok(())
     }
@@ -180,7 +180,7 @@ mod tests {
 		/** block_comment **/
 		"#;
         let stream = NoCommentsStream::from(s);
-        let result: String = stream.collect::<Result<_>>()?;
+        let result: String = stream.try_collect()?;
         assert_eq!("\n\t\t\n\t\t\n\t\t", result);
         Ok(())
     }
@@ -198,7 +198,7 @@ mod tests {
 		*/
 		"#;
         let stream = NoCommentsStream::from(s);
-        let result: String = stream.collect::<Result<_>>()?;
+        let result: String = stream.try_collect()?;
         assert_eq!("\n\t\t\n\t\t", result);
         Ok(())
     }
@@ -207,7 +207,7 @@ mod tests {
     fn no_comment_slash() -> Result<()> {
         let s = r#"5/5"#;
         let stream = NoCommentsStream::from(s);
-        let result: String = stream.collect::<Result<_>>()?;
+        let result: String = stream.try_collect()?;
         assert_eq!("5/5", result);
         Ok(())
     }

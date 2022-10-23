@@ -194,10 +194,10 @@ impl<'str> TokenStream<'str> {
                 ))
             }
         };
-        let string = self
+        let string: String = self
             .stream
             .peeking_take_while(|c| c.as_ref().map_or(false, |&c| c != '\"'))
-            .collect::<Result<String>>()?;
+            .try_collect()?;
         match self.stream.next().transpose()? {
             Some('\"') => (),
             _ => {
@@ -410,7 +410,7 @@ mod tests {
 			1_0 - 1;
 			2_./1_0._1;
 		"#;
-        let tokens = TokenStream::from(s).collect::<Result<Vec<_>>>()?;
+        let tokens: Vec<Token> = TokenStream::from(s).try_collect()?;
         assert_eq!(
             tokens,
             vec![

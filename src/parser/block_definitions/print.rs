@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{
     error::{Result, Error},
     lexer::{Block, Literal, Token},
@@ -47,10 +49,10 @@ impl BlockDefinition for PrintLn {
 
 fn parse_print(header: Vec<Token>, body: Vec<Block>, parser: &Parser, add: Option<String>) -> Result<Expression> {
     assert!(body.is_empty());
-    let params = parser.parse_list(header)
+    let params: Vec<_> = parser.parse_list(header)
                                     .contents.into_iter()
                                     .map(|tokens| parser.parse_expression(tokens))
-                                    .collect::<Result<Vec<_>>>()?;
+                                    .try_collect()?;
     
     let string_expr = if let Some(add_str) = add {
         Expression::BinOp(BinOpKind::Add, Box::new(params[0].clone()), Box::new(Expression::Literal(Literal::String(add_str))), Type::String)

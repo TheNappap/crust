@@ -4,6 +4,7 @@ mod parse_ops;
 
 
 pub use crate::error::Result;
+use itertools::Itertools;
 pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, SyntaxTree, types::Type};
 
 use crate::{
@@ -68,7 +69,7 @@ impl Parser {
                     }
                 }
             })
-            .collect::<Result<_>>()?;
+            .try_collect()?;
         Ok(SyntaxTree::new(fns))
     }
 

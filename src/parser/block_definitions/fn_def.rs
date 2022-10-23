@@ -1,3 +1,5 @@
+use itertools::{Itertools, process_results};
+
 use crate::{
     error::{Error, Result},
     lexer::{Block, Delimeter, Token, Operator},
@@ -26,29 +28,29 @@ impl BlockDefinition for FnDef {
             }
         };
 
-        let (param_names, param_types) = match tokens.next() {
+        let params = match tokens.next() {
             Some(Token::Group(Delimeter::Parens, params)) => parser.parse_list(params),
             _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0)),
         }
         .contents.into_iter()
-                 .map(|tokens|{
-                    let mut tokens = tokens.into_iter();
-                    let name = match tokens.next() {
-                        Some(Token::Ident(name)) => name,
-                        _ => return Err(Error::syntax("Expected an identifier as parameter name".to_string(), 0))
-                    };
+        .map(|tokens|{
+            let mut tokens = tokens.into_iter();
+            let name = match tokens.next() {
+                Some(Token::Ident(name)) => name,
+                _ => return Err(Error::syntax("Expected an identifier as parameter name".to_string(), 0))
+            };
 
-                    if !matches!(tokens.next(), Some(Token::Operator(Operator::Colon))) {  
-                        return Err(Error::syntax("Expected an ':' and a type name".to_string(), 0))
-                    }
-                    let ty = match tokens.next() {
-                        Some(token) => Type::from(token),
-                        _ => return Err(Error::syntax("Expected an identifier as type name".to_string(), 0))
-                    }; 
-                    Ok((name, ty))
-                 })
-                 .collect::<Result<Vec<_>>>()?
-                 .into_iter().unzip();
+            if !matches!(tokens.next(), Some(Token::Operator(Operator::Colon))) {  
+                return Err(Error::syntax("Expected an ':' and a type name".to_string(), 0))
+            }
+            let ty = match tokens.next() {
+                Some(token) => Type::from(token),
+                _ => return Err(Error::syntax("Expected an identifier as type name".to_string(), 0))
+            }; 
+            Ok((name, ty))
+        });
+        
+        let (param_names, param_types) = process_results(params, |iter| iter.unzip())?;
 
         let returns = match (tokens.next(), tokens.next()) {
             (None, None) => Type::Void,
@@ -60,7 +62,7 @@ impl BlockDefinition for FnDef {
         let exprs = body
             .into_iter()
             .map(|block| parser.parse_block_expression(block))
-            .collect::<Result<Vec<Expression>>>()?;
+            .try_collect()?;
         Ok(Expression::Fn(Fn::new(signature, param_names, exprs)))
     }
     

@@ -21,7 +21,7 @@ impl BlockDefinition for Array {
             let list = parser.parse_list(tokens.clone())
                 .contents.into_iter()
                 .map(|tokens|parser.parse_expression(tokens))
-                .collect::<Result<Vec<_>>>()?;
+                .try_collect()?;
             Ok(Expression::Array(list))
         } else {
             Err(Error::syntax("Expected array in brackets".to_string(), 0))

@@ -56,7 +56,7 @@ impl<'f> TypeCheck<'f> {
                                 Ok(ty)
                             })
                       })
-                      .collect::<Result<Vec<_>>>()?;
+                      .try_for_each(|x| x.and_then(|_| Ok(())))?;
 
                 if *signature.returns() == Type::Inferred {
                     let fun = self.functions.get(signature.name()).expect("Function not found");
