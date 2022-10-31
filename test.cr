@@ -34,11 +34,12 @@ fn loops_and_arrays() {
         mut add = 25 + add;
     }
 
-    let arr = array[5,6,7];
+    let arr = [5,6,7];
+    //mut index arr[1] = 12;
     println "array: %i, %i, %i", arr;
-    iter array[6,2,4] {} for i {
+    println "array[1]: %i", index arr[1];
+    iter arr {} for i {
         println "iter %i", i;
-        let add = 0;
     }
 }
 

@@ -13,7 +13,7 @@ impl BlockDefinition for Iter {
 
     fn parse(&self, header: Vec<Token>, _: Vec<Block>, parser: &Parser) -> Result<Expression> {
         let iter = parser.parse_expression(header)?;
-        Ok(Expression::Iter(Box::new(iter)))
+        Ok(Expression::Iter(Box::new(iter), 0))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {

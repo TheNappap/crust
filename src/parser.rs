@@ -41,6 +41,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<loops::While>();
     blockdefs.add::<loops::For>();
     blockdefs.add::<array::Array>();
+    blockdefs.add::<array::Index>();
     blockdefs.add::<iter::Iter>();
     blockdefs
 }
@@ -81,6 +82,7 @@ impl Parser {
                 Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
                 Token::Literal(literal) => return Ok(Expression::Literal(literal.clone())),
                 Token::Group(Delimeter::Parens, tokens) => return self.parse_expression(tokens.clone()),
+                Token::Group(Delimeter::Brackets, _) => return self.parse_block_expression(Block { tag: "array".into(), header: tokens, body: vec![], chain: None }),
                 _ => todo!(),
             }
         }

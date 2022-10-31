@@ -1,8 +1,8 @@
 use itertools::Itertools;
 
-use crate::{error::{Error, Result}, lexer::{Block, Token, Operator, Delimeter}, parser::{
+use crate::{error::{Error, Result}, lexer::{Block, Token, Delimeter}, parser::{
         syntax_tree::{Expression},
-        Parser,
+        Parser, Type,
     }};
 
 use super::BlockDefinition;
@@ -35,26 +35,30 @@ impl BlockDefinition for Array {
 
 
 #[derive(Default)]
-pub struct Mut;
+pub struct Index;
 
-impl BlockDefinition for Mut {
+impl BlockDefinition for Index {
     fn id(&self) -> &str {
-        "mut"
+        "index"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
-        let mut tokens = header.into_iter();
-        match tokens.next() {
-            Some(Token::Ident(id)) => match tokens.next() {
-                Some(Token::Operator(Operator::Eq)) => {
-                    let expression = parser.parse_expression(tokens.collect_vec())?;
-                    Ok( Expression::Mut(id, Box::new(expression)) )
-                }
-                _ => Err(Error::syntax("Expected '='".to_string(), 0)),
-            },
-            _ => {
-                Err(Error::syntax("Expected an identifier as variable name".to_string(), 0))
+    fn parse(&self, mut header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+        assert!(body.is_empty());
+        if let Some(Token::Group(Delimeter::Brackets, tokens)) = header.pop() {
+            let index: Vec<_> = parser.parse_list(tokens)
+                .contents.into_iter()
+                .map(|tokens| parser.parse_expression(tokens))
+                .collect::<Result<_>>()?;
+            if index.len() != 1 {
+                return Err(Error::syntax("Expected exactly one index".to_string(), 0));
             }
+            let index = index[0].clone();
+
+            let collection = parser.parse_expression(header)?;
+
+            Ok(Expression::Index(Box::new(collection), Box::new(index), Type::Inferred, 0))
+        } else {
+            return Err(Error::syntax("Expected brackets at the end of index block".to_string(), 0));
         }
     }
 

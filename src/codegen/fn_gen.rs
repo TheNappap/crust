@@ -3,11 +3,12 @@ use std::collections::HashMap;
 
 use std::ops::{RangeFrom, Range};
 
+use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::types::{I64, B64};
 use cranelift_codegen::ir::{ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, FuncRef, Block, InstBuilderBase, StackSlot, self, MemFlags};
 
 use cranelift_codegen::verifier::verify_function;
-use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use cranelift_module::{DataContext, Linkage, Module};
 use cranelift_object::ObjectModule;
 use itertools::Itertools;
@@ -45,6 +46,7 @@ pub fn create_fn<'gen>(
         variables: HashMap::new(),
         functions: HashMap::new(),
         str_counter: Counter::new(),
+        var_counter: Counter::new(),
     };
 
     fun_codegen.create_fn(fun)?;
@@ -78,6 +80,7 @@ struct FunctionCodegen<'gen> {
     variables: HashMap<String, StackSlot>,
     functions: HashMap<String, FuncRef>,
     str_counter: Counter,
+    var_counter: Counter,
 }
 
 impl<'gen> FunctionCodegen<'gen> {
@@ -130,8 +133,11 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::For(iter, var_name, var_type, for_body) => {
                 self.create_for(iter, var_name.clone(), &GenType::from_type(var_type, self.module)?, for_body)?
             }
-            Expression::Iter(iter) => {
+            Expression::Iter(iter, _) => {
                 self.create_expression(iter)?
+            }
+            Expression::Index(collection, index, ty, coll_length) => {
+                self.create_index(collection, index, &GenType::from_type(ty, self.module)?, *coll_length)?
             }
             Expression::Literal(literal) => vec![match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
@@ -343,7 +349,25 @@ impl<'gen> FunctionCodegen<'gen> {
         Ok(vec![])
     }
 
-    fn create_index(&mut self, ss: StackSlot, ty: &GenType, index: Value) -> Vec<Value> {
+    fn create_index(&mut self, collection: &Expression, index: &Expression, ty: &GenType, coll_length: u32) -> Result<Vec<Value>> {
+        let index = self.create_expression(index)?[0];
+
+        let ss = match collection {
+            Expression::Symbol(name, _) => *self.variables.get(name).unwrap(),
+            _ => {
+                let values = self.create_expression(collection)?;
+                let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size()*coll_length));
+                for (i, &value) in values.iter().enumerate() {
+                    self.stack_store(value, ss, 8*i as i32);
+                }
+                ss
+            }
+        };
+
+        Ok(self.create_indexed(ss, ty, index))
+    }
+
+    fn create_indexed(&mut self, ss: StackSlot, ty: &GenType, index: Value) -> Vec<Value> {
         let addr = self.builder.ins().stack_addr(I64, ss, 0);
         let index = self.builder.ins().imul_imm(index, ty.size() as i64);
         let new_addr = self.builder.ins().iadd(addr, index);
@@ -356,75 +380,89 @@ impl<'gen> FunctionCodegen<'gen> {
     }
 
     fn create_for(&mut self, iter: &Expression, var_name: String, var_type: &GenType, for_body: &[Expression]) -> Result<Vec<Value>> {  
-        if let Expression::Iter(arr) = iter {
-            if let Expression::Array(list) = &**arr {
-                if list.len() == 0 { return Ok(vec![]); }
+        if let Expression::Iter(coll, len) = iter {
+            if *len == 0 { return Ok(vec![]); }
 
-                let init_block = self.builder.create_block();
-                let add_block = self.builder.create_block();
-                let check_block = self.builder.create_block();
-                let for_block = self.builder.create_block();
-                let after_block = self.builder.create_block();
+            let ss = match &**coll {
+                Expression::Symbol(name, _) => *self.variables.get(name).unwrap(),
+                Expression::Array(_) => {
+                    let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()*len));
+                    let values = self.create_expression(coll)?;
+                    for (i, &value) in values.iter().enumerate() {
+                        self.stack_store(value, ss, 8*i as i32);
+                    }
+                    ss
+                },
+                _ => return Err(Error::codegen("Expected array in iter of for loop".to_string(), 0)),
+            };
 
-                let iter_var_name = "$i_".to_string() + &var_name;
+            let init_block = self.builder.create_block();
+            let add_block = self.builder.create_block();
+            let check_block = self.builder.create_block();
+            let for_block = self.builder.create_block();
+            let after_block = self.builder.create_block();
 
-                self.builder.ins().jump(init_block, &[]);
+            self.builder.ins().jump(init_block, &[]);
 
-                //init block
-                self.builder.switch_to_block(init_block);
+            //init block
+            self.builder.switch_to_block(init_block);
 
-                self.create_local_variable(iter_var_name.clone(), &Expression::Literal(Literal::Int(0)), &GenType::from_type(&Type::Int, self.module)?)?;
-                self.create_local_variable(var_name.clone(), &list[0], var_type)?;
-                let arr_ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()*list.len() as u32));
-                let arr_values = self.create_expression(arr)?;
-                for (i, &value) in arr_values.iter().enumerate() {
-                    self.stack_store(value, arr_ss, 8*i as i32);
-                }
-                self.builder.ins().jump(check_block, &[]);
+            let iter_var = Variable::new(self.var_counter.next());
+            self.builder.declare_var(iter_var, I64);
+            let init_value = self.builder.ins().iconst(I64, 0);
+            self.builder.def_var(iter_var, init_value);
+            self.builder.ins().jump(check_block, &[]);
 
-                //add block
-                self.builder.switch_to_block(add_block);
+            //add block
+            self.builder.switch_to_block(add_block);
 
-                self.create_variable_mutation(&iter_var_name, &Expression::BinOp(BinOpKind::Add, Box::new(Expression::Symbol(iter_var_name.clone(), Type::Int)), Box::new(Expression::Literal(Literal::Int(1))), Type::Int))?;
+            let arg1 = self.builder.use_var(iter_var);
+            let arg2 = self.builder.ins().iconst(I64, 1);
+            let new_value = self.builder.ins().iadd(arg1, arg2);
+            self.builder.def_var(iter_var, new_value);
 
-                self.builder.ins().jump(check_block, &[]);
+            self.builder.ins().jump(check_block, &[]);
 
-                //check block
-                self.builder.switch_to_block(check_block);
+            //check block
+            self.builder.switch_to_block(check_block);
 
-                let cond = self.create_expression(&Expression::BinOp(BinOpKind::Eq, Box::new(Expression::Symbol(iter_var_name.clone(), Type::Int)), Box::new(Expression::Literal(Literal::Int(list.len() as i64))), Type::Int))?[0];
-                self.builder.ins().brnz(cond, after_block, &[]);
+            let arg1 = self.builder.use_var(iter_var);
+            let arg2 = self.builder.ins().iconst(I64, *len as i64);
+            let cond = self.builder.ins().icmp(CompKind::Equal.to_intcc(), arg1, arg2);
+            self.builder.ins().brnz(cond, after_block, &[]);
 
-                self.builder.ins().jump(for_block, &[]);
+            self.builder.ins().jump(for_block, &[]);
 
-                //for block
-                self.builder.switch_to_block(for_block);
+            //for block
+            self.builder.switch_to_block(for_block);
 
-                let iter_var_ss = *self.variables.get(&iter_var_name).unwrap();
-                let iter_var = self.stack_load(I64, iter_var_ss, 0);
-                let indexed_values = self.create_index(arr_ss, var_type, iter_var);
-                let var_ss = *self.variables.get(&var_name).unwrap();
-                for (i, &value) in indexed_values.iter().enumerate() {
-                    self.stack_store(value, var_ss, 8*i as i32);
-                }
+            let iter_var = self.builder.use_var(iter_var);
+            let indexed_values = self.create_indexed(ss, var_type, iter_var);
 
-                for statement in for_body {
-                    self.create_expression(statement)?;
-                }
-                
-                self.builder.ins().jump(add_block, &[]);
-                
-                //after block
-                self.builder.switch_to_block(after_block);
-                self.builder.seal_block(init_block);
-                self.builder.seal_block(add_block);
-                self.builder.seal_block(check_block);
-                self.builder.seal_block(for_block);
-                self.builder.seal_block(after_block);
-                Ok(vec![])
-            }else {
-                Err(Error::codegen("Expected array in iter of for loop".to_string(), 0))
+            match self.variables.get(&var_name) {
+                Some(ss) => {
+                    let ss = ss.clone();
+                    for (i, &value) in indexed_values.iter().enumerate() {
+                        self.stack_store(value, ss, 8*i as i32);
+                    }
+                },
+                None => { self.create_variable(var_name.clone(), indexed_values, var_type)?; },
+            };
+
+            for statement in for_body {
+                self.create_expression(statement)?;
             }
+            
+            self.builder.ins().jump(add_block, &[]);
+                
+            //after block
+            self.builder.switch_to_block(after_block);
+            self.builder.seal_block(init_block);
+            self.builder.seal_block(add_block);
+            self.builder.seal_block(check_block);
+            self.builder.seal_block(for_block);
+            self.builder.seal_block(after_block);
+            Ok(vec![])
         } else {
             Err(Error::codegen("Expected iter".to_string(), 0))
         }

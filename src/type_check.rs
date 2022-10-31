@@ -140,10 +140,13 @@ impl<'f> TypeCheck<'f> {
                     return Err(Error::type_("Expected iter as input for for block".to_string(), 0));
                 }
             },
-            Expression::Iter(iter) => {
+            Expression::Iter(iter, len) => {
                 let ty = self.check_expression(iter)?;
                 match ty {
-                    Type::Array(_, _) => Type::Iter(Box::new(ty)),
+                    Type::Array(_, l) => {
+                        *len = l as u32;
+                        Type::Iter(Box::new(ty))
+                    },
                     _ => return Err(Error::type_("Expected array as iterable".to_string(), 0)),
                 }
             },
@@ -217,6 +220,19 @@ impl<'f> TypeCheck<'f> {
                     }
                 }
                 Type::Array(Box::new(ty), list.len())
+            },
+            Expression::Index(collection, index, var_ty, coll_length) => {
+                if self.check_expression(index)? != Type::Int {
+                    return Err(Error::type_("Expected int as index".into(), 0));
+                }
+                match self.check_expression(collection)? {
+                    Type::Array(ty, length) => {
+                        *var_ty = (*ty).clone();
+                        *coll_length = length as u32;
+                        *ty
+                    },
+                    _ => return Err(Error::type_("Expected array to index into".into(), 0)),
+                }
             },
         };
         Ok(ty)

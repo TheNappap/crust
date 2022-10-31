@@ -26,7 +26,7 @@ pub enum Expression {
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
     While(Box<Expression>, Vec<Expression>),
     For(Box<Expression>, String, Type, Vec<Expression>),
-    Iter(Box<Expression>),
+    Iter(Box<Expression>, u32),
     Literal(Literal),
     AddrOf(Vec<Expression>),
     Symbol(String, Type),
@@ -34,6 +34,7 @@ pub enum Expression {
     UnOp(UnOpKind, Box<Expression>, Type),
     Return(Box<Expression>),
     Array(Vec<Expression>),
+    Index(Box<Expression>, Box<Expression>, Type, u32),
 }
 
 #[derive(Debug, PartialEq, Clone)]
