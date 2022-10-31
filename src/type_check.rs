@@ -118,10 +118,32 @@ impl<'f> TypeCheck<'f> {
                 }
                 Type::Void
             },
+            Expression::For(iter, var_name, var_type, for_body) => {
+                let ty = self.check_expression(iter)?;
+                if let Type::Iter(arr) = ty {
+                    if let Type::Array(arr_type, _) = *arr {
+                        if *var_type == Type::Inferred {
+                            *var_type = *arr_type.clone();
+                        }
+                        self.variables.insert(var_name.clone(), var_type.clone());
+                        if *arr_type != *var_type {
+                            return Err(Error::type_("Array type and for type do not match".to_string(), 0));
+                        }
+                        for expr in for_body {
+                            self.check_expression(expr)?;
+                        }
+                        Type::Void
+                    } else {
+                        return Err(Error::type_("Expected array as iterator".to_string(), 0));
+                    }
+                } else {
+                    return Err(Error::type_("Expected iter as input for for block".to_string(), 0));
+                }
+            },
             Expression::Iter(iter) => {
                 let ty = self.check_expression(iter)?;
                 match ty {
-                    Type::Array(ty, _) => Type::Iter(ty),
+                    Type::Array(_, _) => Type::Iter(Box::new(ty)),
                     _ => return Err(Error::type_("Expected array as iterable".to_string(), 0)),
                 }
             },

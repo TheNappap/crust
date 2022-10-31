@@ -39,6 +39,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<conditional::If>();
     blockdefs.add::<conditional::Else>();
     blockdefs.add::<loops::While>();
+    blockdefs.add::<loops::For>();
     blockdefs.add::<array::Array>();
     blockdefs.add::<iter::Iter>();
     blockdefs
