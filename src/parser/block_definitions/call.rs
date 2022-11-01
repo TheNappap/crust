@@ -21,6 +21,7 @@ impl BlockDefinition for Call {
 
     fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
         let mut tokens = header.into_iter();
+        
         match tokens.next() {
             Some(Token::Ident(id)) => match tokens.next() {
                 Some(Token::Group(Delimeter::Parens, tokens)) => {

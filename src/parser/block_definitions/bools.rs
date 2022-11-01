@@ -11,7 +11,9 @@ impl BlockDefinition for True {
         "true"
     }
 
-    fn parse(&self, _header: Vec<Token>, _body: Vec<Block>, _parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, body: Vec<Block>, _parser: &Parser) -> Result<Expression> {
+        assert!(header.is_empty());
+        assert!(body.is_empty());
         Ok(Expression::Literal(Literal::Bool(true)))
     }
     
@@ -28,7 +30,9 @@ impl BlockDefinition for False {
         "false"
     }
 
-    fn parse(&self, _header: Vec<Token>, _body: Vec<Block>, _parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, body: Vec<Block>, _parser: &Parser) -> Result<Expression> {
+        assert!(header.is_empty());
+        assert!(body.is_empty());
         Ok(Expression::Literal(Literal::Bool(false)))
     }
     

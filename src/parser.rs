@@ -77,6 +77,10 @@ impl Parser {
     }
 
     pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {
+        if tokens.is_empty() {
+            return Err(Error::syntax("Can't make block from an empty list of tokens.".into(), 0,))
+        }
+
         if tokens.len() == 1 {
             match tokens.first().unwrap() {
                 Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),

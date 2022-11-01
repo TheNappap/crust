@@ -64,7 +64,28 @@ fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, OpKind, Operator)>
     op.map(|(index,kind, op)| (index, kind, op.clone()))
 }
 
-pub fn parse_expression(tokens: Vec<Token>) -> Result<Block> {
+fn remove_block_tag_tokens(tokens: &mut Vec<Token>) {
+    *tokens = tokens.clone().into_iter()
+        .scan(None, |st, token| {
+            if let (Some(Token::Ident(_)),Token::Operator(Operator::Not)) = (&st, &token) {
+                return Some(None);
+            }
+            *st = Some(token.clone());
+            Some(Some(token))
+        })
+        .filter_map(|token| token)
+        .collect();
+}
+
+fn parse_indexing(tokens: &mut Vec<Token>) {
+    if let Token::Group(Delimeter::Brackets, _) = tokens.last().unwrap() {
+        tokens.insert(0, Token::Ident("index".into()));
+    }
+}
+
+pub fn parse_expression(mut tokens: Vec<Token>) -> Result<Block> {
+    remove_block_tag_tokens(&mut tokens);
+
     if let Some((index, kind, op)) = next_operator_index(&tokens) {
         if let Some(tag) = id_of_operator(kind, &op) {
             let mut tokens = tokens;
@@ -76,6 +97,8 @@ pub fn parse_expression(tokens: Vec<Token>) -> Result<Block> {
             return Ok(Block{tag, header: tokens, body: vec![], chain: None});
         }
     }
+
+    parse_indexing(&mut tokens);
 
     let mut blocks = BlockStream::new(tokens);
     let block = blocks.next();

@@ -116,6 +116,10 @@ impl<'str> BlockStream<'str> {
     }
 
     fn collect_block(&mut self, tag: String) -> Result<Block> {
+        if let Some(Ok(Token::Operator(Operator::Not))) = self.stream.peek() {
+            self.stream.next();
+        }
+
         let header = self.collect_block_header()?;
         let (body, chain) = self.collect_block_body_and_chain()?;
         Ok(Block { tag, header, body, chain })
