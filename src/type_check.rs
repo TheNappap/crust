@@ -150,6 +150,16 @@ impl<'f> TypeCheck<'f> {
                     _ => return Err(Error::type_("Expected array as iterable".to_string(), 0)),
                 }
             },
+            Expression::Group(body) => {
+                let body_size = body.len();
+                for expr in body.iter_mut().take(body_size) {
+                    self.check_expression(expr)?;
+                }
+                match body.last_mut() {
+                    None => Type::Void,
+                    Some(expr) => self.check_expression(expr)?,
+                }
+            },
             Expression::Literal(Literal::Int(_)) => Type::Int,
             Expression::Literal(Literal::Float(_)) => Type::Float,
             Expression::Literal(Literal::Bool(_)) => Type::Bool,

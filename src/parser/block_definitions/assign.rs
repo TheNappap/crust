@@ -1,8 +1,8 @@
-use itertools::Itertools;
 
-use crate::{error::{Error, Result}, lexer::{Block, Token, Operator}, parser::{
+
+use crate::{error::{Error, Result}, lexer::{Token}, parser::{
         syntax_tree::{Expression},
-        Parser, Type,
+        Parser,
     }};
 
 use super::BlockDefinition;
@@ -16,23 +16,18 @@ impl BlockDefinition for Let {
         "let"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
-        let mut tokens = header.into_iter();
-        match tokens.next() {
-            Some(Token::Ident(id)) => match tokens.next() {
-                Some(Token::Operator(Operator::Eq)) => {
-                    let expression = parser.parse_expression(tokens.collect_vec())?;
-                    Ok( Expression::Let(id, Box::new(expression), Type::Inferred) )
-                }
-                _ => Err(Error::syntax("Expected '='".to_string(), 0)),
-            },
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+        let (id, ty) = match parser.parse_expression(header)? {
+            Expression::Symbol(id, ty) => (id, ty),
             _ => {
-                Err(Error::syntax("Expected an identifier as variable name".to_string(), 0))
+                return Err(Error::syntax("Expected an identifier as variable name".to_string(), 0));
             }
-        }
+        };
+        let value = parser.parse_expression(body)?;
+        Ok(Expression::Let(id, Box::new(value), ty))
     }
 
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }
@@ -46,23 +41,18 @@ impl BlockDefinition for Mut {
         "mut"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
-        let mut tokens = header.into_iter();
-        match tokens.next() {
-            Some(Token::Ident(id)) => match tokens.next() {
-                Some(Token::Operator(Operator::Eq)) => {
-                    let expression = parser.parse_expression(tokens.collect_vec())?;
-                    Ok( Expression::Mut(id, Box::new(expression)) )
-                }
-                _ => Err(Error::syntax("Expected '='".to_string(), 0)),
-            },
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+        let id = match parser.parse_expression(header)? {
+            Expression::Symbol(id, _) => id,
             _ => {
-                Err(Error::syntax("Expected an identifier as variable name".to_string(), 0))
+                return Err(Error::syntax("Expected an identifier as variable name".to_string(), 0));
             }
-        }
+        };
+        let value = parser.parse_expression(body)?;
+        Ok(Expression::Mut(id, Box::new(value)))
     }
 
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

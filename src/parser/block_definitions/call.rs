@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     error::{Error, Result},
-    lexer::{Block, Delimeter, Token},
+    lexer::{Delimeter, Token},
     parser::{
         syntax_tree::{Expression},
         Parser, Type, Signature
@@ -19,14 +19,13 @@ impl BlockDefinition for Call {
         "call"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
         let mut tokens = header.into_iter();
         
         match tokens.next() {
             Some(Token::Ident(id)) => match tokens.next() {
                 Some(Token::Group(Delimeter::Parens, tokens)) => {
                     let exprs = parser.parse_list(tokens)
-                        .contents
                         .into_iter()
                         .map(|tokens| parser.parse_expression(tokens))
                         .try_collect()?;
@@ -40,7 +39,7 @@ impl BlockDefinition for Call {
         }
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

@@ -139,6 +139,9 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Index(collection, index, ty, coll_length) => {
                 self.create_index(collection, index, &GenType::from_type(ty, self.module)?, *coll_length)?
             }
+            Expression::Group(body) => {
+                self.create_group(body)?
+            }
             Expression::Literal(literal) => vec![match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),
@@ -276,6 +279,33 @@ impl<'gen> FunctionCodegen<'gen> {
             self.stack_store(value, ss, 8*i as i32);
         }
         Ok(values)
+    }
+
+    fn create_group(&mut self, body: &[Expression]) -> Result<Vec<Value>> { 
+        let group_block = self.builder.create_block();
+        let after_block = self.builder.create_block();
+
+        self.builder.ins().jump(group_block, &[]);
+
+        //group block
+        self.builder.switch_to_block(group_block);
+
+        for statement in body.iter().take(body.len()-1) {
+            self.create_expression(statement)?;
+        }
+
+        let result = match body.last() {
+            Some(last) => self.create_expression(last)?,
+            None => vec![],
+        };
+        
+        self.builder.ins().jump(after_block, &[]);
+        
+        //after block
+        self.builder.switch_to_block(after_block);
+        self.builder.seal_block(after_block);
+        self.builder.seal_block(group_block);
+        Ok(result)
     }
 
     fn create_if(&mut self, condition: &Expression, if_body: &[Expression], else_body: &Option<Vec<Expression>>) -> Result<Vec<Value>> {

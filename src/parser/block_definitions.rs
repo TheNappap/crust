@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     error::{Error, Result},
-    lexer::{Block, Token},
+    lexer::{Token},
 };
 
 use super::{syntax_tree::Expression, Parser};
@@ -17,13 +17,14 @@ pub mod returns;
 pub mod bools;
 pub mod conditional;
 pub mod loops;
+pub mod group;
 pub mod array;
 pub mod iter;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;
-    fn parse(&self, header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression>;
-    fn parse_chained(&self, header: Vec<Token>, body: Vec<Block>, input: Expression, parser: &Parser) -> Result<Expression>;
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression>;
+    fn parse_chained(&self, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<Expression>;
 }
 
 pub struct BlockDefinitions {

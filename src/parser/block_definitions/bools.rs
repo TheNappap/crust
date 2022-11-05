@@ -1,4 +1,4 @@
-use crate::{lexer::{Block, Literal, Token}, parser::{Parser, Expression}, error::{Result, Error}};
+use crate::{lexer::{Literal, Token}, parser::{Parser, Expression}, error::{Result, Error}};
 
 use super::BlockDefinition;
 
@@ -11,13 +11,13 @@ impl BlockDefinition for True {
         "true"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Block>, _parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, _parser: &Parser) -> Result<Expression> {
         assert!(header.is_empty());
         assert!(body.is_empty());
         Ok(Expression::Literal(Literal::Bool(true)))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }
@@ -30,13 +30,13 @@ impl BlockDefinition for False {
         "false"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Block>, _parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, _parser: &Parser) -> Result<Expression> {
         assert!(header.is_empty());
         assert!(body.is_empty());
         Ok(Expression::Literal(Literal::Bool(false)))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

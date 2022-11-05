@@ -1,19 +1,22 @@
+
+
 use crate::{lexer::{Token}, parser::{Parser, Expression}, error::{Result, Error}};
 
 use super::BlockDefinition;
 
 
 #[derive(Default)]
-pub struct Iter;
+pub struct Group;
 
-impl BlockDefinition for Iter {
+impl BlockDefinition for Group {
     fn id(&self) -> &str {
-        "iter"
+        "group"
     }
 
-    fn parse(&self, header: Vec<Token>, _: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        let iter = parser.parse_expression(header)?;
-        Ok(Expression::Iter(Box::new(iter), 0))
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+        assert!(header.is_empty());
+        let exprs = parser.parse_group(body)?;
+        Ok(Expression::Group(exprs))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {

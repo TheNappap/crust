@@ -27,6 +27,7 @@ pub enum Expression {
     While(Box<Expression>, Vec<Expression>),
     For(Box<Expression>, String, Type, Vec<Expression>),
     Iter(Box<Expression>, u32),
+    Group(Vec<Expression>),
     Literal(Literal),
     AddrOf(Vec<Expression>),
     Symbol(String, Type),

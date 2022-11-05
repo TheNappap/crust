@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     error::{Result, Error},
-    lexer::{Block, Literal, Token},
+    lexer::{Literal, Token},
     parser::{
         syntax_tree::{Expression},
         Parser, Signature, BinOpKind, Type
@@ -20,11 +20,11 @@ impl BlockDefinition for Print {
         "print"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
         parse_print(header, body, parser, None)
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }
@@ -38,19 +38,19 @@ impl BlockDefinition for PrintLn {
         "println"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
         parse_print(header, body, parser, Some("\n".into()))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }
 
-fn parse_print(header: Vec<Token>, body: Vec<Block>, parser: &Parser, add: Option<String>) -> Result<Expression> {
+fn parse_print(header: Vec<Token>, body: Vec<Token>, parser: &Parser, add: Option<String>) -> Result<Expression> {
     assert!(body.is_empty());
     let params: Vec<_> = parser.parse_list(header)
-                                    .contents.into_iter()
+                                    .into_iter()
                                     .map(|tokens| parser.parse_expression(tokens))
                                     .try_collect()?;
     

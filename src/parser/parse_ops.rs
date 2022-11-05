@@ -1,7 +1,7 @@
 
 use std::convert::identity;
 
-use crate::{error::{Result, Error}, lexer::{Block, Token, Delimeter, Operator, BlockStream}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate}};
+use crate::{lexer::{Token, Delimeter, Operator}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate}};
 
 #[derive(Debug, PartialEq, Clone)]
 enum OpKind {
@@ -64,87 +64,28 @@ fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, OpKind, Operator)>
     op.map(|(index,kind, op)| (index, kind, op.clone()))
 }
 
-fn remove_block_tag_tokens(tokens: &mut Vec<Token>) {
-    *tokens = tokens.clone().into_iter()
-        .scan(None, |st, token| {
-            if let (Some(Token::Ident(_)),Token::Operator(Operator::Not)) = (&st, &token) {
-                return Some(None);
-            }
-            *st = Some(token.clone());
-            Some(Some(token))
-        })
-        .filter_map(|token| token)
-        .collect();
-}
-
 fn parse_indexing(tokens: &mut Vec<Token>) {
     if let Token::Group(Delimeter::Brackets, _) = tokens.last().unwrap() {
         tokens.insert(0, Token::Ident("index".into()));
     }
 }
 
-pub fn parse_expression(mut tokens: Vec<Token>) -> Result<Block> {
-    remove_block_tag_tokens(&mut tokens);
+pub fn parse_operators(tokens: &mut Vec<Token>)  {
+    if tokens.is_empty() {
+        return;
+    }
 
     if let Some((index, kind, op)) = next_operator_index(&tokens) {
         if let Some(tag) = id_of_operator(kind, &op) {
-            let mut tokens = tokens;
             if index == 0 {
                 tokens.remove(0);
             } else {
                 tokens[index] = Token::Operator(Operator::Comma);
             }
-            return Ok(Block{tag, header: tokens, body: vec![], chain: None});
+            tokens.insert(0, Token::Ident(tag));
+            return;
         }
     }
 
-    parse_indexing(&mut tokens);
-
-    let mut blocks = BlockStream::new(tokens);
-    let block = blocks.next();
-    match block {
-        None => return Err(Error::syntax("Expected an expression".to_string(), 0)),
-        Some(Err(err)) => Err(err),
-        Some(Ok(block)) => if blocks.next().is_some() {
-            return Err(Error::syntax("Unexpected block after expression".to_string(), 0));
-        } else {
-            Ok(block)
-        }
-    }
-}
-
-pub struct TokenList {
-    pub contents: Vec<Vec<Token>>
-}
-
-impl TokenList {
-    fn from(tokens: Vec<Token>) -> TokenList {
-        let mut tokens = tokens.into_iter();
-        let mut contents = Vec::new();
-        while let Some(element) = Self::take_element(&mut tokens) {
-            contents.push(element)
-        }
-        TokenList { contents }
-    }
-
-    fn take_element(tokens: &mut impl Iterator<Item=Token>) -> Option<Vec<Token>> {
-        let mut element = Vec::new();
-        loop {
-            match tokens.next() {
-                None | Some(Token::Operator(Operator::Comma)) => break,
-                Some(token) => element.push(token)
-            }
-        }
-        if element.is_empty() { None } else { Some(element) }
-    }
-}
-
-pub fn parse_list(tokens: Vec<Token>) -> TokenList {
-    let tokens = if tokens.len() == 1 {
-        if let Some(Token::Group(Delimeter::Parens, tokens)) = tokens.first() {
-            tokens.clone()
-        } else { tokens }
-    } else { tokens };
-
-    TokenList::from(tokens)
+    parse_indexing(tokens);
 }

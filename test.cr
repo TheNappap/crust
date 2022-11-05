@@ -1,8 +1,22 @@
 
 fn main() {
+    call basics(); 
+    call loops_and_arrays();
+    call groups();
+}
+
+fn groups() {
+    let group = group {
+        let a = 8;
+        let b = a + 5;
+    } //TODO without group keyword
+    println "group result: %i", group;
+}
+
+fn basics() {
     fn f2(): println "one liner";
     
-    call f2();
+    call! f2();
 
     if true!: println "if one liner"
     else: println "else one liner";
@@ -19,15 +33,13 @@ fn main() {
         println "concat string: %s", concat;
         println "bool: %i", !false;
     } else {
-        println "%s %i %i %i %i %i", "Operations:", 6/3, 5*6, 4+4, 34-35, 5*-4 - --9/3;
+        println "else was activated";
     }
+    println "%s %i %i %i %i %i", "Operations:", 6/3, 5*6, 4+4, 34-35, 5*-4 - --9/3;
+}
 
-    call! loops_and_arrays();
-    /*let group = {
-        let a = 8;
-        let b = a + 5;
-        b
-    } TODO*/
+fn plus_one(a: Int, b: Int) -> Int {
+    return a + b + 1;
 }
 
 fn loops_and_arrays() {
@@ -46,8 +58,4 @@ fn loops_and_arrays() {
         println "iter %i %i", i;
     }
     //iter 0..10 {} //TODO
-}
-
-fn plus_one(a: Int, b: Int) -> Int {
-    return a + b + 1;
 }

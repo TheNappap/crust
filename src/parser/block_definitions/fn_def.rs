@@ -1,8 +1,8 @@
-use itertools::{Itertools, process_results};
+use itertools::{process_results};
 
 use crate::{
     error::{Error, Result},
-    lexer::{Block, Delimeter, Token, Operator},
+    lexer::{Delimeter, Token, Operator},
     parser::{Expression, Fn, Parser, Type, syntax_tree::fn_expr::Signature},
 };
 
@@ -16,7 +16,7 @@ impl BlockDefinition for FnDef {
         "fn"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
         let mut tokens = header.into_iter();
 
         let name = match tokens.next() {
@@ -32,7 +32,7 @@ impl BlockDefinition for FnDef {
             Some(Token::Group(Delimeter::Parens, params)) => parser.parse_list(params),
             _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0)),
         }
-        .contents.into_iter()
+        .into_iter()
         .map(|tokens|{
             let mut tokens = tokens.into_iter();
             let name = match tokens.next() {
@@ -59,14 +59,11 @@ impl BlockDefinition for FnDef {
         };
 
         let signature = Signature::new(&name, param_types, returns);
-        let exprs = body
-            .into_iter()
-            .map(|block| parser.parse_block_expression(block))
-            .try_collect()?;
+        let exprs = parser.parse_group(body)?;
         Ok(Expression::Fn(Fn::new(signature, param_names, exprs)))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

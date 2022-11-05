@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{error::{Error, Result}, lexer::{Block, Token, Delimeter}, parser::{
+use crate::{error::{Error, Result}, lexer::{Token, Delimeter}, parser::{
         syntax_tree::{Expression},
         Parser, Type,
     }};
@@ -16,10 +16,10 @@ impl BlockDefinition for Array {
         "array"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
         if let Some(Token::Group(Delimeter::Brackets, tokens)) = header.first() {
             let list = parser.parse_list(tokens.clone())
-                .contents.into_iter()
+                .into_iter()
                 .map(|tokens|parser.parse_expression(tokens))
                 .try_collect()?;
             Ok(Expression::Array(list))
@@ -28,7 +28,7 @@ impl BlockDefinition for Array {
         }
     }
 
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }
@@ -42,13 +42,13 @@ impl BlockDefinition for Index {
         "index"
     }
 
-    fn parse(&self, mut header: Vec<Token>, body: Vec<Block>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
         assert!(body.is_empty());
         if let Some(Token::Group(Delimeter::Brackets, tokens)) = header.pop() {
             let index: Vec<_> = parser.parse_list(tokens)
-                .contents.into_iter()
+                .into_iter()
                 .map(|tokens| parser.parse_expression(tokens))
-                .collect::<Result<_>>()?;
+                .try_collect()?;
             if index.len() != 1 {
                 return Err(Error::syntax("Expected exactly one index".to_string(), 0));
             }
@@ -62,7 +62,7 @@ impl BlockDefinition for Index {
         }
     }
 
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Block>, _: Expression, _: &Parser) -> Result<Expression> {
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
         Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
     }
 }

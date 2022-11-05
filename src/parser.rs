@@ -1,6 +1,8 @@
+mod blocks;
 mod block_definitions;
 mod syntax_tree;
 mod parse_ops;
+mod parse_list;
 
 
 pub use crate::error::Result;
@@ -9,10 +11,10 @@ pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression,
 
 use crate::{
     error::Error,
-    lexer::{blockify, Block, Token, Delimeter},
+    lexer::{Token, Delimeter},
 };
 
-use self::{block_definitions::{BlockDefinitions, call, returns, fn_def, print, assign, binary_ops, unary_ops, bools, conditional, loops, array, iter}, parse_ops::TokenList};
+use self::{block_definitions::*, blocks::{BlockStream, Block}};
 
 pub fn parse(source: &str) -> Result<SyntaxTree> {
     Parser::new().parse_code(source)
@@ -40,6 +42,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<conditional::Else>();
     blockdefs.add::<loops::While>();
     blockdefs.add::<loops::For>();
+    blockdefs.add::<group::Group>();
     blockdefs.add::<array::Array>();
     blockdefs.add::<array::Index>();
     blockdefs.add::<iter::Iter>();
@@ -58,7 +61,7 @@ impl Parser {
     }
 
     pub fn parse_code(&self, source: &str) -> Result<SyntaxTree> {
-        let fns = blockify(source)
+        let fns = BlockStream::from(source)
             .map(|block| -> Result<Fn> {
                 let block = block?;
                 let tag = block.tag.clone();
@@ -76,9 +79,9 @@ impl Parser {
         Ok(SyntaxTree::new(fns))
     }
 
-    pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {
+    fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
         if tokens.is_empty() {
-            return Err(Error::syntax("Can't make block from an empty list of tokens.".into(), 0,))
+            return Err(Error::syntax("Can't make block from an empty list of tokens.".into(), 0));
         }
 
         if tokens.len() == 1 {
@@ -91,12 +94,21 @@ impl Parser {
             }
         }
 
-        let block = parse_ops::parse_expression(tokens)?;
-        self.parse_block_expression(block)
+        parse_ops::parse_operators(&mut tokens);
+        match BlockStream::new(tokens).next().transpose()? {
+            Some(block) => self.parse_block_expression(block),
+            None => return Err(Error::syntax("Can't make block from an empty list of tokens.".into(), 0)),
+        }
     }
 
-    pub fn parse_list(&self, tokens: Vec<Token>) -> TokenList {
-        parse_ops::parse_list(tokens)
+    fn parse_list(&self, tokens: Vec<Token>) -> Vec<Vec<Token>> {
+        parse_list::parse_list(tokens)
+    }
+
+    fn parse_group(&self, tokens: Vec<Token>) -> Result<Vec<Expression>> {
+        BlockStream::new(tokens)
+            .map(|b|self.parse_block_expression(b?))
+            .try_collect()
     }
 
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {
