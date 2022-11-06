@@ -85,13 +85,8 @@ impl Parser {
         }
 
         if tokens.len() == 1 {
-            match tokens.first().unwrap() {
-                Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
-                Token::Literal(literal) => return Ok(Expression::Literal(literal.clone())),
-                Token::Group(Delimeter::Parens, tokens) => return self.parse_expression(tokens.clone()),
-                Token::Group(Delimeter::Brackets, _) => return self.parse_block_expression(Block { tag: "array".into(), header: tokens, body: vec![], chain: None }),
-                _ => todo!(),
-            }
+            let block = Block::anonymous_block(tokens);
+            return self.parse_block_expression(block);
         }
 
         parse_ops::parse_operators(&mut tokens);
@@ -112,6 +107,22 @@ impl Parser {
     }
 
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {
+        if block.is_anonymous() && block.header.len() == 1 {
+            assert!(block.body.is_empty());
+            let block = match block.header.first().unwrap() {
+                Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
+                Token::Literal(literal) => return Ok(Expression::Literal(literal.clone())),
+                Token::Group(Delimeter::Parens, tokens) => return self.parse_expression(tokens.clone()),
+                Token::Group(Delimeter::Brackets, _) => Block { tag: "array".into(), header: block.header, body: vec![], chain: None },
+                Token::Group(Delimeter::Braces, body) => Block { tag: "group".into(), header: vec![], body: body.clone(), chain: None },
+                _ => return Err(Error::syntax("Can't parse anonymous block.".into(), 0)),
+            };
+            return self.parse_block_expression(block);
+        }
+        if block.is_anonymous() {
+            return Err(Error::syntax("Can't parse anonymous block.".into(), 0));
+        }
+
         let expr = self.blockdefs.get(&block.tag)?.parse(block.header, block.body, self);
         match block.chain {
             Some(chain) => self.parse_chained_block_expression(*chain, expr?),

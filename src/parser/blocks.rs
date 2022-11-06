@@ -11,6 +11,16 @@ pub struct Block {
     pub chain: Option<Box<Block>>
 }
 
+impl Block {
+    pub fn is_anonymous(&self) -> bool {
+        self.tag == ""
+    }
+    
+    pub fn anonymous_block(header: Vec<Token>) -> Block {
+        Block { tag: "".into(), header, body: vec![], chain: None }
+    }
+}
+
 enum TokenStream2<'str> {
     Stream(TokenStream<'str>),
     Vec(Peekable<IntoIter<Result<Token>>>),
@@ -106,7 +116,8 @@ impl<'str> BlockStream<'str> {
             break match self.stream.next()? {
                 Ok(Token::NewLine) => continue,
                 Ok(Token::Ident(id)) => Some(self.collect_block(id)),
-                Ok(Token::Literal(literal)) => Some(BlockStream::nameless_block(vec![Token::Literal(literal)])),
+                Ok(literal @ Token::Literal(_)) => Some(Ok(Block::anonymous_block(vec![literal]))),
+                Ok(group @ Token::Group(Delimeter::Braces, _)) => Some(Ok(Block::anonymous_block(vec![group]))),
                 Ok(token) => Some(Err(Error::syntax(
                     format!("Expected identifier: found {:?}", token),
                     0,
@@ -115,22 +126,18 @@ impl<'str> BlockStream<'str> {
             };
         }
     }
-    
-    fn nameless_block(header: Vec<Token>) -> Result<Block> {
-        Ok(Block { tag: "".into(), header, body: vec![], chain: None })
-    }
 
     fn collect_block(&mut self, tag: String) -> Result<Block> {
         if let Some(Ok(Token::Operator(Operator::Not))) = self.stream.peek() {
             self.stream.next();
         }
 
-        let header = self.collect_block_header()?;
-        let (body, chain) = self.collect_block_body_and_chain()?;
+        let (header, header_token) = self.collect_block_header()?;
+        let (body, chain) = self.collect_block_body_and_chain(header_token)?;
         Ok(Block { tag, header, body, chain })
     }
 
-    fn collect_block_header(&mut self) -> Result<Vec<Token>> {
+    fn collect_block_header(&mut self) -> Result<(Vec<Token>, Option<Token>)> {
         let tokens = self
             .stream
             .peeking_take_while(|token| match token {
@@ -138,7 +145,7 @@ impl<'str> BlockStream<'str> {
                     token,
                     Token::Operator(Operator::Colon | Operator::Eq | Operator::Semicolon) | Token::Group(Delimeter::Braces, _)
                 ),
-                Err(_) => false,
+                Err(_) => true,
             })
             .filter(|token| {
                 if let Ok(token) = token {
@@ -146,15 +153,16 @@ impl<'str> BlockStream<'str> {
                 }
                 true
             })
-            .try_collect();
+            .try_collect()?;
 
         if let Some(Ok(Token::Operator(Operator::Colon | Operator::Eq))) = self.stream.peek() {
-            self.stream.next();
+            Ok((tokens, self.stream.next().transpose()?))
+        } else {
+            Ok((tokens, None))
         }
-        tokens
     }
 
-    fn collect_block_body_and_chain(&mut self) -> Result<(Vec<Token>, Option<Box<Block>>)> {
+    fn collect_block_body_and_chain(&mut self, header_token: Option<Token>) -> Result<(Vec<Token>, Option<Box<Block>>)> {
         let tokens: Vec<Token> = self
             .stream
             .peeking_take_while(|token| match token {
@@ -172,7 +180,7 @@ impl<'str> BlockStream<'str> {
                 (tokens, self.take_block().transpose()?)
             }
             Some(Ok(Token::Group(Delimeter::Braces, group_tokens))) => {
-                let tokens = if !tokens.is_empty() {
+                let tokens = if header_token.is_some() {
                     let mut tokens = tokens;
                     tokens.push(Token::Group(Delimeter::Braces, group_tokens));
                     tokens

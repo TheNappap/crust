@@ -6,11 +6,13 @@ fn main() {
 }
 
 fn groups() {
-    let group = group {
-        let a = 8;
-        let b = a + 5;
-    } //TODO without group keyword
-    println "group result: %i", group;
+    {
+        let group = {
+            let a = 8;
+            let b = a + 5;
+        }
+        println "group result: %i", group;
+    }
 }
 
 fn basics() {
