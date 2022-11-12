@@ -181,6 +181,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 self.create_array(exprs)?
             }
             Expression::Fn(_) => vec![], //ignore, handled before function codegen
+            Expression::Struct(_,_) => todo!(),
         };
         Ok(value)
     }

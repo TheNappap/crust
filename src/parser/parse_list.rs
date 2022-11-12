@@ -3,7 +3,7 @@ use crate::lexer::{Token, Operator, Delimeter};
 
 
 fn split_list(tokens: Vec<Token>) -> Vec<Vec<Token>> {
-    let mut tokens = tokens.into_iter();
+    let mut tokens = tokens.into_iter().filter(|t| !matches!(t, Token::NewLine));
     let mut contents = Vec::new();
     while let Some(element) = take_element(&mut tokens) {
         contents.push(element)

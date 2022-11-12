@@ -72,6 +72,9 @@ impl<'f> TypeCheck<'f> {
                 self.check_fun(fun)?;
                 Type::Inferred
             }
+            Expression::Struct(_name, _types) => {
+                Type::Inferred
+            }
             Expression::Let(name, expr, let_ty) => {
                 let ty = self.check_expression(expr)?;
                 if *let_ty != Type::Inferred && *let_ty != ty {

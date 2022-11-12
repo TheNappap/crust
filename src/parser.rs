@@ -11,7 +11,7 @@ pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression,
 
 use crate::{
     error::Error,
-    lexer::{Token, Delimeter},
+    lexer::{Token, Delimeter, Operator},
 };
 
 use self::{block_definitions::*, blocks::{BlockStream, Block}};
@@ -25,6 +25,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<call::Call>();
     blockdefs.add::<returns::Return>();
     blockdefs.add::<fn_def::FnDef>();
+    blockdefs.add::<structs::Struct>();
     blockdefs.add::<print::Print>();
     blockdefs.add::<print::PrintLn>();
     blockdefs.add::<assign::Let>();
@@ -62,16 +63,21 @@ impl Parser {
 
     pub fn parse_code(&self, source: &str) -> Result<SyntaxTree> {
         let fns = BlockStream::from(source)
-            .map(|block| -> Result<Fn> {
-                let block = block?;
+            .filter_map(|block| {
+                let block = match block {
+                    Ok(block) => block,
+                    Err(err) => return Some(Err(err)),
+                };
                 let tag = block.tag.clone();
-                match self.parse_block_expression(block)? {
-                    Expression::Fn(fun) => Ok(fun),
+                match self.parse_block_expression(block) {
+                    Ok(Expression::Fn(fun)) => Some(Ok(fun)),
+                    Ok(Expression::Struct(_, _)) => None,
+                    Err(err) => Some(Err(err)),
                     _ => {
-                        Err(Error::syntax(
+                        Some(Err(Error::syntax(
                             format!("The block '{}' cannot be used in this position.", tag),
                             0,
-                        ))
+                        )))
                     }
                 }
             })
@@ -104,6 +110,23 @@ impl Parser {
         BlockStream::new(tokens)
             .map(|b|self.parse_block_expression(b?))
             .try_collect()
+    }
+    
+    fn parse_parameter(&self, tokens: Vec<Token>) -> Result<(String, Type)> {
+        let mut tokens = tokens.into_iter();
+        let name = match tokens.next() {
+            Some(Token::Ident(name)) => name,
+            _ => return Err(Error::syntax("Expected an identifier as parameter name".to_string(), 0))
+        };
+
+        if !matches!(tokens.next(), Some(Token::Operator(Operator::Colon))) {  
+            return Err(Error::syntax("Expected an ':' and a type name".to_string(), 0))
+        }
+        let ty = match tokens.next() {
+            Some(token) => Type::from(token),
+            _ => return Err(Error::syntax("Expected an identifier as type name".to_string(), 0))
+        }; 
+        Ok((name, ty))
     }
 
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {

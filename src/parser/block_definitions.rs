@@ -20,6 +20,7 @@ pub mod loops;
 pub mod group;
 pub mod array;
 pub mod iter;
+pub mod structs;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;

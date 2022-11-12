@@ -10,7 +10,7 @@ pub enum Type {
     Void,
     Inferred,
     Array(Box<Type>, usize),
-    //Struct(Vec<Type>, usize),
+    Struct(Vec<Type>),
     Iter(Box<Type>),
 }
 

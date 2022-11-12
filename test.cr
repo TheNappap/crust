@@ -1,3 +1,7 @@
+struct Data {
+    a: Int,
+    b: Int,
+}
 
 fn main() {
     call basics(); 

@@ -24,17 +24,20 @@ impl GenType {
             Type::Float => (GenTypeKind::Type(F64), 8),
             Type::Bool => (GenTypeKind::Type(B64), 8),
             Type::String => (GenTypeKind::Type(module.target_config().pointer_type()), 8),
-            Type::Array(ty, len) => {
-                let types: Vec<_> = (0..*len)
-                    .filter_map(|_| Some(GenType::from_type(ty, module)))
-                    .try_collect()?;
-                let size = types.iter().fold(0,|acc, ty| acc+ty.size);
-                (GenTypeKind::Vec(types), size)
-            },
+            Type::Array(ty, len) => GenType::from_types((0..*len).map(|_| *ty.clone()).collect(), module)?,
+            Type::Struct(types) => GenType::from_types(types.clone(), module)?,
             Type::Iter(_) => (GenTypeKind::Type(module.target_config().pointer_type()), 8),
             Type::Void | Type::Inferred => (GenTypeKind::Vec(vec![]), 0),
         };
         Ok(GenType{ kind, size })
+    }
+
+    fn from_types(types: Vec<Type>, module: &ObjectModule) -> Result<(GenTypeKind, u32)> {
+        let types: Vec<_> = types.into_iter()
+            .map(|ty| GenType::from_type(&ty, module))
+            .try_collect()?;
+        let size = types.iter().fold(0,|acc, ty| acc+ty.size);
+        Ok((GenTypeKind::Vec(types), size))
     }
 
     pub fn size(&self) -> u32 {
