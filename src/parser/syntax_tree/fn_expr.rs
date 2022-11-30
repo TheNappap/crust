@@ -21,6 +21,10 @@ impl Signature {
         self.params.iter()
     }
 
+    pub fn params_mut(&mut self) -> IterMut<Type> {
+        self.params.iter_mut()
+    }
+
     pub fn returns(&self) -> &Type {
         &self.returns
     }
@@ -47,8 +51,12 @@ impl Fn {
         &self.signature
     }
 
-    pub fn params(&self) -> Iter<String> {
-        self.params.iter()
+    pub fn params(&self) -> impl Iterator<Item=(&String,&Type)> {
+        self.params.iter().zip(self.signature.params())
+    }
+
+    pub fn params_mut(&mut self) -> impl Iterator<Item=(&String,&mut Type)> {
+        self.params.iter().zip(self.signature.params_mut())
     }
 
     pub fn expressions(&self) -> Iter<Expression> {

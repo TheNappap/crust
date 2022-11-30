@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::lexer::Token;
 
 
@@ -9,8 +11,9 @@ pub enum Type {
     String,
     Void,
     Inferred,
+    Named(String),
     Array(Box<Type>, usize),
-    Struct(Vec<Type>),
+    Struct(HashMap<String, Type>),
     Iter(Box<Type>),
 }
 
@@ -22,13 +25,9 @@ impl From<Token> for Type {
                 "Float" => Type::Float,
                 "String" => Type::String,
                 "Bool" => Type::Bool,
-                _ty => todo!()
+                name => Type::Named(name.to_owned())
             }
-            Token::Literal(_) => todo!(),
-            Token::Symbol(_) => todo!(),
-            Token::Operator(_) => todo!(),
-            Token::Group(_, _) => todo!(),
-            Token::NewLine => todo!(),
+            t => unreachable!("token for type: {:?}", t),
         }
     }
 }

@@ -1,5 +1,7 @@
 use crate::{parser::{Signature, Fn, Type}, lexer::Literal};
 
+use super::data::Data;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinOpKind {
     Add, Sub, Mul, Div, Eq, Neq
@@ -14,7 +16,8 @@ pub enum UnOpKind {
 pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
-    Struct(String, Type),
+    Struct(Data),
+    New(Data, Vec<Expression>),
     Let(String, Box<Expression>, Type),
     Mut(String, Box<Expression>),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),

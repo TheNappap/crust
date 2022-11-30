@@ -33,22 +33,7 @@ impl BlockDefinition for FnDef {
             _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0)),
         }
         .into_iter()
-        .map(|tokens|{
-            let mut tokens = tokens.into_iter();
-            let name = match tokens.next() {
-                Some(Token::Ident(name)) => name,
-                _ => return Err(Error::syntax("Expected an identifier as parameter name".to_string(), 0))
-            };
-
-            if !matches!(tokens.next(), Some(Token::Operator(Operator::Colon))) {  
-                return Err(Error::syntax("Expected an ':' and a type name".to_string(), 0))
-            }
-            let ty = match tokens.next() {
-                Some(token) => Type::from(token),
-                _ => return Err(Error::syntax("Expected an identifier as type name".to_string(), 0))
-            }; 
-            Ok((name, ty))
-        });
+        .map(|tokens| parser.parse_parameter(tokens));
         
         let (param_names, param_types) = process_results(params, |iter| iter.unzip())?;
 

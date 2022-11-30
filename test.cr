@@ -7,6 +7,11 @@ fn main() {
     call basics(); 
     call loops_and_arrays();
     call groups();
+    call custom_data(new Data{a: 15, b: 41});
+}
+
+fn custom_data(data: Data) {
+    println "custom data: %i, %i", data;
 }
 
 fn groups() {

@@ -15,7 +15,7 @@ use itertools::Itertools;
 
 use crate::error::{Result, Error};
 use crate::lexer::Literal;
-use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type};
+use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type, Data};
 
 use super::comp_kind::CompKind;
 use super::types::GenType;
@@ -92,7 +92,7 @@ impl<'gen> FunctionCodegen<'gen> {
         self.builder.seal_block(block);
 
         let mut offset = 0;
-        for (name, ty) in fun.params().zip(fun.signature().params()) {
+        for (name, ty) in fun.params() {
             let ty = GenType::from_type(ty, self.module)?;
             let new_offset = offset + ty.offsets().len();
             self.create_parameter(name.clone(), offset..new_offset, &ty, block)?;
@@ -178,10 +178,13 @@ impl<'gen> FunctionCodegen<'gen> {
                 }
             }
             Expression::Array(exprs) => {
-                self.create_array(exprs)?
+                self.create_record(exprs)?
+            }
+            Expression::New(_data, exprs) => {
+                self.create_record(exprs)?
             }
             Expression::Fn(_) => vec![], //ignore, handled before function codegen
-            Expression::Struct(_,_) => todo!(),
+            Expression::Struct(_) => vec![], //ignore, handled before function codegen
         };
         Ok(value)
     }
@@ -648,10 +651,11 @@ impl<'gen> FunctionCodegen<'gen> {
         }
     }
 
-    fn create_array(&mut self, exprs: &Vec<Expression>) -> Result<Vec<Value>> {
+    fn create_record(&mut self, exprs: &Vec<Expression>) -> Result<Vec<Value>> {
         exprs.iter()
             .map(|e| self.create_expression(e))
             .flatten_ok()
             .collect()
     }
+    
 }

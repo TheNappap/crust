@@ -5,7 +5,7 @@ use cranelift_object::ObjectModule;
 use cranelift_codegen::ir::types::{I64, F64, B64};
 use itertools::Itertools;
 
-use crate::{parser::Type, error::Result};
+use crate::{parser::Type, error::{Result}};
 
 pub enum GenTypeKind {
     Type(ir::Type),
@@ -25,9 +25,10 @@ impl GenType {
             Type::Bool => (GenTypeKind::Type(B64), 8),
             Type::String => (GenTypeKind::Type(module.target_config().pointer_type()), 8),
             Type::Array(ty, len) => GenType::from_types((0..*len).map(|_| *ty.clone()).collect(), module)?,
-            Type::Struct(types) => GenType::from_types(types.clone(), module)?,
+            Type::Struct(types) => GenType::from_types(types.values().cloned().collect(), module)?,
             Type::Iter(_) => (GenTypeKind::Type(module.target_config().pointer_type()), 8),
-            Type::Void | Type::Inferred => (GenTypeKind::Vec(vec![]), 0),
+            Type::Void => (GenTypeKind::Vec(vec![]), 0),
+            Type::Inferred | Type::Named(_) => unreachable!(),
         };
         Ok(GenType{ kind, size })
     }

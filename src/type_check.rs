@@ -1,9 +1,25 @@
-use std::collections::HashMap;
+use std::{collections::{HashMap, hash_map::Entry}};
 
-use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature, BinOpKind}, error::{Result, Error}, lexer::Literal};
+use itertools::Itertools;
+
+use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature, BinOpKind, Data}, error::{Result, Error}, lexer::Literal};
+
+fn std_functions() -> HashMap<String, Signature> {
+    [Signature::new("__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
+    Signature::new("__acrt_iob_func", vec![Type::Int], Type::Int)]
+        .into_iter().map(|sig| (sig.name().to_owned(), sig) ).collect()
+}
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
-    let mut functions = HashMap::new();
+    let mut data_map = HashMap::new();
+    syntax_tree.data()
+        .map(|data| match data_map.entry(data.name().clone()) {
+            Entry::Occupied(_) => return Err(Error::type_("Data structure already defined".to_string(), 0)),
+            Entry::Vacant(v) => { v.insert(data.to_owned()); Ok(()) },
+        })
+        .try_collect()?;
+
+    let mut functions = std_functions();
     for fun in syntax_tree.fns() {
         for expr in fun.expressions() {
             if let Expression::Fn(f) = expr {
@@ -12,28 +28,52 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
         }
         functions.insert(fun.signature().name().to_string().clone(), fun.signature().clone()); 
     }
+    functions.values_mut().try_for_each(|sig| sig.params_mut().try_for_each(|ty| data_map.check_named_type(ty)))?;
 
     for fun in syntax_tree.fns_mut() {
-        TypeCheck::new(&functions).check_fun(fun)?
+        TypeCheck::new(&functions, &data_map).check_fun(fun)?
     }
     Ok(())
 }
 
+trait DataCheck {
+    fn check_data(&self, name: &String) -> Result<Data>;
+
+    fn check_named_type(&self, ty: &mut Type) -> Result<()> {
+        if let Type::Named(name) = ty {
+            *ty = self.check_data(name)?.ty().to_owned();
+        };
+        Ok(())
+    } 
+}
+
+impl DataCheck for HashMap<String, Data> {
+    fn check_data(&self, name: &String) -> Result<Data> {
+        match self.get(name) {
+            Some(data) => Ok(data.to_owned()),
+            None => return Err(Error::type_("Data structure not found".to_string(), 0))
+        }
+    }
+}
+
 struct TypeCheck<'f> {
     variables: HashMap<String, Type>,
-    functions: &'f HashMap<String, Signature>
+    functions: &'f HashMap<String, Signature>,
+    data: &'f HashMap<String, Data>,
 }
 
 impl<'f> TypeCheck<'f> {
-    fn new(functions: &HashMap<String, Signature>) -> TypeCheck {
+    fn new(functions: &'f HashMap<String, Signature>, data: &'f HashMap<String, Data>) -> TypeCheck<'f> {
         TypeCheck {
             variables: HashMap::new(),
-            functions
+            functions,
+            data,
         }
     }
 
     fn check_fun(&mut self, fun: &mut Fn) -> Result<()> {
-        for (name, ty) in fun.params().zip(fun.signature().params()) {
+        for (name, ty) in fun.params_mut() {
+            self.data.check_named_type(ty)?;
             self.variables.insert(name.clone(), ty.clone());
         }
         for expr in fun.expressions_mut() {
@@ -43,8 +83,10 @@ impl<'f> TypeCheck<'f> {
     }
 
     fn check_expression(&mut self, expr: &mut Expression) -> Result<Type> {
-        let ty = match expr {
+        let mut ty = match expr {
             Expression::Call(signature, params) => {
+                *signature = self.functions.get(signature.name()).expect("Function not found").clone();
+
                 params.iter_mut()
                       .map(|expr| self.check_expression(expr))
                       .zip(signature.params())
@@ -56,12 +98,8 @@ impl<'f> TypeCheck<'f> {
                                 Ok(ty)
                             })
                       })
-                      .try_for_each(|x| x.and_then(|_| Ok(())))?;
+                      .try_for_each(|x| x.map(|_| ()))?;
 
-                if *signature.returns() == Type::Inferred {
-                    let fun = self.functions.get(signature.name()).expect("Function not found");
-                    *signature = fun.clone();
-                }
                 signature.returns().clone()
             },
             Expression::Return(expr) => {
@@ -72,8 +110,29 @@ impl<'f> TypeCheck<'f> {
                 self.check_fun(fun)?;
                 Type::Inferred
             }
-            Expression::Struct(_name, _types) => {
+            Expression::Struct(data) => {
+                if !matches!(data.ty(), Type::Struct(_)) {
+                    return Err(Error::type_("The type of struct is not well defined".to_string(), 0));
+                }
                 Type::Inferred
+            }
+            Expression::New(data, exprs) => {
+                *data = self.data.check_data(data.name())?;
+                let Type::Struct(fields) = data.ty() else {
+                    return Err(Error::type_("The type of data structure is not well defined".to_string(), 0));
+                };
+
+                fields.into_iter().zip(exprs.into_iter())
+                    .map(|((_,ty), expr)| -> Result<_> { 
+                        let expr_ty =  self.check_expression(expr)?;
+                        if *ty != expr_ty {
+                            return Err(Error::type_("Mismatch types for parameter expression".to_string(), 0));
+                        }
+                        Ok(())
+                    })
+                    .try_collect()?;
+                    
+                data.ty().to_owned()
             }
             Expression::Let(name, expr, let_ty) => {
                 let ty = self.check_expression(expr)?;
@@ -248,6 +307,7 @@ impl<'f> TypeCheck<'f> {
                 }
             },
         };
+        self.data.check_named_type(&mut ty)?;
         Ok(ty)
     }
 }

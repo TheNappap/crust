@@ -7,7 +7,7 @@ mod parse_list;
 
 pub use crate::error::Result;
 use itertools::Itertools;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, SyntaxTree, types::Type};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, data::Data, BinOpKind, UnOpKind, Expression, SyntaxTree, types::Type};
 
 use crate::{
     error::Error,
@@ -26,6 +26,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<returns::Return>();
     blockdefs.add::<fn_def::FnDef>();
     blockdefs.add::<structs::Struct>();
+    blockdefs.add::<structs::New>();
     blockdefs.add::<print::Print>();
     blockdefs.add::<print::PrintLn>();
     blockdefs.add::<assign::Let>();
@@ -62,27 +63,25 @@ impl Parser {
     }
 
     pub fn parse_code(&self, source: &str) -> Result<SyntaxTree> {
-        let fns = BlockStream::from(source)
-            .filter_map(|block| {
+        let mut fns = Vec::new();
+        let mut datas = Vec::new();
+        BlockStream::from(source)
+            .try_for_each(|block| {
                 let block = match block {
                     Ok(block) => block,
-                    Err(err) => return Some(Err(err)),
+                    Err(err) => return Err(err),
                 };
                 let tag = block.tag.clone();
                 match self.parse_block_expression(block) {
-                    Ok(Expression::Fn(fun)) => Some(Ok(fun)),
-                    Ok(Expression::Struct(_, _)) => None,
-                    Err(err) => Some(Err(err)),
-                    _ => {
-                        Some(Err(Error::syntax(
-                            format!("The block '{}' cannot be used in this position.", tag),
-                            0,
-                        )))
-                    }
+                    Ok(Expression::Fn(fun)) => fns.push(fun),
+                    Ok(Expression::Struct(data)) => datas.push(data),
+                    Err(err) => return Err(err),
+                    _ => return Err(Error::syntax(format!("The block '{}' cannot be used in this position.", tag), 0,))
                 }
-            })
-            .try_collect()?;
-        Ok(SyntaxTree::new(fns))
+                Ok(())
+            })?;
+
+        Ok(SyntaxTree::new(fns, datas))
     }
 
     fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
@@ -112,7 +111,7 @@ impl Parser {
             .try_collect()
     }
     
-    fn parse_parameter(&self, tokens: Vec<Token>) -> Result<(String, Type)> {
+    fn parse_param(&self, tokens: Vec<Token>) -> Result<(String, Vec<Token>)> {
         let mut tokens = tokens.into_iter();
         let name = match tokens.next() {
             Some(Token::Ident(name)) => name,
@@ -120,13 +119,17 @@ impl Parser {
         };
 
         if !matches!(tokens.next(), Some(Token::Operator(Operator::Colon))) {  
-            return Err(Error::syntax("Expected an ':' and a type name".to_string(), 0))
+            return Err(Error::syntax("Expected an ':'".to_string(), 0))
         }
-        let ty = match tokens.next() {
-            Some(token) => Type::from(token),
-            _ => return Err(Error::syntax("Expected an identifier as type name".to_string(), 0))
-        }; 
-        Ok((name, ty))
+        Ok((name, tokens.collect()))
+    }
+
+    fn parse_parameter(&self, tokens: Vec<Token>) -> Result<(String, Type)> {
+        self.parse_param(tokens).map(|(s,t)| (s, Type::from(t[0].clone())))
+    }
+    
+    fn parse_param_expression(&self, tokens: Vec<Token>) -> Result<(String, Expression)> {
+        self.parse_param(tokens).and_then(|(s,t)| Ok((s, self.parse_expression(t)?)))
     }
 
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {
@@ -221,8 +224,9 @@ mod tests {
                     Expression::Call(Signature::new("f2", vec![], Type::Inferred), vec![]),
                     Expression::Call(Signature::new("function", vec![], Type::Inferred), vec![]),
                 ],
-            )])
-        );
+            )
+        ], 
+        vec![]));
         Ok(())
     }
 }
