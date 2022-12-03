@@ -11,7 +11,8 @@ fn main() {
 }
 
 fn custom_data(data: Data) {
-    println "custom data: %i, %i", data;
+    println "custom data member a: %i", data.a;
+    println "custom data member b: %i", data.b;
 }
 
 fn groups() {

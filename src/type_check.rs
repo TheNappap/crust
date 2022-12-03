@@ -134,6 +134,27 @@ impl<'f> TypeCheck<'f> {
                     
                 data.ty().to_owned()
             }
+            Expression::Field(var_name, field_name, field_type, field_offset) => {
+                if let Some(ty) = self.variables.get(var_name) {
+                    let err = Err(Error::type_(format!("No field found with this name: {:?}", field_name), 0));
+                    match ty {
+                        Type::Struct(map) => {
+                            let Some(ty) = map.get(field_name) else { return err; };
+                            *field_type = ty.to_owned();
+                            map.iter().fold(0, |offset, (name, ty)| {
+                                if name == field_name {
+                                    *field_offset = offset;
+                                }
+                                offset+ty.size() as i32
+                            });
+                            ty.to_owned()
+                        },
+                        _ => return err
+                    }
+                } else {
+                    return Err(Error::type_(format!("No variable found with this name: {:?}", var_name), 0));
+                }
+            }
             Expression::Let(name, expr, let_ty) => {
                 let ty = self.check_expression(expr)?;
                 if *let_ty != Type::Inferred && *let_ty != ty {

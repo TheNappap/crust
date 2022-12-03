@@ -18,6 +18,7 @@ pub enum Expression {
     Fn(Fn),
     Struct(Data),
     New(Data, Vec<Expression>),
+    Field(String, String, Type, i32),
     Let(String, Box<Expression>, Type),
     Mut(String, Box<Expression>),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),

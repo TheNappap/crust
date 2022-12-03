@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap};
 
 use crate::lexer::Token;
 
@@ -13,8 +13,21 @@ pub enum Type {
     Inferred,
     Named(String),
     Array(Box<Type>, usize),
-    Struct(HashMap<String, Type>),
+    Struct(BTreeMap<String, Type>),
     Iter(Box<Type>),
+}
+
+impl Type {
+    pub fn size(&self) -> u32 {
+        use Type::*;
+        match self {
+            Int | Float | Bool | String | Iter(_) => 8,
+            Type::Array(ty, len) => ty.size()*(*len as u32),
+            Type::Struct(types) => types.values().map(Type::size).sum(),
+            Void => 0,
+            Inferred | Named(_) => unreachable!(),
+        }
+    }
 }
 
 impl From<Token> for Type {

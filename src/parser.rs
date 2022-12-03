@@ -27,6 +27,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<fn_def::FnDef>();
     blockdefs.add::<structs::Struct>();
     blockdefs.add::<structs::New>();
+    blockdefs.add::<member::Field>();
     blockdefs.add::<print::Print>();
     blockdefs.add::<print::PrintLn>();
     blockdefs.add::<assign::Let>();
@@ -133,7 +134,11 @@ impl Parser {
     }
 
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {
-        if block.is_anonymous() && block.header.len() == 1 {
+        if block.is_anonymous() {
+            if block.header.len() > 1 {
+                return Err(Error::syntax("Can't parse anonymous block.".into(), 0));
+            }
+
             assert!(block.body.is_empty());
             let block = match block.header.first().unwrap() {
                 Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
@@ -144,9 +149,6 @@ impl Parser {
                 _ => return Err(Error::syntax("Can't parse anonymous block.".into(), 0)),
             };
             return self.parse_block_expression(block);
-        }
-        if block.is_anonymous() {
-            return Err(Error::syntax("Can't parse anonymous block.".into(), 0));
         }
 
         let expr = self.blockdefs.get(&block.tag)?.parse(block.header, block.body, self);

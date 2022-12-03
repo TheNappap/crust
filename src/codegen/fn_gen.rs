@@ -15,7 +15,7 @@ use itertools::Itertools;
 
 use crate::error::{Result, Error};
 use crate::lexer::Literal;
-use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type, Data};
+use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type};
 
 use super::comp_kind::CompKind;
 use super::types::GenType;
@@ -156,11 +156,10 @@ impl<'gen> FunctionCodegen<'gen> {
                 self.create_pointer_to_stack_slot(&values)?
             }
             Expression::Symbol(name, ty) => {
-                let ss = *self.variables.get(name).unwrap();
-                let ty = GenType::from_type(ty, self.module)?;
-                ty.types().into_iter().zip(ty.offsets()).map(|(ty, offset)|{
-                    self.stack_load(*ty, ss, offset)
-                }).collect()
+                self.create_symbol_expr(name, ty, 0)?
+            }
+            Expression::Field(var_name, _, ty, offset) => {
+                self.create_symbol_expr(var_name, ty, *offset)?
             }
             Expression::BinOp(kind, param1, param2, ty) => {
                 match kind {
@@ -656,6 +655,16 @@ impl<'gen> FunctionCodegen<'gen> {
             .map(|e| self.create_expression(e))
             .flatten_ok()
             .collect()
+    }
+
+    fn create_symbol_expr(&mut self, var_name: &String, ty: &Type, field_offset: i32) -> Result<Vec<Value>> {
+        assert!(field_offset >= 0);
+        let ss = *self.variables.get(var_name).unwrap();
+        let ty = GenType::from_type(ty, self.module)?;
+        let values = ty.types().into_iter().zip(ty.offsets()).map(|(ty, offset)|{
+            self.stack_load(*ty, ss, offset + field_offset)
+        }).collect();
+        Ok(values)
     }
     
 }

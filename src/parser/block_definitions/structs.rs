@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use itertools::Itertools;
 
@@ -58,7 +58,7 @@ impl BlockDefinition for New {
             .map(|tokens| parser.parse_param_expression(tokens).map(|(n,e)|((n,Type::Inferred),e)));
         let (types, exprs) = 
             itertools::process_results(var_iter, 
-                |iter| iter.unzip::<_, _, HashMap<_,_>, Vec<_>>())?;
+                |iter| iter.unzip::<_, _, BTreeMap<_,_>, Vec<_>>())?;
 
         let data = Data::new(name.to_string(), Type::Struct(types));
         Ok(Expression::New(data, exprs))

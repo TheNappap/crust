@@ -19,26 +19,25 @@ pub struct GenType {
 
 impl GenType {
     pub fn from_type(ty: &Type, module: &ObjectModule) -> Result<GenType> {
-        let (kind, size) = match ty {
-            Type::Int => (GenTypeKind::Type(I64), 8),
-            Type::Float => (GenTypeKind::Type(F64), 8),
-            Type::Bool => (GenTypeKind::Type(B64), 8),
-            Type::String => (GenTypeKind::Type(module.target_config().pointer_type()), 8),
-            Type::Array(ty, len) => GenType::from_types((0..*len).map(|_| *ty.clone()).collect(), module)?,
-            Type::Struct(types) => GenType::from_types(types.values().cloned().collect(), module)?,
-            Type::Iter(_) => (GenTypeKind::Type(module.target_config().pointer_type()), 8),
-            Type::Void => (GenTypeKind::Vec(vec![]), 0),
+        let kind = match ty {
+            Type::Int => GenTypeKind::Type(I64),
+            Type::Float => GenTypeKind::Type(F64),
+            Type::Bool => GenTypeKind::Type(B64),
+            Type::String => GenTypeKind::Type(module.target_config().pointer_type()),
+            Type::Array(ty, len) => GenType::kind_from_types((0..*len).map(|_| *ty.clone()).collect(), module)?,
+            Type::Struct(types) => GenType::kind_from_types(types.values().cloned().collect(), module)?,
+            Type::Iter(_) => GenTypeKind::Type(module.target_config().pointer_type()),
+            Type::Void => GenTypeKind::Vec(vec![]),
             Type::Inferred | Type::Named(_) => unreachable!(),
         };
-        Ok(GenType{ kind, size })
+        Ok(GenType{ kind, size: ty.size() })
     }
 
-    fn from_types(types: Vec<Type>, module: &ObjectModule) -> Result<(GenTypeKind, u32)> {
+    fn kind_from_types(types: Vec<Type>, module: &ObjectModule) -> Result<GenTypeKind> {
         let types: Vec<_> = types.into_iter()
             .map(|ty| GenType::from_type(&ty, module))
             .try_collect()?;
-        let size = types.iter().fold(0,|acc, ty| acc+ty.size);
-        Ok((GenTypeKind::Vec(types), size))
+        Ok(GenTypeKind::Vec(types))
     }
 
     pub fn size(&self) -> u32 {

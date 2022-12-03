@@ -1,7 +1,7 @@
 
 use std::convert::identity;
 
-use crate::{lexer::{Token, Delimeter, Operator}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate}};
+use crate::{lexer::{Token, Delimeter, Operator}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate, member::Field}};
 
 #[derive(Debug, PartialEq, Clone)]
 enum OpKind {
@@ -14,6 +14,7 @@ fn precedence( kind: OpKind, op: &Operator) -> Option<u8> {
     use Operator::*;
     use OpKind::*;
     match (kind, op) {
+        (Binary, Dot) => Some(0),
         (Prefix, Dash | Not) => Some(1),
         (Binary, Star | Slash) => Some(2),
         (Binary, Plus | Dash) => Some(3),
@@ -28,6 +29,7 @@ fn id_of_operator(kind:OpKind, op: &Operator) -> Option<String> {
     let id = match (kind, op) {
         (Prefix, Not) => Negate.id(),
         (Prefix, Dash) => Negate.id(),
+        (Binary, Dot) => Field.id(),
         (Binary, Star) => Multiply.id(),
         (Binary, Slash) => Divide.id(),
         (Binary, Plus) => Add.id(),
