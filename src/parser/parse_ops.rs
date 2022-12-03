@@ -1,7 +1,7 @@
 
 use std::convert::identity;
 
-use crate::{lexer::{Token, Delimeter, Operator}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate, member::Field}};
+use crate::{lexer::{Token, Delimeter, Operator}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate, data::Field}};
 
 #[derive(Debug, PartialEq, Clone)]
 enum OpKind {

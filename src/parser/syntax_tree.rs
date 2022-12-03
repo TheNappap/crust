@@ -1,7 +1,5 @@
 
 
-use core::slice::{Iter, IterMut};
-
 pub mod fn_expr;
 pub mod types;
 pub mod expression;
@@ -22,22 +20,23 @@ pub trait Library {
 pub struct SyntaxTree {
     fns: Vec<Fn>,
     data: Vec<Data>,
+    impls: Vec<(String, Vec<Fn>)>,
 }
 
 impl SyntaxTree {
-    pub fn new(fns: Vec<Fn>, data: Vec<Data>) -> SyntaxTree {
-        SyntaxTree { fns, data }
+    pub fn new(fns: Vec<Fn>, data: Vec<Data>, impls: Vec<(String, Vec<Fn>)>) -> SyntaxTree {
+        SyntaxTree { fns, data, impls }
     }
 
-    pub fn fns(&self) -> Iter<Fn> {
-        self.fns.iter()
+    pub fn fns_impls(&self) -> impl Iterator<Item=&Fn> + '_ {
+        self.fns.iter().chain(self.impls.iter().map(|(_, fns)| fns).flatten())
     }
 
-    pub fn fns_mut(&mut self) -> IterMut<Fn> {
-        self.fns.iter_mut()
+    pub fn fns_impls_mut(&mut self) -> impl Iterator<Item=&mut Fn> + '_ {
+        self.fns.iter_mut().chain(self.impls.iter_mut().map(|(_, fns)| fns).flatten())
     }
 
-    pub fn data(&self) -> Iter<Data> {
+    pub fn data(&self) -> impl Iterator<Item=&Data> + '_ {
         self.data.iter()
     }
 

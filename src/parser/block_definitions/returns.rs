@@ -1,6 +1,6 @@
 use crate::{
     error::{Result, Error},
-    lexer::{Token},
+    lexer::{Token, Delimeter},
     parser::{
         syntax_tree::{Expression},
         Parser
@@ -17,7 +17,8 @@ impl BlockDefinition for Return {
         "return"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+        header.push(Token::Group(Delimeter::Braces, body));
         let expr = parser.parse_expression(header)?;
         Ok(Expression::Return(Box::new(expr)))
     }

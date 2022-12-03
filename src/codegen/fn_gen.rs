@@ -183,6 +183,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 self.create_record(exprs)?
             }
             Expression::Fn(_) => vec![], //ignore, handled before function codegen
+            Expression::Impl(_, _) => vec![], //ignore, handled before function codegen
             Expression::Data(_) => vec![], //ignore, handled before function codegen
         };
         Ok(value)

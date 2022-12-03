@@ -28,6 +28,10 @@ impl Signature {
     pub fn returns(&self) -> &Type {
         &self.returns
     }
+
+    pub fn returns_mut(&mut self) -> &mut Type {
+        &mut self.returns
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -51,6 +55,10 @@ impl Fn {
         &self.signature
     }
 
+    pub fn signature_mut(&mut self) -> &mut Signature {
+        &mut self.signature
+    }
+
     pub fn params(&self) -> impl Iterator<Item=(&String,&Type)> {
         self.params.iter().zip(self.signature.params())
     }
@@ -65,5 +73,9 @@ impl Fn {
 
     pub fn expressions_mut(&mut self) -> IterMut<Expression> {
         self.exprs.iter_mut()
+    }
+
+    pub fn add_type_name(&mut self, type_name: String) {
+        self.signature.name = type_name + "__" + &self.signature.name
     }
 }

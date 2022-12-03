@@ -20,7 +20,7 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
         .try_collect()?;
 
     let mut functions = std_functions();
-    for fun in syntax_tree.fns() {
+    for fun in syntax_tree.fns_impls() {
         for expr in fun.expressions() {
             if let Expression::Fn(f) = expr {
                 functions.insert(f.signature().name().to_string(), f.signature().clone());
@@ -30,7 +30,7 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     }
     functions.values_mut().try_for_each(|sig| sig.params_mut().try_for_each(|ty| data_map.check_named_type(ty)))?;
 
-    for fun in syntax_tree.fns_mut() {
+    for fun in syntax_tree.fns_impls_mut() {
         TypeCheck::new(&functions, &data_map).check_fun(fun)?
     }
     Ok(())
@@ -76,6 +76,7 @@ impl<'f> TypeCheck<'f> {
             self.data.check_named_type(ty)?;
             self.variables.insert(name.clone(), ty.clone());
         }
+        self.data.check_named_type(fun.signature_mut().returns_mut())?;
         for expr in fun.expressions_mut() {
             self.check_expression(expr)?;
         }
@@ -100,6 +101,7 @@ impl<'f> TypeCheck<'f> {
                       })
                       .try_for_each(|x| x.map(|_| ()))?;
 
+                self.data.check_named_type(signature.returns_mut())?;
                 signature.returns().clone()
             },
             Expression::Return(expr) => {
@@ -108,6 +110,11 @@ impl<'f> TypeCheck<'f> {
             },
             Expression::Fn(fun) => {
                 self.check_fun(fun)?;
+                Type::Inferred
+            }
+            Expression::Impl(name, fns) => {
+                self.data.check_data(name)?;
+                fns.iter_mut().try_for_each(|fun| self.check_fun(fun))?;
                 Type::Inferred
             }
             Expression::Data(data) => {

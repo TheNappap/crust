@@ -25,10 +25,11 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<call::Call>();
     blockdefs.add::<returns::Return>();
     blockdefs.add::<fn_def::FnDef>();
+    blockdefs.add::<fn_def::Impl>();
     blockdefs.add::<data::Struct>();
     blockdefs.add::<data::Enum>();
     blockdefs.add::<data::New>();
-    blockdefs.add::<member::Field>();
+    blockdefs.add::<data::Field>();
     blockdefs.add::<print::Print>();
     blockdefs.add::<print::PrintLn>();
     blockdefs.add::<assign::Let>();
@@ -67,6 +68,7 @@ impl Parser {
     pub fn parse_code(&self, source: &str) -> Result<SyntaxTree> {
         let mut fns = Vec::new();
         let mut datas = Vec::new();
+        let mut impls = Vec::new();
         BlockStream::from(source)
             .try_for_each(|block| {
                 let block = match block {
@@ -77,13 +79,14 @@ impl Parser {
                 match self.parse_block_expression(block) {
                     Ok(Expression::Fn(fun)) => fns.push(fun),
                     Ok(Expression::Data(data)) => datas.push(data),
+                    Ok(Expression::Impl(name, fns)) => impls.push((name, fns)),
                     Err(err) => return Err(err),
                     _ => return Err(Error::syntax(format!("The block '{}' cannot be used in this position.", tag), 0,))
                 }
                 Ok(())
             })?;
 
-        Ok(SyntaxTree::new(fns, datas))
+        Ok(SyntaxTree::new(fns, datas, impls))
     }
 
     fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
@@ -229,6 +232,7 @@ mod tests {
                 ],
             )
         ], 
+        vec![],
         vec![]));
         Ok(())
     }

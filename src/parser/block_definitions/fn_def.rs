@@ -1,4 +1,4 @@
-use itertools::{process_results};
+use itertools::{process_results, Itertools};
 
 use crate::{
     error::{Error, Result},
@@ -46,6 +46,38 @@ impl BlockDefinition for FnDef {
         let signature = Signature::new(&name, param_types, returns);
         let exprs = parser.parse_group(body)?;
         Ok(Expression::Fn(Fn::new(signature, param_names, exprs)))
+    }
+    
+    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
+        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    }
+}
+
+
+#[derive(Default)]
+pub struct Impl;
+
+impl BlockDefinition for Impl {
+    fn id(&self) -> &str {
+        "impl"
+    }
+
+    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+        assert!(header.len() == 1);
+
+        let Expression::Symbol(name, _) = parser.parse_expression(header)? else {
+            return Err(Error::syntax("Expected symbol as type name".to_string(), 0));
+        };
+        let fns = parser.parse_group(body)?.into_iter()
+            .map(|exp| 
+                if let Expression::Fn(mut fun) = exp {
+                    fun.add_type_name(name.clone());
+                    Ok(fun) 
+                }
+                else { return Err(Error::syntax("Expected symbol as type name".to_string(), 0)); } 
+            )
+            .try_collect()?;
+        Ok(Expression::Impl(name, fns))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {

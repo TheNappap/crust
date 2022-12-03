@@ -4,6 +4,12 @@ struct Data {
     arr: [Int;2],
 }
 
+impl Data {
+    fn new() -> Data {
+        return new Data{a: 88, b: 99, arr: [65,66]}
+    }
+}
+
 enum Option {
     None,
     Some,
@@ -14,6 +20,11 @@ fn main() {
     call loops_and_arrays();
     call groups();
     call custom_data(new Data{a: 15, b: 41, arr: [2,3]});
+    call impl_blocks();
+}
+
+fn impl_blocks() {
+    println "static fn data member a: %i", call Data::new();
 }
 
 fn custom_data(data: Data) {
