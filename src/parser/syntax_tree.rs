@@ -6,6 +6,7 @@ pub mod fn_expr;
 pub mod types;
 pub mod expression;
 pub mod data;
+pub mod field_map;
 
 pub use expression::{Expression, BinOpKind, UnOpKind};
 

@@ -39,7 +39,7 @@ impl BlockDefinition for FnDef {
 
         let returns = match (tokens.next(), tokens.next()) {
             (None, None) => Type::Void,
-            (Some(Token::Operator(Operator::Arrow)), Some(token)) => token.into(),
+            (Some(Token::Operator(Operator::Arrow)), Some(token)) => Type::from(token)?,
             _ => return Err(Error::syntax("Unexpected symbols after function header".to_string(), 0)),
         };
 

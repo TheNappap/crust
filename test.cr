@@ -1,18 +1,21 @@
 struct Data {
     a: Int,
     b: Int,
+    arr: [Int;2],
 }
 
 fn main() {
     call basics(); 
     call loops_and_arrays();
     call groups();
-    call custom_data(new Data{a: 15, b: 41});
+    call custom_data(new Data{a: 15, b: 41, arr: [2,3]});
 }
 
 fn custom_data(data: Data) {
+    //mut data.a = 666; //TODO
     println "custom data member a: %i", data.a;
     println "custom data member b: %i", data.b;
+    println "custom data member arr: [%i, %i]", data.arr;
 }
 
 fn groups() {

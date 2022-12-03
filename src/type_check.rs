@@ -122,7 +122,7 @@ impl<'f> TypeCheck<'f> {
                     return Err(Error::type_("The type of data structure is not well defined".to_string(), 0));
                 };
 
-                fields.into_iter().zip(exprs.into_iter())
+                fields.iter().zip(exprs.into_iter())
                     .map(|((_,ty), expr)| -> Result<_> { 
                         let expr_ty =  self.check_expression(expr)?;
                         if *ty != expr_ty {

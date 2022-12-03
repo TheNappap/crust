@@ -1,7 +1,7 @@
-use std::collections::{BTreeMap};
 
-use crate::lexer::Token;
+use crate::{lexer::{Token, Delimeter}, error::{Error, Result}};
 
+use super::field_map::FieldMap;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
@@ -13,7 +13,7 @@ pub enum Type {
     Inferred,
     Named(String),
     Array(Box<Type>, usize),
-    Struct(BTreeMap<String, Type>),
+    Struct(FieldMap<String, Type>),
     Iter(Box<Type>),
 }
 
@@ -28,19 +28,28 @@ impl Type {
             Inferred | Named(_) => unreachable!(),
         }
     }
-}
 
-impl From<Token> for Type {
-    fn from(token: Token) -> Self {
-        match token {
-            Token::Ident(ty) => match ty.as_str() {
+    pub fn from(token: Token) -> Result<Self> {
+        use crate::lexer::Operator::*;
+        use crate::lexer::Literal::*;
+        use Token::*;
+        let ty = match token {
+            Ident(ty) => match ty.as_str() {
                 "Int" => Type::Int,
                 "Float" => Type::Float,
                 "String" => Type::String,
                 "Bool" => Type::Bool,
                 name => Type::Named(name.to_owned())
             }
+            Group(Delimeter::Brackets, tokens) => {
+                match tokens.as_slice() {
+                    [Ident(name), Operator(Semicolon), Literal(Int(n))] =>
+                        Type::Array(Box::new(Type::from(Ident(name.clone()))?), *n as usize),
+                    _ => return Err(Error::syntax("Unknown type".into(), 0))
+                }
+            }
             t => unreachable!("token for type: {:?}", t),
-        }
+        };
+        Ok(ty)
     }
 }

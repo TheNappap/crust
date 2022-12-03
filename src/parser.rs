@@ -126,7 +126,7 @@ impl Parser {
     }
 
     fn parse_parameter(&self, tokens: Vec<Token>) -> Result<(String, Type)> {
-        self.parse_param(tokens).map(|(s,t)| (s, Type::from(t[0].clone())))
+        self.parse_param(tokens).and_then(|(s,t)| Ok((s, Type::from(t[0].clone())?)))
     }
     
     fn parse_param_expression(&self, tokens: Vec<Token>) -> Result<(String, Expression)> {
