@@ -13,6 +13,11 @@ pub use expression::{Expression, BinOpKind, UnOpKind};
 use self::data::Data;
 use self::fn_expr::Fn;
 
+pub trait Library {
+    fn fns(&self) -> Vec<Fn>;
+    fn data(&self) -> Vec<Data>;
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct SyntaxTree {
     fns: Vec<Fn>,
@@ -34,5 +39,10 @@ impl SyntaxTree {
 
     pub fn data(&self) -> Iter<Data> {
         self.data.iter()
+    }
+
+    pub fn add_lib(&mut self, lib: &dyn Library) {
+        self.fns.extend(lib.fns());
+        self.data.extend(lib.data());
     }
 }

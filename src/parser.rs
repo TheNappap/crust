@@ -7,7 +7,7 @@ mod parse_list;
 
 pub use crate::error::Result;
 use itertools::Itertools;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, data::Data, BinOpKind, UnOpKind, Expression, SyntaxTree, types::Type};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, data::Data, BinOpKind, UnOpKind, Expression, SyntaxTree, Library, types::Type};
 
 use crate::{
     error::Error,

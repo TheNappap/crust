@@ -3,6 +3,7 @@ mod error;
 mod lexer;
 mod parser;
 mod type_check;
+mod std_lib;
 
 fn build() -> Result<(), String> {
     let args: Vec<String> = std::env::args().collect();
@@ -13,6 +14,7 @@ fn build() -> Result<(), String> {
         .map_err(|_| format!("Error: could not read file: {}", filename))?;
 
     let mut syntax_tree = parser::parse(&contents).map_err(|err| err.to_string())?;
+    syntax_tree.add_lib(&std_lib::StdLib::new());
     type_check::type_check(&mut syntax_tree).map_err(|err| err.to_string())?;
     codegen::build(syntax_tree).map_err(|err| err.to_string())?;
     Ok(())
