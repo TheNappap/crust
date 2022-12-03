@@ -16,7 +16,7 @@ pub enum UnOpKind {
 pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
-    Struct(Data),
+    Data(Data),
     New(Data, Vec<Expression>),
     Field(String, String, Type, i32),
     Let(String, Box<Expression>, Type),

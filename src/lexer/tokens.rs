@@ -58,6 +58,7 @@ pub enum Operator {
     Dot,
     Comma,
     Colon,
+    ColonColon,
     Semicolon,
     Arrow,
     Arrow2,
@@ -245,7 +246,13 @@ impl<'str> TokenStream<'str> {
         let token = match c {
             '.' => Token::Operator(Operator::Dot),
             ',' => Token::Operator(Operator::Comma),
-            ':' => Token::Operator(Operator::Colon),
+            ':' => match self.stream.peek() {
+                Some(Ok(':')) => {
+                    self.stream.next();
+                    Token::Operator(Operator::ColonColon)
+                }
+                _ => Token::Operator(Operator::Colon),
+            },
             ';' => Token::Operator(Operator::Semicolon),
             '+' => Token::Operator(Operator::Plus),
             '-' => match self.stream.peek() {

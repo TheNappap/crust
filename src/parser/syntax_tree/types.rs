@@ -1,4 +1,6 @@
 
+use std::collections::HashMap;
+
 use crate::{lexer::{Token, Delimeter}, error::{Error, Result}};
 
 use super::field_map::FieldMap;
@@ -14,6 +16,7 @@ pub enum Type {
     Named(String),
     Array(Box<Type>, usize),
     Struct(FieldMap<String, Type>),
+    Enum(HashMap<String, usize>),
     Iter(Box<Type>),
 }
 
@@ -24,6 +27,7 @@ impl Type {
             Int | Float | Bool | String | Iter(_) => 8,
             Type::Array(ty, len) => ty.size()*(*len as u32),
             Type::Struct(types) => types.values().map(Type::size).sum(),
+            Type::Enum(_) => Int.size(),
             Void => 0,
             Inferred | Named(_) => unreachable!(),
         }

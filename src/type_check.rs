@@ -110,7 +110,7 @@ impl<'f> TypeCheck<'f> {
                 self.check_fun(fun)?;
                 Type::Inferred
             }
-            Expression::Struct(data) => {
+            Expression::Data(data) => {
                 if !matches!(data.ty(), Type::Struct(_)) {
                     return Err(Error::type_("The type of struct is not well defined".to_string(), 0));
                 }
@@ -118,19 +118,32 @@ impl<'f> TypeCheck<'f> {
             }
             Expression::New(data, exprs) => {
                 *data = self.data.check_data(data.name())?;
-                let Type::Struct(fields) = data.ty() else {
-                    return Err(Error::type_("The type of data structure is not well defined".to_string(), 0));
-                };
 
-                fields.iter().zip(exprs.into_iter())
-                    .map(|((_,ty), expr)| -> Result<_> { 
-                        let expr_ty =  self.check_expression(expr)?;
-                        if *ty != expr_ty {
-                            return Err(Error::type_("Mismatch types for parameter expression".to_string(), 0));
-                        }
-                        Ok(())
-                    })
-                    .try_collect()?;
+                match data.ty() {
+                    Type::Struct(fields) => {
+                        fields.iter().zip(exprs.into_iter())
+                            .map(|((_,ty), expr)| -> Result<_> { 
+                                let expr_ty =  self.check_expression(expr)?;
+                                if *ty != expr_ty {
+                                    return Err(Error::type_("Mismatch types for parameter expression".to_string(), 0));
+                                }
+                                Ok(())
+                            })
+                            .try_collect()?;
+                    }
+                    Type::Enum(variants) => {
+                        assert!(exprs.len() == 1);
+                        let Expression::Data(data) = &exprs[0] else {
+                            return Err(Error::type_("Enum variant parsing failed".to_string(), 0));
+                        };
+                        let Some(variant) = variants.get(data.name()) else {
+                            return Err(Error::type_("Enum variant not found".to_string(), 0));
+                        };
+                        exprs.clear();
+                        exprs.push(Expression::Literal(Literal::Int(*variant as i64)));
+                    }
+                    _ => return Err(Error::type_("The type of data structure is not well defined".to_string(), 0))
+                }
                     
                 data.ty().to_owned()
             }

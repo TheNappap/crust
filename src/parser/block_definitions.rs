@@ -20,7 +20,7 @@ pub mod loops;
 pub mod group;
 pub mod array;
 pub mod iter;
-pub mod structs;
+pub mod data;
 pub mod member;
 
 pub trait BlockDefinition {

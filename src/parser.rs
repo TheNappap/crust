@@ -25,8 +25,9 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<call::Call>();
     blockdefs.add::<returns::Return>();
     blockdefs.add::<fn_def::FnDef>();
-    blockdefs.add::<structs::Struct>();
-    blockdefs.add::<structs::New>();
+    blockdefs.add::<data::Struct>();
+    blockdefs.add::<data::Enum>();
+    blockdefs.add::<data::New>();
     blockdefs.add::<member::Field>();
     blockdefs.add::<print::Print>();
     blockdefs.add::<print::PrintLn>();
@@ -75,7 +76,7 @@ impl Parser {
                 let tag = block.tag.clone();
                 match self.parse_block_expression(block) {
                     Ok(Expression::Fn(fun)) => fns.push(fun),
-                    Ok(Expression::Struct(data)) => datas.push(data),
+                    Ok(Expression::Data(data)) => datas.push(data),
                     Err(err) => return Err(err),
                     _ => return Err(Error::syntax(format!("The block '{}' cannot be used in this position.", tag), 0,))
                 }

@@ -4,6 +4,11 @@ struct Data {
     arr: [Int;2],
 }
 
+enum Option {
+    None,
+    Some,
+}
+
 fn main() {
     call basics(); 
     call loops_and_arrays();
@@ -16,6 +21,14 @@ fn custom_data(data: Data) {
     println "custom data member a: %i", data.a;
     println "custom data member b: %i", data.b;
     println "custom data member arr: [%i, %i]", data.arr;
+
+    let variant = new Option::None;
+    println "enum variant None: %i", variant;
+    mut variant = new Option::Some;
+    println "enum variant Some: %i", variant;
+    if variant == new Option::Some {
+        println "if enum variant Some: %i", variant;
+    }
 }
 
 fn groups() {
