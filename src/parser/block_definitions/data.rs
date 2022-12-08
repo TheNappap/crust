@@ -119,15 +119,12 @@ impl BlockDefinition for Field {
         }
 
         let operands: Vec<_> = token_list.into_iter()
-            .map(|tokens| {
-                if let Expression::Symbol(name, _) = parser.parse_expression(tokens)? {
-                    return Ok(name);
-                }
-                Err(Error::syntax("Field expression expected symbol expressions".to_string(), 0))
-            })
+            .map(|tokens| parser.parse_expression(tokens) )
             .try_collect()?;
-
-        Ok(Expression::Field(operands[0].clone(), operands[1].clone(), Type::Inferred, -1))
+        let Expression::Symbol(field_name, _) = operands[1].clone() else {
+            return Err(Error::syntax("Field expression expected symbol as field name".to_string(), 0));
+        };
+        Ok(Expression::Field(Box::new(operands[0].clone()), field_name, Type::Inferred, -1))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {

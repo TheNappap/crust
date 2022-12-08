@@ -19,7 +19,7 @@ pub enum Expression {
     Impl(String, Vec<Fn>),
     Data(Data),
     New(Data, Vec<Expression>),
-    Field(String, String, Type, i32),
+    Field(Box<Expression>, String, Type, i32),
     Let(String, Box<Expression>, Type),
     Mut(String, Box<Expression>),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),

@@ -24,7 +24,7 @@ fn main() {
 }
 
 fn impl_blocks() {
-    println "static fn data member a: %i", call Data::new();
+    println "static fn data member a: %i", call Data::new().a;
 }
 
 fn custom_data(data: Data) {

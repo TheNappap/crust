@@ -158,8 +158,14 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Symbol(name, ty) => {
                 self.create_symbol_expr(name, ty, 0)?
             }
-            Expression::Field(var_name, _, ty, offset) => {
-                self.create_symbol_expr(var_name, ty, *offset)?
+            Expression::Field(expr, _, ty, offset) => {
+                if let Expression::Symbol(name, _) = &**expr {
+                    self.create_symbol_expr(&name, ty, *offset)?
+                } else {
+                    let name = "__field_temp_".to_string() + &self.var_counter.next().to_string();
+                    self.create_local_variable(name.clone(), expr, &GenType::from_type(ty, self.module)?)?;
+                    self.create_symbol_expr(&name, ty, *offset)?
+                }
             }
             Expression::BinOp(kind, param1, param2, ty) => {
                 match kind {
@@ -658,9 +664,9 @@ impl<'gen> FunctionCodegen<'gen> {
             .collect()
     }
 
-    fn create_symbol_expr(&mut self, var_name: &String, ty: &Type, field_offset: i32) -> Result<Vec<Value>> {
+    fn create_symbol_expr(&mut self, name: &String, ty: &Type, field_offset: i32) -> Result<Vec<Value>> {
         assert!(field_offset >= 0);
-        let ss = *self.variables.get(var_name).unwrap();
+        let ss = *self.variables.get(name).unwrap();
         let ty = GenType::from_type(ty, self.module)?;
         let values = ty.types().into_iter().zip(ty.offsets()).map(|(ty, offset)|{
             self.stack_load(*ty, ss, offset + field_offset)
