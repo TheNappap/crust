@@ -29,6 +29,7 @@ fn main() {
 
 fn impl_blocks() {
     println "full fn method a(): %i", call Data::a(call Data::new());
+    println "method call a(): %i", call Data::new().a();
     println "static fn data member b: %i", call Data::new().b;
 }
 

@@ -7,7 +7,7 @@ mod parse_list;
 
 pub use crate::error::Result;
 use itertools::Itertools;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, data::Data, BinOpKind, UnOpKind, Expression, SyntaxTree, Library, types::Type};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, SyntaxTree, Library, types::Type};
 
 use crate::{
     error::Error,
@@ -22,6 +22,7 @@ pub fn parse(source: &str) -> Result<SyntaxTree> {
 
 fn block_definitions() -> BlockDefinitions {
     let mut blockdefs = BlockDefinitions::new();
+    blockdefs.add::<dot::Dot>();
     blockdefs.add::<call::Call>();
     blockdefs.add::<returns::Return>();
     blockdefs.add::<fn_def::FnDef>();

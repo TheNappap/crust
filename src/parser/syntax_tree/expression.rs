@@ -1,4 +1,4 @@
-use crate::{parser::{Signature, Fn, Type, Data}, lexer::Literal};
+use crate::{parser::{Signature, Fn, Type}, lexer::Literal};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinOpKind {
@@ -15,8 +15,8 @@ pub enum Expression {
     Call(Signature, Vec<Expression>),
     Fn(Fn),
     Impl(String, Vec<Fn>),
-    Data(Data),
-    New(Data, Vec<Expression>),
+    Data(Type),
+    New(Type, Vec<Expression>),
     Field(Box<Expression>, String, Type, i32),
     Let(String, Box<Expression>, Type),
     Mut(String, Box<Expression>),

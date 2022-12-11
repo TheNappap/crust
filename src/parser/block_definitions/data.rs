@@ -5,7 +5,7 @@ use crate::{
     lexer::{Token, Operator},
     parser::{
         syntax_tree::{Expression},
-        Parser, Type, Data
+        Parser, Type
     },
 };
 
@@ -29,7 +29,7 @@ impl BlockDefinition for Struct {
             .map(|tokens| parser.parse_parameter(tokens))
             .try_collect()?;
 
-        let data = Data::new(name.to_string(), Type::Struct(types));
+        let data = Type::Struct(name.to_owned(), types);
         Ok(Expression::Data(data))
     }
     
@@ -59,7 +59,7 @@ impl BlockDefinition for Enum {
             })
             .try_collect()?;
 
-        let data = Data::new(name.to_string(), Type::Enum(variants));
+        let data = Type::Enum(name.to_owned(), variants);
         Ok(Expression::Data(data))
     }
     
@@ -86,7 +86,7 @@ impl BlockDefinition for New {
             .try_collect()?;
 
         let exprs = if body.is_empty() {
-            let data = Data::new(names[1].to_string(), Type::Inferred);
+            let data = Type::Named(names[1].to_owned());
             vec![Expression::Data(data)]
         } else {
             parser.parse_list(body).into_iter()
@@ -94,7 +94,7 @@ impl BlockDefinition for New {
                 .try_collect()?
         };
 
-        let data = Data::new(names[0].to_string(), Type::Inferred);
+        let data = Type::Named(names[0].to_owned());
         Ok(Expression::New(data, exprs))
     }
     

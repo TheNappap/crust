@@ -3,28 +3,28 @@
 pub mod fn_expr;
 pub mod types;
 pub mod expression;
-pub mod data;
 pub mod field_map;
 
 pub use expression::{Expression, BinOpKind, UnOpKind};
 
-use self::data::Data;
 use self::fn_expr::Fn;
+
+use super::Type;
 
 pub trait Library {
     fn fns(&self) -> Vec<Fn>;
-    fn data(&self) -> Vec<Data>;
+    fn data_types(&self) -> Vec<Type>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SyntaxTree {
     fns: Vec<Fn>,
-    data: Vec<Data>,
+    data_types: Vec<Type>,
 }
 
 impl SyntaxTree {
-    pub fn new(fns: Vec<Fn>, data: Vec<Data>) -> SyntaxTree {
-        SyntaxTree { fns, data }
+    pub fn new(fns: Vec<Fn>, data_types: Vec<Type>) -> SyntaxTree {
+        SyntaxTree { fns, data_types }
     }
 
     pub fn fns_impls(&self) -> impl Iterator<Item=&Fn> + '_ {
@@ -35,12 +35,12 @@ impl SyntaxTree {
         self.fns.iter_mut()
     }
 
-    pub fn data(&self) -> impl Iterator<Item=&Data> + '_ {
-        self.data.iter()
+    pub fn data_types(&self) -> impl Iterator<Item=&Type> + '_ {
+        self.data_types.iter()
     }
 
     pub fn add_lib(&mut self, lib: &dyn Library) {
         self.fns.extend(lib.fns());
-        self.data.extend(lib.data());
+        self.data_types.extend(lib.data_types());
     }
 }

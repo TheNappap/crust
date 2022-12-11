@@ -3,7 +3,7 @@ use std::{collections::{HashMap, hash_map::Entry}};
 
 use itertools::Itertools;
 
-use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature, BinOpKind, Data}, error::{Result, Error}, lexer::Literal};
+use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature, BinOpKind}, error::{Result, Error}, lexer::Literal};
 
 fn std_functions() -> HashMap<String, Signature> {
     [Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
@@ -13,8 +13,8 @@ fn std_functions() -> HashMap<String, Signature> {
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     let mut data_map = HashMap::new();
-    syntax_tree.data()
-        .map(|data| match data_map.entry(data.name().clone()) {
+    syntax_tree.data_types()
+        .map(|data| match data_map.entry(data.name().to_owned()) {
             Entry::Occupied(_) => return Err(Error::type_("Data structure already defined".to_string(), 0)),
             Entry::Vacant(v) => { v.insert(data.to_owned()); Ok(()) },
         })
@@ -37,19 +37,19 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     Ok(())
 }
 
-trait DataCheck {
-    fn check_data(&self, name: &String) -> Result<Data>;
+trait DataTypeCheck {
+    fn check_type_name(&self, name: &str) -> Result<Type>;
 
     fn check_named_type(&self, ty: &mut Type) -> Result<()> {
         if let Type::Named(name) = ty {
-            *ty = self.check_data(name)?.ty().to_owned();
+            *ty = self.check_type_name(name)?.to_owned();
         };
         Ok(())
     } 
 }
 
-impl DataCheck for HashMap<String, Data> {
-    fn check_data(&self, name: &String) -> Result<Data> {
+impl DataTypeCheck for HashMap<String, Type> {
+    fn check_type_name(&self, name: &str) -> Result<Type> {
         match self.get(name) {
             Some(data) => Ok(data.to_owned()),
             None => return Err(Error::type_("Data structure not found".to_string(), 0))
@@ -60,27 +60,27 @@ impl DataCheck for HashMap<String, Data> {
 struct TypeCheck<'f> {
     variables: HashMap<String, Type>,
     functions: &'f HashMap<String, Signature>,
-    data: &'f HashMap<String, Data>,
+    data_types: &'f HashMap<String, Type>,
 }
 
 impl<'f> TypeCheck<'f> {
-    fn new(functions: &'f HashMap<String, Signature>, data: &'f HashMap<String, Data>) -> TypeCheck<'f> {
+    fn new(functions: &'f HashMap<String, Signature>, data_types: &'f HashMap<String, Type>) -> TypeCheck<'f> {
         TypeCheck {
             variables: HashMap::new(),
             functions,
-            data,
+            data_types,
         }
     }
 
     fn check_fun(&mut self, fun: &mut Fn) -> Result<()> {
         if let Some(ty) = fun.signature_mut().self_ty_mut() {
-            self.data.check_named_type(ty)?;
+            self.data_types.check_named_type(ty)?;
         }
         for (name, ty) in fun.params_mut() {
-            self.data.check_named_type(ty)?;
+            self.data_types.check_named_type(ty)?;
             self.variables.insert(name.clone(), ty.clone());
         }
-        self.data.check_named_type(fun.signature_mut().returns_mut())?;
+        self.data_types.check_named_type(fun.signature_mut().returns_mut())?;
         for expr in fun.body_mut() {
             self.check_expression(expr)?;
         }
@@ -90,6 +90,11 @@ impl<'f> TypeCheck<'f> {
     fn check_expression(&mut self, expr: &mut Expression) -> Result<Type> {
         let mut ty = match expr {
             Expression::Call(signature, params) => {
+                if let Some(Type::Inferred) = signature.self_ty() {
+                    assert!(params.len() > 0);
+                    let ty = self.check_expression(&mut params[0])?;
+                    signature.set_self_type(ty.name());
+                }
                 *signature = self.functions.get(signature.name()).expect("Function not found").clone();
 
                 params.iter_mut()
@@ -105,7 +110,7 @@ impl<'f> TypeCheck<'f> {
                       })
                       .try_for_each(|x| x.map(|_| ()))?;
 
-                self.data.check_named_type(signature.returns_mut())?;
+                self.data_types.check_named_type(signature.returns_mut())?;
                 signature.returns().clone()
             },
             Expression::Return(expr) => {
@@ -117,21 +122,18 @@ impl<'f> TypeCheck<'f> {
                 Type::Inferred
             }
             Expression::Impl(name, fns) => {
-                self.data.check_data(name)?;
+                self.data_types.check_type_name(name)?;
                 fns.iter_mut().try_for_each(|fun| self.check_fun(fun))?;
                 Type::Inferred
             }
-            Expression::Data(data) => {
-                if !matches!(data.ty(), Type::Struct(_)) {
-                    return Err(Error::type_("The type of struct is not well defined".to_string(), 0));
-                }
+            Expression::Data(_) => {
                 Type::Inferred
             }
-            Expression::New(data, exprs) => {
-                *data = self.data.check_data(data.name())?;
+            Expression::New(ty, exprs) => {
+                *ty = self.data_types.check_type_name(ty.name())?;
 
-                match data.ty() {
-                    Type::Struct(fields) => {
+                match ty {
+                    Type::Struct(_, fields) => {
                         fields.iter().zip(exprs.into_iter())
                             .map(|((_,ty), expr)| -> Result<_> { 
                                 let expr_ty =  self.check_expression(expr)?;
@@ -142,7 +144,7 @@ impl<'f> TypeCheck<'f> {
                             })
                             .try_collect()?;
                     }
-                    Type::Enum(variants) => {
+                    Type::Enum(_, variants) => {
                         assert!(exprs.len() == 1);
                         let Expression::Data(data) = &exprs[0] else {
                             return Err(Error::type_("Enum variant parsing failed".to_string(), 0));
@@ -156,13 +158,13 @@ impl<'f> TypeCheck<'f> {
                     _ => return Err(Error::type_("The type of data structure is not well defined".to_string(), 0))
                 }
                     
-                data.ty().to_owned()
+                ty.to_owned()
             }
             Expression::Field(expr, field_name, field_type, field_offset) => {
                 let ty = self.check_expression(expr)?;
 
                 match ty {
-                    Type::Struct(map) => {
+                    Type::Struct(_, map) => {
                         let Some(ty) = map.get(field_name) else { 
                             return Err(Error::type_(format!("No field found with this name: {}", field_name), 0)); 
                         };
@@ -352,7 +354,7 @@ impl<'f> TypeCheck<'f> {
                 }
             },
         };
-        self.data.check_named_type(&mut ty)?;
+        self.data_types.check_named_type(&mut ty)?;
         Ok(ty)
     }
 }

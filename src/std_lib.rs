@@ -1,19 +1,19 @@
-use crate::{parser::{Data, Library, Fn, Type}};
+use crate::{parser::{Library, Fn, Type}};
 
-fn std_data() -> Vec<Data> {
+fn std_data_types() -> Vec<Type> {
     vec![
-        Data::new("Range".to_owned(), Type::Struct([("start".to_owned(), Type::Int),("end".to_owned(), Type::Int)].into_iter().collect()))
+        Type::Struct("Range".to_owned(), [("start".to_owned(), Type::Int),("end".to_owned(), Type::Int)].into_iter().collect())
     ]
 }
 
 pub struct StdLib {
     fns: Vec<Fn>,
-    data: Vec<Data>,
+    data_types: Vec<Type>,
 }
 
 impl StdLib {
     pub fn new() -> Self {
-        StdLib { fns: Vec::new(), data: std_data() }
+        StdLib { fns: Vec::new(), data_types: std_data_types() }
     }
 }
 
@@ -22,7 +22,7 @@ impl Library for StdLib {
         self.fns.iter().cloned().collect()
     }
 
-    fn data(&self) -> Vec<Data> {
-        self.data.iter().cloned().collect()
+    fn data_types(&self) -> Vec<Type> {
+        self.data_types.iter().cloned().collect()
     }
 }

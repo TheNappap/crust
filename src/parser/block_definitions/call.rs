@@ -26,7 +26,11 @@ impl BlockDefinition for Call {
         let (ty, name, tokens) = match header.as_slice() {
             [Ident(name), Group(Parens, tokens)] => (None, name.to_owned(), tokens),
             [Ident(type_name), Operator(ColonColon), Ident(name), Group(Parens, tokens)] => 
-                (Some(Type::Named(type_name.to_owned())), name.to_owned(), tokens),
+                if type_name == "_" {
+                    (Some(Type::Inferred), name.to_owned(), tokens)
+                } else {
+                    (Some(Type::Named(type_name.to_owned())), type_name.to_owned() + "::" + name, tokens)
+                }
             _ => return Err(Error::syntax("Badly formed call expression".to_string(), 0)),
         };
 

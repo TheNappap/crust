@@ -1,7 +1,7 @@
 
 use std::convert::identity;
 
-use crate::{lexer::{Token, Delimeter, Operator}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate, data::Field}};
+use crate::{lexer::{Token, Delimeter, Operator}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate, dot}};
 
 #[derive(Debug, PartialEq, Clone)]
 enum OpKind {
@@ -29,7 +29,7 @@ fn id_of_operator(kind:OpKind, op: &Operator) -> Option<String> {
     let id = match (kind, op) {
         (Prefix, Not) => Negate.id(),
         (Prefix, Dash) => Negate.id(),
-        (Binary, Dot) => Field.id(),
+        (Binary, Dot) => dot::Dot.id(),
         (Binary, Star) => Multiply.id(),
         (Binary, Slash) => Divide.id(),
         (Binary, Plus) => Add.id(),

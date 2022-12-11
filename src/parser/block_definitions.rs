@@ -7,6 +7,7 @@ use crate::{
 
 use super::{syntax_tree::Expression, Parser};
 
+pub mod dot;
 pub mod call;
 pub mod fn_def;
 pub mod print;

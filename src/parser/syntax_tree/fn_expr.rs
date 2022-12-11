@@ -22,6 +22,11 @@ impl Signature {
         &self.self_ty
     }
 
+    pub fn set_self_type(&mut self, type_name: &str) {
+        self.name = type_name.to_owned() + "::" + &self.name;
+        self.self_ty = Some(Type::Named(type_name.to_owned()));
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -68,11 +73,13 @@ impl Fn {
         &mut self.signature
     }
 
-    pub fn set_self_type(&mut self, ty: Type) {
-        self.signature.self_ty = Some(ty.clone());
-        if let Some((name, self_ty)) = self.params_mut().next() {
+    pub fn set_self_type(&mut self, type_name: &str) {
+        self.signature.set_self_type(type_name);
+        if let Some(name) = self.params.first() {
             if name == "self" {
-                *self_ty = ty;
+                let ty = Type::Named(type_name.to_owned());
+                self.signature.self_ty = Some(ty.clone());
+                self.signature.params[0] = ty;
             }
         }
     }

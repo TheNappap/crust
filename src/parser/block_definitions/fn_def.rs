@@ -79,7 +79,7 @@ impl BlockDefinition for Impl {
         let fns = parser.parse_group(body)?.into_iter()
             .map(|exp| 
                 if let Expression::Fn(mut fun) = exp {
-                    fun.set_self_type(Type::Named(name.clone()));
+                    fun.set_self_type(&name);
                     Ok(fun) 
                 }
                 else { return Err(Error::syntax("Expected symbol as type name".to_string(), 0)); } 

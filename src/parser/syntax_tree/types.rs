@@ -15,8 +15,8 @@ pub enum Type {
     Inferred,
     Named(String),
     Array(Box<Type>, usize),
-    Struct(FieldMap<String, Type>),
-    Enum(HashMap<String, usize>),
+    Struct(String, FieldMap<String, Type>),
+    Enum(String, HashMap<String, usize>),
     Iter(Box<Type>),
 }
 
@@ -26,10 +26,26 @@ impl Type {
         match self {
             Int | Float | Bool | String | Iter(_) => 8,
             Type::Array(ty, len) => ty.size()*(*len as u32),
-            Type::Struct(types) => types.values().map(Type::size).sum(),
-            Type::Enum(_) => Int.size(),
+            Type::Struct(_, types) => types.values().map(Type::size).sum(),
+            Type::Enum(_, _) => Int.size(),
             Void => 0,
             Inferred | Named(_) => unreachable!(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Type::Int => "Int",
+            Type::Float => "Float",
+            Type::Bool => "Bool",
+            Type::String => "String",
+            Type::Void => "Void",
+            Type::Inferred => "Inferred",
+            Type::Named(name) => name,
+            Type::Array(_, _) => todo!(),
+            Type::Struct(name, _) => name,
+            Type::Enum(name, _) => name,
+            Type::Iter(_) => todo!(),
         }
     }
 

@@ -643,7 +643,7 @@ impl<'gen> FunctionCodegen<'gen> {
 
     fn create_compare(&mut self, kind: CompKind, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Vec<Value>> {
         match ty {
-            Type::Int | Type::Enum(_) => {
+            Type::Int | Type::Enum(_, _) => {
                 let v1 = self.create_expression(param1)?[0];
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().icmp(kind.to_intcc(), v1, v2)])
