@@ -1,3 +1,4 @@
+
 use std::{collections::{HashMap, hash_map::Entry}};
 
 use itertools::Itertools;
@@ -5,8 +6,8 @@ use itertools::Itertools;
 use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature, BinOpKind, Data}, error::{Result, Error}, lexer::Literal};
 
 fn std_functions() -> HashMap<String, Signature> {
-    [Signature::new("__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
-    Signature::new("__acrt_iob_func", vec![Type::Int], Type::Int)]
+    [Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
+    Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int)]
         .into_iter().map(|sig| (sig.name().to_owned(), sig) ).collect()
 }
 
@@ -21,7 +22,7 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
 
     let mut functions = std_functions();
     for fun in syntax_tree.fns_impls() {
-        for expr in fun.expressions() {
+        for expr in fun.body() {
             if let Expression::Fn(f) = expr {
                 functions.insert(f.signature().name().to_string(), f.signature().clone());
             }
@@ -72,12 +73,15 @@ impl<'f> TypeCheck<'f> {
     }
 
     fn check_fun(&mut self, fun: &mut Fn) -> Result<()> {
+        if let Some(ty) = fun.signature_mut().self_ty_mut() {
+            self.data.check_named_type(ty)?;
+        }
         for (name, ty) in fun.params_mut() {
             self.data.check_named_type(ty)?;
             self.variables.insert(name.clone(), ty.clone());
         }
         self.data.check_named_type(fun.signature_mut().returns_mut())?;
-        for expr in fun.expressions_mut() {
+        for expr in fun.body_mut() {
             self.check_expression(expr)?;
         }
         Ok(())
@@ -157,10 +161,12 @@ impl<'f> TypeCheck<'f> {
             Expression::Field(expr, field_name, field_type, field_offset) => {
                 let ty = self.check_expression(expr)?;
 
-                let err = Err(Error::type_(format!("No field found with this name: {:?}", field_name), 0));
                 match ty {
                     Type::Struct(map) => {
-                        let Some(ty) = map.get(field_name) else { return err; };
+                        let Some(ty) = map.get(field_name) else { 
+                            return Err(Error::type_(format!("No field found with this name: {}", field_name), 0)); 
+                        };
+
                         *field_type = ty.to_owned();
                         map.iter().fold(0, |offset, (name, ty)| {
                             if name == field_name {
@@ -170,7 +176,7 @@ impl<'f> TypeCheck<'f> {
                         });
                         ty.to_owned()
                     },
-                    _ => return err
+                    _ => return Err(Error::type_(format!("No field for type: {:?}", ty), 0))
                 }
             }
             Expression::Let(name, expr, let_ty) => {

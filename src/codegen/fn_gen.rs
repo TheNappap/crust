@@ -99,7 +99,7 @@ impl<'gen> FunctionCodegen<'gen> {
             offset = new_offset;
         }
 
-        for statement in fun.expressions() {
+        for statement in fun.body() {
             self.create_expression(statement)?;
         }
 
@@ -570,7 +570,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fadd(v1, v2)])
             },
-            Type::String => self.create_fn_call(&Signature::new("strcat",vec![Type::Int,Type::Int],Type::Int), &vec![param1.clone(), param2.clone()]),
+            Type::String => self.create_fn_call(&Signature::new(None, "strcat",vec![Type::Int,Type::Int],Type::Int), &vec![param1.clone(), param2.clone()]),
             _ => Err(Error::codegen("Addition for this type is not supported".to_string(), 0))
         }
     }

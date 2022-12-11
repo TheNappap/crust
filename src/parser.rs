@@ -68,7 +68,6 @@ impl Parser {
     pub fn parse_code(&self, source: &str) -> Result<SyntaxTree> {
         let mut fns = Vec::new();
         let mut datas = Vec::new();
-        let mut impls = Vec::new();
         BlockStream::from(source)
             .try_for_each(|block| {
                 let block = match block {
@@ -79,14 +78,14 @@ impl Parser {
                 match self.parse_block_expression(block) {
                     Ok(Expression::Fn(fun)) => fns.push(fun),
                     Ok(Expression::Data(data)) => datas.push(data),
-                    Ok(Expression::Impl(name, fns)) => impls.push((name, fns)),
+                    Ok(Expression::Impl(_, methods)) => methods.into_iter().for_each(|fun| fns.push(fun)),
                     Err(err) => return Err(err),
                     _ => return Err(Error::syntax(format!("The block '{}' cannot be used in this position.", tag), 0,))
                 }
                 Ok(())
             })?;
 
-        Ok(SyntaxTree::new(fns, datas, impls))
+        Ok(SyntaxTree::new(fns, datas))
     }
 
     fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
@@ -130,6 +129,14 @@ impl Parser {
     }
 
     fn parse_parameter(&self, tokens: Vec<Token>) -> Result<(String, Type)> {
+        assert!(tokens.len() > 0);
+        match &tokens[0] {
+            Token::Ident(name) if name == "self" => {
+                assert!(tokens.len() == 1);
+                return Ok((name.to_owned(), Type::Inferred));
+            }
+            _ => ()
+        }
         self.parse_param(tokens).and_then(|(s,t)| Ok((s, Type::from(t[0].clone())?)))
     }
     
@@ -195,10 +202,10 @@ mod tests {
 
         let print_call = |string: String| {
             Expression::Call(
-                Signature::new("__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
+                Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
                 vec![
                     Expression::Literal(Literal::Int(0)), 
-                    Expression::Call(Signature::new("__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::Literal(Literal::Int(1))]), 
+                    Expression::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::Literal(Literal::Int(1))]), 
                     Expression::Literal(Literal::String(string)), 
                     Expression::Literal(Literal::Int(0)), 
                     Expression::Literal(Literal::Int(0))
@@ -208,11 +215,11 @@ mod tests {
         assert_eq!(
             syntax_tree,
             SyntaxTree::new(vec![Fn::new(
-                Signature::new("main",vec![], Type::Void),
+                Signature::new(None, "main", vec![], Type::Void),
                 vec![],
                 vec![
                     Expression::Fn(Fn::new(
-                        Signature::new("function", vec![], Type::Void),
+                        Signature::new(None, "function", vec![], Type::Void),
                         vec![],
                         vec![
                             print_call("Line1".to_string()),
@@ -221,18 +228,17 @@ mod tests {
                         ],
                     )),
                     Expression::Fn(Fn::new(
-                        Signature::new("f2", vec![], Type::Void),
+                        Signature::new(None, "f2", vec![], Type::Void),
                         vec![],
                         vec![
                             print_call("one liner".to_string()),
                         ],
                     )),
-                    Expression::Call(Signature::new("f2", vec![], Type::Inferred), vec![]),
-                    Expression::Call(Signature::new("function", vec![], Type::Inferred), vec![]),
+                    Expression::Call(Signature::new(None, "f2", vec![], Type::Inferred), vec![]),
+                    Expression::Call(Signature::new(None, "function", vec![], Type::Inferred), vec![]),
                 ],
             )
         ], 
-        vec![],
         vec![]));
         Ok(())
     }

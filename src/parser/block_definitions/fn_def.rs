@@ -35,7 +35,7 @@ impl BlockDefinition for FnDef {
         .into_iter()
         .map(|tokens| parser.parse_parameter(tokens));
         
-        let (param_names, param_types) = process_results(params, |iter| iter.unzip())?;
+        let (param_names, param_types) : (Vec<String>, Vec<Type>) = process_results(params, |iter| iter.unzip())?;
 
         let returns = match (tokens.next(), tokens.next()) {
             (None, None) => Type::Void,
@@ -43,9 +43,17 @@ impl BlockDefinition for FnDef {
             _ => return Err(Error::syntax("Unexpected symbols after function header".to_string(), 0)),
         };
 
-        let signature = Signature::new(&name, param_types, returns);
-        let exprs = parser.parse_group(body)?;
-        Ok(Expression::Fn(Fn::new(signature, param_names, exprs)))
+        let ty = if param_names.len() > 0 && param_names[0] == "self" {
+            Some(Type::Inferred)
+        } else {
+            None
+        };
+        let signature = Signature::new(ty, &name, param_types, returns);
+        let body = parser.parse_group(body)?;
+
+
+        let fun = Fn::new(signature, param_names, body);
+        Ok(Expression::Fn(fun))
     }
     
     fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
@@ -71,7 +79,7 @@ impl BlockDefinition for Impl {
         let fns = parser.parse_group(body)?.into_iter()
             .map(|exp| 
                 if let Expression::Fn(mut fun) = exp {
-                    fun.add_type_name(name.clone());
+                    fun.set_self_type(Type::Named(name.clone()));
                     Ok(fun) 
                 }
                 else { return Err(Error::syntax("Expected symbol as type name".to_string(), 0)); } 

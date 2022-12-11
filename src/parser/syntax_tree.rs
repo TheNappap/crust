@@ -20,20 +20,19 @@ pub trait Library {
 pub struct SyntaxTree {
     fns: Vec<Fn>,
     data: Vec<Data>,
-    impls: Vec<(String, Vec<Fn>)>,
 }
 
 impl SyntaxTree {
-    pub fn new(fns: Vec<Fn>, data: Vec<Data>, impls: Vec<(String, Vec<Fn>)>) -> SyntaxTree {
-        SyntaxTree { fns, data, impls }
+    pub fn new(fns: Vec<Fn>, data: Vec<Data>) -> SyntaxTree {
+        SyntaxTree { fns, data }
     }
 
     pub fn fns_impls(&self) -> impl Iterator<Item=&Fn> + '_ {
-        self.fns.iter().chain(self.impls.iter().map(|(_, fns)| fns).flatten())
+        self.fns.iter()
     }
 
     pub fn fns_impls_mut(&mut self) -> impl Iterator<Item=&mut Fn> + '_ {
-        self.fns.iter_mut().chain(self.impls.iter_mut().map(|(_, fns)| fns).flatten())
+        self.fns.iter_mut()
     }
 
     pub fn data(&self) -> impl Iterator<Item=&Data> + '_ {

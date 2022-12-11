@@ -1,6 +1,4 @@
-use crate::{parser::{Signature, Fn, Type}, lexer::Literal};
-
-use super::data::Data;
+use crate::{parser::{Signature, Fn, Type, Data}, lexer::Literal};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinOpKind {

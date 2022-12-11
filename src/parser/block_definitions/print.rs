@@ -66,10 +66,10 @@ fn parse_print(header: Vec<Token>, body: Vec<Token>, parser: &Parser, add: Optio
     };
 
     Ok(Expression::Call(
-        Signature::new("__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
+        Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
         vec![
             Expression::Literal(Literal::Int(0)),
-            Expression::Call(Signature::new("__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::Literal(Literal::Int(1))]),
+            Expression::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::Literal(Literal::Int(1))]),
             string_expr, 
             Expression::Literal(Literal::Int(0)), 
             args_expr,

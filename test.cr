@@ -8,6 +8,10 @@ impl Data {
     fn new() -> Data {
         return new Data{a: 88, b: 99, arr: [65,66]}
     }
+
+    fn a(self) -> Int {
+        return self.a;
+    }
 }
 
 enum Option {
@@ -24,7 +28,8 @@ fn main() {
 }
 
 fn impl_blocks() {
-    println "static fn data member a: %i", call Data::new().a;
+    println "full fn method a(): %i", call Data::a(call Data::new());
+    println "static fn data member b: %i", call Data::new().b;
 }
 
 fn custom_data(data: Data) {

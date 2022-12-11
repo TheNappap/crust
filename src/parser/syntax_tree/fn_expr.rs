@@ -3,14 +3,23 @@ use core::slice::{Iter, IterMut};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Signature {
+    self_ty: Option<Type>,
     name: String,
     params: Vec<Type>,
     returns: Type,
 }
 
 impl Signature {
-    pub fn new(name: &str, params: Vec<Type>, returns: Type) -> Signature {
-        Signature { name: name.to_string(), params, returns }
+    pub fn new(self_ty: Option<Type>, name: &str, params: Vec<Type>, returns: Type) -> Signature {
+        Signature { self_ty, name: name.to_string(), params, returns }
+    }
+    
+    pub fn self_ty_mut(&mut self) -> &mut Option<Type> {
+        &mut self.self_ty
+    }
+
+    pub fn self_ty(&self) -> &Option<Type> {
+        &self.self_ty
     }
 
     pub fn name(&self) -> &str {
@@ -38,16 +47,16 @@ impl Signature {
 pub struct Fn {
     signature: Signature,
     params: Vec<String>,
-    exprs: Vec<Expression>,
+    body: Vec<Expression>,
 }
 
 impl Fn {
-    pub fn new(signature: Signature, params: Vec<String>, exprs: Vec<Expression>) -> Fn {
+    pub fn new(signature: Signature, params: Vec<String>, body: Vec<Expression>) -> Fn {
         assert_eq!(params.len(), signature.params().len());
         Fn {
             signature,
             params,
-            exprs,
+            body,
         }
     }
 
@@ -59,6 +68,15 @@ impl Fn {
         &mut self.signature
     }
 
+    pub fn set_self_type(&mut self, ty: Type) {
+        self.signature.self_ty = Some(ty.clone());
+        if let Some((name, self_ty)) = self.params_mut().next() {
+            if name == "self" {
+                *self_ty = ty;
+            }
+        }
+    }
+
     pub fn params(&self) -> impl Iterator<Item=(&String,&Type)> {
         self.params.iter().zip(self.signature.params())
     }
@@ -67,15 +85,11 @@ impl Fn {
         self.params.iter().zip(self.signature.params_mut())
     }
 
-    pub fn expressions(&self) -> Iter<Expression> {
-        self.exprs.iter()
+    pub fn body(&self) -> Iter<Expression> {
+        self.body.iter()
     }
 
-    pub fn expressions_mut(&mut self) -> IterMut<Expression> {
-        self.exprs.iter_mut()
-    }
-
-    pub fn add_type_name(&mut self, type_name: String) {
-        self.signature.name = type_name + "__" + &self.signature.name
+    pub fn body_mut(&mut self) -> IterMut<Expression> {
+        self.body.iter_mut()
     }
 }
