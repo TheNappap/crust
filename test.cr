@@ -19,6 +19,12 @@ enum Option {
     Some,
 }
 
+impl Option {
+    fn some_func(self) -> String {
+        return "ENUM METHOD!";
+    }
+}
+
 fn main() {
     call basics(); 
     call loops_and_arrays();
@@ -31,6 +37,7 @@ fn impl_blocks() {
     println "full fn method a(): %i", call Data::a(call Data::new());
     println "method call a(): %i", call Data::new().a();
     println "static fn data member b: %i", call Data::new().b;
+    println "What is this? %s", new Option::Some.some_func();
 }
 
 fn custom_data(data: Data) {

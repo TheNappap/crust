@@ -149,11 +149,9 @@ impl<'f> TypeCheck<'f> {
                         let Expression::Data(data) = &exprs[0] else {
                             return Err(Error::type_("Enum variant parsing failed".to_string(), 0));
                         };
-                        let Some(variant) = variants.get(data.name()) else {
+                        let Some(_) = variants.get(data.name()) else {
                             return Err(Error::type_("Enum variant not found".to_string(), 0));
                         };
-                        exprs.clear();
-                        exprs.push(Expression::Literal(Literal::Int(*variant as i64)));
                     }
                     _ => return Err(Error::type_("The type of data structure is not well defined".to_string(), 0))
                 }

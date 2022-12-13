@@ -185,8 +185,20 @@ impl<'gen> FunctionCodegen<'gen> {
             Expression::Array(exprs) => {
                 self.create_record(exprs)?
             }
-            Expression::New(_data, exprs) => {
-                self.create_record(exprs)?
+            Expression::New(ty, exprs) => {
+                match ty {
+                    Type::Struct(_, _) => self.create_record(exprs)?,
+                    Type::Enum(_, variants) => {
+                        let Expression::Data(data) = &exprs[0] else {
+                            return Err(Error::codegen("Enum variant parsing failed".to_string(), 0));
+                        };
+                        let Some(variant) = variants.get(data.name()) else {
+                            return Err(Error::codegen("Enum variant not found".to_string(), 0));
+                        };
+                        vec![self.builder.ins().iconst(I64, *variant as i64)]
+                    }
+                    _ => unreachable!(),
+                }
             }
             Expression::Fn(_) => vec![], //ignore, handled before function codegen
             Expression::Impl(_, _) => vec![], //ignore, handled before function codegen
