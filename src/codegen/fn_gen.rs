@@ -18,7 +18,7 @@ use crate::lexer::Literal;
 use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type};
 
 use super::comp_kind::CompKind;
-use super::types::GenType;
+use super::gen_type::GenType;
 
 pub fn create_fn<'gen>(
     fun_ctx: &'gen mut FunctionBuilderContext,

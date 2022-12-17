@@ -12,10 +12,10 @@ pub enum UnOpKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    Call(Signature, Vec<Expression>),
     Fn(Fn),
     Impl(String, Vec<Fn>),
     Data(Type),
+    Call(Signature, Vec<Expression>),
     New(Type, Vec<Expression>),
     Field(Box<Expression>, String, Type, i32),
     Let(String, Box<Expression>, Type),
