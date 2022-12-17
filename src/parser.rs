@@ -86,7 +86,7 @@ impl Parser {
                 Ok(())
             })?;
 
-        Ok(SyntaxTree::new(fns, datas))
+        Ok(SyntaxTree::new(fns, vec![], datas))
     }
 
     fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
@@ -240,6 +240,7 @@ mod tests {
                 ],
             )
         ], 
+        vec![],
         vec![]));
         Ok(())
     }

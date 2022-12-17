@@ -5,11 +5,6 @@ use itertools::Itertools;
 
 use crate::{parser::{SyntaxTree, Type, Fn, Expression, Signature, BinOpKind}, error::{Result, Error}, lexer::Literal};
 
-fn std_functions() -> HashMap<String, Signature> {
-    [Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
-    Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int)]
-        .into_iter().map(|sig| (sig.name().to_owned(), sig) ).collect()
-}
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     let mut data_map = HashMap::new();
@@ -20,7 +15,7 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
         })
         .try_collect()?;
 
-    let mut functions = std_functions();
+    let mut functions: HashMap<_,_> = syntax_tree.imports().cloned().map(|sig| (sig.name().to_owned(), sig) ).collect();
     for fun in syntax_tree.fns_impls() {
         for expr in fun.body() {
             if let Expression::Fn(f) = expr {
