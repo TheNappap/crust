@@ -82,6 +82,17 @@ impl<'f> TypeCheck<'f> {
         Ok(())
     }
 
+    fn check_group(&mut self, exprs: &mut Vec<Expression>) -> Result<Type> {
+        let size = exprs.len();
+        for expr in exprs.iter_mut().take(size) {
+            self.check_expression(expr)?;
+        }
+        match exprs.last_mut() {
+            None => Ok(Type::Void),
+            Some(expr) => self.check_expression(expr),
+        }
+    }
+
     fn check_expression(&mut self, expr: &mut Expression) -> Result<Type> {
         let mut ty = match expr {
             Expression::Call(signature, params) => {
@@ -252,16 +263,7 @@ impl<'f> TypeCheck<'f> {
                     _ => return Err(Error::type_("Expected array as iterable".to_string(), 0)),
                 }
             },
-            Expression::Group(body) => {
-                let body_size = body.len();
-                for expr in body.iter_mut().take(body_size) {
-                    self.check_expression(expr)?;
-                }
-                match body.last_mut() {
-                    None => Type::Void,
-                    Some(expr) => self.check_expression(expr)?,
-                }
-            },
+            Expression::Group(body) => self.check_group(body)?,
             Expression::Literal(Literal::Int(_)) => Type::Int,
             Expression::Literal(Literal::Float(_)) => Type::Float,
             Expression::Literal(Literal::Bool(_)) => Type::Bool,
@@ -346,6 +348,30 @@ impl<'f> TypeCheck<'f> {
                     _ => return Err(Error::type_("Expected array to index into".into(), 0)),
                 }
             },
+            Expression::Match(expr, ty, cases) => {
+                *ty = self.check_expression(expr)?;
+                let ty = cases.iter_mut()
+                    .map(|(pattern, exprs)|{
+                        if !pattern.matches_on(&ty) {
+                            return Err(Error::type_("Unexpected pattern".into(), 0));
+                        }
+                        let ty = self.check_group(exprs)?;
+                        Ok(ty)
+                    })
+                    .try_fold(None, |acc, ty| {
+                        match acc {
+                            None => Ok(Some(ty?)),
+                            Some(acc) => {
+                                if acc != ty? {
+                                    return Err(Error::type_("Type of case blocks do not match".into(), 0));
+                                }
+                                Ok(Some(acc))
+                            }
+                        }
+                    })?.unwrap();
+                ty
+            },
+            Expression::Case(..) => unreachable!(),
         };
         self.data_types.check_named_type(&mut ty)?;
         Ok(ty)

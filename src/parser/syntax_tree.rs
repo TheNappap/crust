@@ -3,7 +3,8 @@
 pub mod fn_expr;
 pub mod types;
 pub mod expression;
-pub mod field_map;
+pub mod ordered_map;
+pub mod patterns;
 
 pub use expression::{Expression, BinOpKind, UnOpKind};
 

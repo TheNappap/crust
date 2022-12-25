@@ -1,5 +1,7 @@
 use crate::{parser::{Signature, Fn, Type}, lexer::Literal};
 
+use super::{patterns::Pattern, ordered_map::OrderedMap};
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinOpKind {
     Add, Sub, Mul, Div, Eq, Neq
@@ -33,4 +35,6 @@ pub enum Expression {
     Return(Box<Expression>),
     Array(Vec<Expression>),
     Index(Box<Expression>, Box<Expression>, Type, u32),
+    Case(Pattern, Vec<Expression>),
+    Match(Box<Expression>, Type, OrderedMap<Pattern, Vec<Expression>>),
 }

@@ -22,6 +22,7 @@ pub mod group;
 pub mod array;
 pub mod iter;
 pub mod data;
+pub mod pattern_match;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;

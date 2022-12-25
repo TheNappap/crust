@@ -8,14 +8,14 @@ use cranelift_codegen::ir::types::{I64, B64};
 use cranelift_codegen::ir::{ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, FuncRef, Block, InstBuilderBase, StackSlot, self, MemFlags};
 
 use cranelift_codegen::verifier::verify_function;
-use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable, Switch};
 use cranelift_module::{DataContext, Linkage, Module};
 use cranelift_object::ObjectModule;
 use itertools::Itertools;
 
 use crate::error::{Result, Error};
 use crate::lexer::Literal;
-use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type};
+use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type, Pattern, OrderedMap};
 
 use super::comp_kind::CompKind;
 use super::gen_type::GenType;
@@ -51,8 +51,8 @@ pub fn create_fn<'gen>(
 
     fun_codegen.create_fn(fun)?;
 
-    verify_function(&func, module.isa())?;
     //println!("{}", func.display());
+    verify_function(&func, module.isa())?;
 
     Ok(func)
 }
@@ -200,9 +200,13 @@ impl<'gen> FunctionCodegen<'gen> {
                     _ => unreachable!(),
                 }
             }
+            Expression::Match(expr, ty, cases) => {
+                self.create_match(expr, ty, cases)?
+            },
             Expression::Fn(_) => vec![], //ignore, handled before function codegen
-            Expression::Impl(_, _) => vec![], //ignore, handled before function codegen
+            Expression::Impl(..) => vec![], //ignore, handled before function codegen
             Expression::Data(_) => vec![], //ignore, handled before function codegen
+            Expression::Case(..) => unreachable!(),
         };
         Ok(value)
     }
@@ -686,4 +690,37 @@ impl<'gen> FunctionCodegen<'gen> {
         Ok(values)
     }
     
+    fn create_match(&mut self, expr: &Expression, ty: &Type, cases: &OrderedMap<Pattern, Vec<Expression>>) -> Result<Vec<Value>> {
+        let Type::Enum(_, variants) = ty else {
+            return Err(Error::codegen("Only enum patterns in match".into(), 0));
+        };
+
+        let vals = self.create_expression(expr)?;
+
+        let mut switch = Switch::new();
+        let blocks = cases.iter()
+            .map(|(pattern, exprs)| {
+                let block = self.builder.create_block();
+                switch.set_entry(variants[pattern.name()] as u128, block);
+                (block, exprs)
+            }).collect_vec();
+        let fallback = self.builder.create_block();
+        switch.emit(&mut self.builder, vals[0], fallback);
+        //let next_block = self.builder.create_block();
+        //TODO have actual fallback block and a separate next_block
+
+        for (block, exprs) in blocks {
+            self.builder.switch_to_block(block);
+            for expr in exprs {
+                self.create_expression(expr)?;
+            }
+            self.builder.ins().jump(fallback, &[]);
+            self.builder.seal_block(block);
+        }
+        //self.builder.seal_block(fallback);
+        
+        self.builder.switch_to_block(fallback);
+        self.builder.seal_block(fallback);
+        Ok(vec![])
+    }
 }

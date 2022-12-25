@@ -31,6 +31,16 @@ fn main() {
     call groups();
     call custom_data(new Data{a: 15, b: 41, arr: [2,3]});
     call impl_blocks();
+    call pattern_matching();
+}
+
+fn pattern_matching() {
+    let opt = new Option::Some;
+    match opt {
+        case Option::Some: println "matched Some!";
+        case Option::None: println "matched None!";
+        //TODO _: default case
+    }
 }
 
 fn impl_blocks() {

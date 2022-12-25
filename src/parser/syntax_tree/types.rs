@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use crate::{lexer::{Token, Delimeter}, error::{Error, Result}};
 
-use super::field_map::FieldMap;
+use super::ordered_map::OrderedMap;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
@@ -15,7 +15,7 @@ pub enum Type {
     Inferred,
     Named(String),
     Array(Box<Type>, usize),
-    Struct(String, FieldMap<String, Type>),
+    Struct(String, OrderedMap<String, Type>),
     Enum(String, HashMap<String, usize>),
     Iter(Box<Type>),
 }
