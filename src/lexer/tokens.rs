@@ -74,6 +74,7 @@ pub enum Operator {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    Underscore,
     Ident(String),
     Literal(Literal),
     Operator(Operator),
@@ -151,6 +152,9 @@ impl<'str> TokenStream<'str> {
 
     fn take_alphanumeric_token(&mut self) -> Result<Token> {
         let string = self.take_alphanumeric_string()?;
+        if string == "_" {
+            return Ok(Token::Underscore);
+        }
         if !string.chars().all(|c| c.is_ascii_digit() || c == '_') {
             return Ok(Token::Ident(string));
         }

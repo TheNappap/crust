@@ -698,29 +698,45 @@ impl<'gen> FunctionCodegen<'gen> {
         let vals = self.create_expression(expr)?;
 
         let mut switch = Switch::new();
-        let blocks = cases.iter()
-            .map(|(pattern, exprs)| {
+        let (cases, default) = cases.iter()
+            .partition::<Vec<_>, _>(|(pattern, _)| {
+                match pattern {
+                    Pattern::Ident(_) => false,
+                    Pattern::EnumVariant(_, _) => true,
+                }
+            });
+        assert!(default.len() < 2);
+
+        let blocks = cases.into_iter().map(|(pattern, exprs)| {
                 let block = self.builder.create_block();
-                switch.set_entry(variants[pattern.name()] as u128, block);
+                match pattern {
+                    Pattern::Ident(_) => unreachable!(),
+                    Pattern::EnumVariant(_, name) => switch.set_entry(variants[name] as u128, block),
+                }
                 (block, exprs)
             }).collect_vec();
-        let fallback = self.builder.create_block();
-        switch.emit(&mut self.builder, vals[0], fallback);
-        //let next_block = self.builder.create_block();
-        //TODO have actual fallback block and a separate next_block
 
-        for (block, exprs) in blocks {
+        let (fallback, next_block) = if default.len() == 0 {
+            let fallback =  self.builder.create_block();
+            (fallback, fallback)
+        } else {
+            (self.builder.create_block(), self.builder.create_block())
+        };
+        let default = default.into_iter().map(|(_,exprs)| (fallback, exprs));
+
+        switch.emit(&mut self.builder, vals[0], fallback);
+
+        for (block, exprs) in blocks.into_iter().chain(default) {
             self.builder.switch_to_block(block);
             for expr in exprs {
                 self.create_expression(expr)?;
             }
-            self.builder.ins().jump(fallback, &[]);
+            self.builder.ins().jump(next_block, &[]);
             self.builder.seal_block(block);
         }
-        //self.builder.seal_block(fallback);
         
-        self.builder.switch_to_block(fallback);
-        self.builder.seal_block(fallback);
+        self.builder.switch_to_block(next_block);
+        self.builder.seal_block(next_block);
         Ok(vec![])
     }
 }

@@ -40,14 +40,12 @@ impl BlockDefinition for Case {
     }
 
     fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        let names: Vec<_> = header.iter().filter_map(|token|
-            match token {
-                Token::Ident(name) => Some(Ok(name)),
-                Token::Operator(Operator::ColonColon) => None,
-                _ => Some(Err(Error::syntax("Failed to parse data structure name".to_string(), 0))),
-            })
-            .try_collect()?;
-        let pattern = Pattern::new(names[0].to_owned(), names[1].to_owned());
+        let pattern = match header.as_slice() {
+            [Token::Underscore] => Pattern::Ident("_".to_owned()),
+            [Token::Ident(name)] => Pattern::Ident(name.to_owned()),
+            [Token::Ident(ty), Token::Operator(Operator::ColonColon), Token::Ident(name)] => Pattern::EnumVariant(ty.to_owned(), name.to_owned()),
+            _ => return Err(Error::syntax("Failed to parse pattern in match expression".to_string(), 0)),
+        };
 
         let exprs = parser.parse_group(body)?;
         Ok(Expression::Case(pattern, exprs))

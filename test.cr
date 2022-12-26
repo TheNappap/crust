@@ -39,7 +39,7 @@ fn pattern_matching() {
     match opt {
         case Option::Some: println "matched Some!";
         case Option::None: println "matched None!";
-        //TODO _: default case
+        case _: println "default case!";
     }
 }
 
