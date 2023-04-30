@@ -1,8 +1,8 @@
 
 
-use crate::{error::{Error, Result}, lexer::{Token}, parser::{
+use crate::{error::{Result, ErrorKind, ThrowablePosition}, lexer::{Token, Span}, parser::{
         syntax_tree::{Expression},
-        Parser,
+        Parser, ExpressionKind,
     }};
 
 use super::BlockDefinition;
@@ -16,19 +16,20 @@ impl BlockDefinition for Let {
         "let"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        let (id, ty) = match parser.parse_expression(header)? {
-            Expression::Symbol(id, ty) => (id, ty),
+    fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let name_expr = parser.parse_expression(header)?;
+        let (id, ty) = match name_expr.kind {
+            ExpressionKind::Symbol(id, ty) => (id, ty),
             _ => {
-                return Err(Error::syntax("Expected an identifier as variable name".to_string(), 0));
+                return Err(name_expr.span.error(ErrorKind::Syntax, "Expected an identifier as variable name".to_string()));
             }
         };
         let value = parser.parse_expression(body)?;
-        Ok(Expression::Let(id, Box::new(value), ty))
+        Ok(ExpressionKind::Let(id.clone(), Box::new(value), ty.clone()))
     }
 
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -41,18 +42,19 @@ impl BlockDefinition for Mut {
         "mut"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        let id = match parser.parse_expression(header)? {
-            Expression::Symbol(id, _) => id,
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let name_expr = parser.parse_expression(header)?;
+        let id = match name_expr.kind {
+            ExpressionKind::Symbol(id, _) => id,
             _ => {
-                return Err(Error::syntax("Expected an identifier as variable name".to_string(), 0));
+                return Err(span.error(ErrorKind::Syntax, "Expected an identifier as variable name".to_string()));
             }
         };
         let value = parser.parse_expression(body)?;
-        Ok(Expression::Mut(id, Box::new(value)))
+        Ok(ExpressionKind::Mut(id.clone(), Box::new(value)))
     }
 
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

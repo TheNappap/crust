@@ -1,11 +1,11 @@
 use itertools::Itertools;
 
 use crate::{
-    error::{Result, Error},
-    lexer::{Literal, Token},
+    error::{Result, ErrorKind, ThrowablePosition},
+    lexer::{Literal, Token, Span},
     parser::{
         syntax_tree::{Expression},
-        Parser, Signature, BinOpKind, Type
+        Parser, Signature, BinOpKind, Type, ExpressionKind
     },
 };
 
@@ -20,12 +20,12 @@ impl BlockDefinition for Print {
         "print"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        parse_print(header, body, parser, None)
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        parse_print(span, header, body, parser, None)
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -38,16 +38,16 @@ impl BlockDefinition for PrintLn {
         "println"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        parse_print(header, body, parser, Some("\n".into()))
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        parse_print(span, header, body, parser, Some("\n".into()))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
-fn parse_print(header: Vec<Token>, body: Vec<Token>, parser: &Parser, add: Option<String>) -> Result<Expression> {
+fn parse_print(span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser, add: Option<String>) -> Result<ExpressionKind> {
     assert!(body.is_empty());
     let params: Vec<_> = parser.parse_list(header)
                                     .into_iter()
@@ -55,24 +55,27 @@ fn parse_print(header: Vec<Token>, body: Vec<Token>, parser: &Parser, add: Optio
                                     .try_collect()?;
     
     let string_expr = if let Some(add_str) = add {
-        Expression::BinOp(BinOpKind::Add, Box::new(params[0].clone()), Box::new(Expression::Literal(Literal::String(add_str))), Type::String)
+        let span = params[0].span.to_owned();
+        let add_token = Expression::new(ExpressionKind::Literal(Literal::String(add_str)), span.clone());
+        let token = ExpressionKind::BinOp(BinOpKind::Add, Box::new(params[0].clone()), Box::new(add_token), Type::String);
+        Expression::new(token, span)
     } else { params[0].clone() };
 
     let args_expr = if params.len() > 1 {
         let exprs = params.into_iter().skip(1).collect();
-        Expression::AddrOf(exprs)
+        ExpressionKind::AddrOf(exprs)
     } else {
-        Expression::Literal(Literal::Int(0))
+        ExpressionKind::Literal(Literal::Int(0))
     };
 
-    Ok(Expression::Call(
+    Ok(ExpressionKind::Call(
         Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
         vec![
-            Expression::Literal(Literal::Int(0)),
-            Expression::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::Literal(Literal::Int(1))]),
+            Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone()),
+            Expression::new(ExpressionKind::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::new(ExpressionKind::Literal(Literal::Int(1)), span.clone())]), span.clone()),
             string_expr, 
-            Expression::Literal(Literal::Int(0)), 
-            args_expr,
+            Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone()), 
+            Expression::new(args_expr, span.clone()),
         ],
     ))
 }

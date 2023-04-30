@@ -1,4 +1,4 @@
-use crate::{lexer::{Token}, parser::{Parser, Expression}, error::{Result, Error}};
+use crate::{lexer::{Token, Span}, parser::{Parser, Expression, ExpressionKind}, error::{Result, ThrowablePosition, ErrorKind}};
 
 use super::BlockDefinition;
 
@@ -11,12 +11,12 @@ impl BlockDefinition for Iter {
         "iter"
     }
 
-    fn parse(&self, header: Vec<Token>, _: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, _: &Span, header: Vec<Token>, _: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let iter = parser.parse_expression(header)?;
-        Ok(Expression::Iter(Box::new(iter), 0))
+        Ok(ExpressionKind::Iter(Box::new(iter), 0))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

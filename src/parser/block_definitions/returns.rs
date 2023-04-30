@@ -1,9 +1,9 @@
 use crate::{
-    error::{Result, Error},
-    lexer::{Token, Delimeter},
+    error::{Result, ErrorKind, ThrowablePosition},
+    lexer::{Token, Delimeter, Span, TokenKind},
     parser::{
         syntax_tree::{Expression},
-        Parser
+        Parser, ExpressionKind
     },
 };
 
@@ -17,13 +17,19 @@ impl BlockDefinition for Return {
         "return"
     }
 
-    fn parse(&self, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        header.push(Token::Group(Delimeter::Braces, body));
+    fn parse(&self, _: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let span = if let Some(token) = body.first() {
+            body.iter().map(|t|&t.span).fold(token.span.clone(), |acc,s| acc.union(&s))
+        } else {
+            header.last().unwrap().span.clone()
+        };
+        let body_token = Token::new(TokenKind::Group(Delimeter::Braces, body), span);
+        header.push(body_token);
         let expr = parser.parse_expression(header)?;
-        Ok(Expression::Return(Box::new(expr)))
+        Ok(ExpressionKind::Return(Box::new(expr)))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

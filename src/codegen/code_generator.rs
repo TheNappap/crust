@@ -5,12 +5,13 @@ use cranelift_frontend::{FunctionBuilderContext};
 use cranelift_module::{DataContext, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule, ObjectProduct};
 
-use crate::error::{Result, Error};
-use crate::parser::{SyntaxTree, Fn, Expression};
+use crate::error::{Result, Error, ErrorKind};
+use crate::lexer::Position;
+use crate::parser::{SyntaxTree, Fn, ExpressionKind};
 
 impl From<CodegenError> for Error {
     fn from(e: CodegenError) -> Self {
-        Error::codegen(format!("{}", e),0)
+        Error::new(ErrorKind::Codegen, format!("{}", e), Position::zero())
     }
 }
 
@@ -35,7 +36,7 @@ impl Codegen {
     pub fn compile(mut self, syntax_tree: SyntaxTree) -> Result<ObjectProduct> {
         for fun in syntax_tree.fns_impls() {
             for expr in fun.body() {
-                if let Expression::Fn(f) = expr {
+                if let ExpressionKind::Fn(f) = &expr.kind {
                     self.compile_fn(f, fun.signature().name())?;
                 }
             }

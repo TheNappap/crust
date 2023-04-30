@@ -1,11 +1,12 @@
-use crate::error::{Error, Result};
-use crate::lexer::{Delimeter, Token, TokenStream, Operator};
+use crate::error::{Result, ThrowablePosition};
+use crate::lexer::{Delimeter, Token, TokenStream, Operator, Span, TokenKind};
 use itertools::{Itertools, PeekingNext};
 use std::{fmt::Debug, iter::Peekable, vec::IntoIter};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     pub tag: String,
+    pub span: Span,
     pub header: Vec<Token>,
     pub body: Vec<Token>,
     pub chain: Option<Box<Block>>
@@ -17,7 +18,12 @@ impl Block {
     }
     
     pub fn anonymous_block(header: Vec<Token>) -> Block {
-        Block { tag: "".into(), header, body: vec![], chain: None }
+        let span = header.iter().fold(None, |acc: Option<Span>, t| 
+            match acc {
+                Some(acc) => Some(acc.union(&t.span)),
+                None => Some(t.span.clone()),
+            }).expect("Can't make anonymous block from empty token list");
+        Block { tag: "".into(), span, header, body: vec![], chain: None }
     }
 }
 
@@ -113,49 +119,58 @@ impl<'str> BlockStream<'str> {
 
     fn take_block(&mut self) -> Option<Result<Block>> {
         loop {
-            break match self.stream.next()? {
-                Ok(Token::NewLine) => continue,
-                Ok(Token::Ident(id)) => Some(self.collect_block(id)),
-                Ok(literal @ Token::Literal(_)) => Some(Ok(Block::anonymous_block(vec![literal]))),
-                Ok(group @ Token::Group(Delimeter::Braces, _)) => Some(Ok(Block::anonymous_block(vec![group]))),
-                Ok(token) => Some(Err(Error::syntax(
-                    format!("Expected identifier: found {:?}", token),
-                    0,
-                ))),
-                Err(e) => Some(Err(e)),
+            let token = match self.stream.next()? {
+                Ok(token) => token,
+                Err(e) => break Some(Err(e)),
+            };
+
+            break match token.kind {
+                TokenKind::NewLine => continue,
+                TokenKind::Ident(id) => Some(self.collect_block(id.to_owned(), token.span)),
+                TokenKind::Literal(_) => Some(Ok(Block::anonymous_block(vec![token]))),
+                TokenKind::Group(Delimeter::Braces, _) => Some(Ok(Block::anonymous_block(vec![token]))),
+                token_kind => Some(token.span.syntax(
+                    format!("Expected identifier: found {:?}", token_kind),
+                )),
             };
         }
     }
 
-    fn collect_block(&mut self, tag: String) -> Result<Block> {
-        if let Some(Ok(Token::Operator(Operator::Not))) = self.stream.peek() {
+    fn collect_block(&mut self, tag: String, tag_span: Span) -> Result<Block> {
+        if let Some(Ok(Token{kind: TokenKind::Operator(Operator::Not), ..})) = self.stream.peek() {
             self.stream.next();
         }
 
         let (header, header_token) = self.collect_block_header()?;
         let (body, chain) = self.collect_block_body_and_chain(header_token)?;
-        Ok(Block { tag, header, body, chain })
+        
+        let span = match (&header[..], &body[..]) {
+            ([..], [.., last]) => tag_span.union(&last.span),
+            ([.., last], []) => tag_span.union(&last.span),
+            ([], []) => tag_span,
+        };
+        Ok(Block { tag, span, header, body, chain })
     }
 
     fn collect_block_header(&mut self) -> Result<(Vec<Token>, Option<Token>)> {
         let tokens = self
             .stream
             .peeking_take_while(|token| match token {
-                Ok(token) => !matches!(
-                    token,
-                    Token::Operator(Operator::Colon | Operator::Eq | Operator::Semicolon) | Token::Group(Delimeter::Braces, _)
+                Ok(Token{kind, ..}) => !matches!(
+                    kind,
+                    TokenKind::Operator(Operator::Colon | Operator::Eq | Operator::Semicolon) | TokenKind::Group(Delimeter::Braces, _)
                 ),
                 Err(_) => true,
             })
             .filter(|token| {
-                if let Ok(token) = token {
-                    return *token != Token::NewLine;
+                if let Ok(Token{kind, ..}) = token {
+                    return *kind != TokenKind::NewLine;
                 }
                 true
             })
             .try_collect()?;
 
-        if let Some(Ok(Token::Operator(Operator::Colon | Operator::Eq))) = self.stream.peek() {
+        if let Some(Ok(Token{kind:TokenKind::Operator(Operator::Colon | Operator::Eq), ..})) = self.stream.peek() {
             Ok((tokens, self.stream.next().transpose()?))
         } else {
             Ok((tokens, None))
@@ -166,34 +181,39 @@ impl<'str> BlockStream<'str> {
         let tokens: Vec<Token> = self
             .stream
             .peeking_take_while(|token| match token {
-                Ok(token) => !matches!(
-                    token,
-                    Token::Operator(Operator::Semicolon) | Token::Group(Delimeter::Braces, _) | Token::NewLine
+                Ok(Token{kind, ..}) => !matches!(
+                    kind,
+                    TokenKind::Operator(Operator::Semicolon) | TokenKind::Group(Delimeter::Braces, _) | TokenKind::NewLine
                 ),
                 Err(_) => false,
             })
             .try_collect()?;
 
-        let (tokens, chained_block) = match self.stream.next() {
-            Some(Ok(Token::Operator(Operator::Semicolon))) | None => (tokens, None),
-            Some(Ok(Token::NewLine)) => {
+        let next_token = match self.stream.next() {
+            None => return Ok((tokens, None)),
+            Some(Ok(token)) => token,
+            Some(Err(e)) => return Err(e),
+        };
+
+        let (tokens, chained_block) = match &next_token.kind {
+            TokenKind::Operator(Operator::Semicolon) => (tokens, None),
+            TokenKind::NewLine => {
                 (tokens, self.take_block().transpose()?)
             }
-            Some(Ok(Token::Group(Delimeter::Braces, group_tokens))) => {
+            TokenKind::Group(Delimeter::Braces, group_tokens) => {
                 let tokens = if header_token.is_some() {
                     let mut tokens = tokens;
-                    tokens.push(Token::Group(Delimeter::Braces, group_tokens));
+                    tokens.push(next_token);
                     tokens
-                } else { group_tokens };
+                } else { group_tokens.clone() };
 
                 let chained = match self.stream.peek() {
-                    Some(Ok(Token::NewLine)) => None,
+                    Some(Ok(Token{kind: TokenKind::NewLine, ..})) => None,
                     _ => self.take_block().transpose()?,
                 };
                 (tokens, chained)
             }
-            Some(Err(e)) => return Err(e),
-            _ => return Err(Error::syntax("Expected an end to block".to_string(), 0)),
+            _ => return next_token.span.syntax("Unexpected end of block".to_owned()),
         };
 
         Ok((tokens, chained_block.map(Box::new)))
@@ -204,7 +224,7 @@ impl<'str> BlockStream<'str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::Result, lexer::Literal};
+    use crate::{error::Result, lexer::{Literal, Position}};
 
     #[test]
     fn blocks_test() -> Result<()> {
@@ -226,57 +246,62 @@ mod tests {
             vec![
                 Block {
                     tag: "fn".to_string(),
+                    span: Span::new(Position::new(1, 11), Position::new(5, 0)),
                     header: vec![
-                        Token::Ident("function".to_string()),
-                        Token::Group(Delimeter::Parens, vec![])
+                        Token{kind: TokenKind::Ident("function".to_string()), span: Span::new(Position::new(1, 11), Position::new(1, 20))},
+                        Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(1, 20), Position::new(1, 21))},
                     ],
                     body: vec![
-                        Token::NewLine,
-                        Token::Ident("print".to_string()),
-                        Token::Literal(Literal::String("Line1".to_string())),
-                        Token::NewLine,
-                        Token::Ident("print".to_string()),
-                        Token::Literal(Literal::String("Line2".to_string())),
-                        Token::NewLine,
-                        Token::Ident("print".to_string()),
-                        Token::Literal(Literal::String("Line3".to_string())),
-                        Token::NewLine,
+                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(1, 23), Position::new(2, 0))},
+                        Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(2, 0), Position::new(2, 18))},
+                        Token{kind: TokenKind::Literal(Literal::String("Line1".to_string())), span: Span::new(Position::new(2, 18), Position::new(2, 25))},
+                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(2, 25), Position::new(3, 0))},
+                        Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(3, 0), Position::new(3, 18))},
+                        Token{kind: TokenKind::Literal(Literal::String("Line2".to_string())), span: Span::new(Position::new(3, 18), Position::new(3, 25))},
+                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(3, 25), Position::new(4, 0))},
+                        Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(4, 0), Position::new(4, 18))},
+                        Token{kind: TokenKind::Literal(Literal::String("Line3".to_string())), span: Span::new(Position::new(4, 18), Position::new(4, 25))},
+                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(4, 25), Position::new(5, 0))},
                     ],
                     chain: None,
                 },
                 Block {
                     tag: "fn".to_string(),
+                    span: Span::new(Position::new(6, 11), Position::new(6, 34)),
                     header: vec![
-                        Token::Ident("f2".to_string()),
-                        Token::Group(Delimeter::Parens, vec![])
+                        Token{kind: TokenKind::Ident("f2".to_string()), span: Span::new(Position::new(6, 11), Position::new(6, 14))},
+                        Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(6, 14), Position::new(6, 15))},
                     ],
                     body: vec![
-                        Token::Ident("print".to_string()),
-                        Token::Literal(Literal::String("one liner".to_string()))
+                        Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(6, 17), Position::new(6, 23))},
+                        Token{kind: TokenKind::Literal(Literal::String("one liner".to_string())), span: Span::new(Position::new(6, 23), Position::new(6, 34))},
                     ],
                     chain: None,
                 },
                 Block {
                     tag: "call".to_string(),
+                    span: Span::new(Position::new(8, 13), Position::new(8, 17)),
                     header: vec![
-                        Token::Ident("f2".to_string()),
-                        Token::Group(Delimeter::Parens, vec![])
+                        Token{kind: TokenKind::Ident("f2".to_string()), span: Span::new(Position::new(8, 13), Position::new(8, 16))},
+                        Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(8, 16), Position::new(8, 17))},
                     ],
                     body: vec![],
                     chain: None,
                 },
                 Block {
                     tag: "call".to_string(),
+                    span: Span::new(Position::new(9, 13), Position::new(9, 23)),
                     header: vec![
-                        Token::Ident("function".to_string()),
-                        Token::Group(Delimeter::Parens, vec![])
+                        Token{kind: TokenKind::Ident("function".to_string()), span: Span::new(Position::new(9, 13), Position::new(9, 22))},
+                        Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(9, 22), Position::new(9, 23))},
                     ],
                     body: vec![],
                     chain: None,
                 },
                 Block {
                     tag: "print".to_string(),
-                    header: vec![Token::Literal(Literal::String("print statement".to_string()))],
+                    span: Span::new(Position::new(10, 14), Position::new(10, 31)),
+                    header: vec![Token{kind: TokenKind::Literal(Literal::String("print statement".to_string())), span: Span::new(Position::new(10, 14), Position::new(10, 31))}],
                     body: vec![],
                     chain: None,
                 },
@@ -303,38 +328,42 @@ mod tests {
             vec![
                 Block {
                     tag: "if".to_string(),
-                    header: vec![Token::Ident("true".to_string())],
+                    span: Span::new(Position::new(1, 11), Position::new(1, 32)),
+                    header: vec![Token{kind: TokenKind::Ident("true".to_string()), span: Span::new(Position::new(1, 11), Position::new(1, 16))}],
                     body: vec![
-                        Token::Ident("print".to_string()),
-                        Token::Literal(Literal::String("Line1.0".to_string())),
+                        Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(1, 17), Position::new(1, 23))},
+                        Token{kind: TokenKind::Literal(Literal::String("Line1.0".to_string())), span: Span::new(Position::new(1, 23), Position::new(1, 32))},
                     ],
                     chain: Some(Box::new(Block {
                         tag: "else".to_string(),
+                        span: Span::new(Position::new(2, 14), Position::new(2, 29)),
                         header: vec![],
                         body: vec![
-                            Token::Ident("print".to_string()),
-                            Token::Literal(Literal::String("Line1.1".to_string())),
+                            Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(2, 14), Position::new(2, 20))},
+                            Token{kind: TokenKind::Literal(Literal::String("Line1.1".to_string())), span: Span::new(Position::new(2, 20), Position::new(2, 29))},
                         ],
                         chain: None,
                     })),
                 },
                 Block {
                     tag: "if".to_string(),
-                    header: vec![Token::Ident("false".to_string())],
+                    span: Span::new(Position::new(4, 11), Position::new(6, 0)),
+                    header: vec![Token{kind: TokenKind::Ident("false".to_string()), span: Span::new(Position::new(4, 11), Position::new(4, 17))}],
                     body: vec![
-                        Token::NewLine,
-                        Token::Ident("print".to_string()),
-                        Token::Literal(Literal::String("Line2.0".to_string())),
-                        Token::NewLine,
+                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(4, 18), Position::new(5, 0))},
+                        Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(5, 0), Position::new(5, 18))},
+                        Token{kind: TokenKind::Literal(Literal::String("Line2.0".to_string())), span: Span::new(Position::new(5, 18), Position::new(5, 27))},
+                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(5, 27), Position::new(6, 0))},
                     ],
                     chain: Some(Box::new(Block {
                         tag: "else".to_string(),
+                        span: Span::new(Position::new(6, 16), Position::new(8, 0)),
                         header: vec![],
                         body: vec![
-                            Token::NewLine,
-                            Token::Ident("print".to_string()),
-                            Token::Literal(Literal::String("Line2.1".to_string())),
-                            Token::NewLine,
+                            Token{kind: TokenKind::NewLine, span: Span::new(Position::new(6, 16), Position::new(7, 0))},
+                            Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(7, 0), Position::new(7, 18))},
+                            Token{kind: TokenKind::Literal(Literal::String("Line2.1".to_string())), span: Span::new(Position::new(7, 18), Position::new(7, 27))},
+                            Token{kind: TokenKind::NewLine, span: Span::new(Position::new(7, 27), Position::new(8, 0))},
                         ],
                         chain: None,
                     })),

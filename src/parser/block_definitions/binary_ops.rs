@@ -1,4 +1,4 @@
-use crate::{lexer::{Token}, parser::{Parser, Expression, Type, BinOpKind}, error::{Result, Error}};
+use crate::{lexer::{Token, Span}, parser::{Parser, Expression, Type, BinOpKind, ExpressionKind}, error::{Result, ThrowablePosition, ErrorKind}};
 
 use super::BlockDefinition;
 
@@ -11,18 +11,18 @@ impl BlockDefinition for Add {
         "add"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
+            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::BinOp(BinOpKind::Add, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Add, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -35,18 +35,18 @@ impl BlockDefinition for Subtract {
         "sub"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
+            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::BinOp(BinOpKind::Sub, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Sub, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -59,18 +59,18 @@ impl BlockDefinition for Multiply {
         "mul"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
+            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::BinOp(BinOpKind::Mul, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Mul, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -82,18 +82,18 @@ impl BlockDefinition for Divide {
         "div"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
+            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::BinOp(BinOpKind::Div, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Div, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -105,18 +105,18 @@ impl BlockDefinition for Equals {
         "eq"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
+            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::BinOp(BinOpKind::Eq, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Eq, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -128,17 +128,17 @@ impl BlockDefinition for NotEquals {
         "neq"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(Error::syntax("Binary operator expects exactly 2 operands".to_string(), 0));
+            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(Expression::BinOp(BinOpKind::Neq, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Neq, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

@@ -1,4 +1,4 @@
-use crate::{lexer::{Token}, parser::{Parser, Expression, Type, UnOpKind}, error::{Result, Error}};
+use crate::{lexer::{Token, Span}, parser::{Parser, Expression, Type, UnOpKind, ExpressionKind}, error::{Result, ErrorKind, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -11,12 +11,12 @@ impl BlockDefinition for Negate {
         "neg"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, _span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let operand = parser.parse_expression(header);
-        Ok(Expression::UnOp(UnOpKind::Neg, Box::new(operand?), Type::Inferred))
+        Ok(ExpressionKind::UnOp(UnOpKind::Neg, Box::new(operand?), Type::Inferred))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

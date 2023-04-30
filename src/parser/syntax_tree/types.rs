@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{lexer::{Token, Delimeter}, error::{Error, Result}};
+use crate::{lexer::{Token, TokenKind, Delimeter}, error::{Result, ThrowablePosition}};
 
 use super::ordered_map::OrderedMap;
 
@@ -52,8 +52,8 @@ impl Type {
     pub fn from(token: Token) -> Result<Self> {
         use crate::lexer::Operator::*;
         use crate::lexer::Literal::*;
-        use Token::*;
-        let ty = match token {
+        use TokenKind::*;
+        let ty = match token.kind {
             Ident(ty) => match ty.as_str() {
                 "Int" => Type::Int,
                 "Float" => Type::Float,
@@ -63,12 +63,12 @@ impl Type {
             }
             Group(Delimeter::Brackets, tokens) => {
                 match tokens.as_slice() {
-                    [Ident(name), Operator(Semicolon), Literal(Int(n))] =>
-                        Type::Array(Box::new(Type::from(Ident(name.clone()))?), *n as usize),
-                    _ => return Err(Error::syntax("Unknown type".into(), 0))
+                    [token @ Token{kind: Ident(_), ..}, Token{kind: Operator(Semicolon), ..}, Token{kind: Literal(Int(n)), ..}] =>
+                        Type::Array(Box::new(Type::from(token.clone())?), *n as usize),
+                    _ => return token.span.syntax("Unknown type".into())
                 }
             }
-            t => unreachable!("token for type: {:?}", t),
+            kind => unreachable!("token for type: {:?}", kind),
         };
         Ok(ty)
     }

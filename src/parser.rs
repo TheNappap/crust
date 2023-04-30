@@ -7,11 +7,11 @@ mod parse_list;
 
 pub use crate::error::Result;
 use itertools::Itertools;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
-    error::Error,
-    lexer::{Token, Delimeter, Operator},
+    error::{ThrowablePosition},
+    lexer::{Token, Delimeter, Operator, TokenKind},
 };
 
 use self::{block_definitions::*, blocks::{BlockStream, Block}};
@@ -78,12 +78,12 @@ impl Parser {
                     Err(err) => return Err(err),
                 };
                 let tag = block.tag.clone();
-                match self.parse_block_expression(block) {
-                    Ok(Expression::Fn(fun)) => fns.push(fun),
-                    Ok(Expression::Data(data)) => datas.push(data),
-                    Ok(Expression::Impl(_, methods)) => methods.into_iter().for_each(|fun| fns.push(fun)),
-                    Err(err) => return Err(err),
-                    _ => return Err(Error::syntax(format!("The block '{}' cannot be used in this position.", tag), 0,))
+                let parsed_expression = self.parse_block_expression(block.clone())?;
+                match parsed_expression.kind {
+                    ExpressionKind::Fn(fun) => fns.push(fun.clone()),
+                    ExpressionKind::Data(data) => datas.push((data.clone(), parsed_expression.span.to_owned())),
+                    ExpressionKind::Impl(_, methods) => methods.into_iter().for_each(|fun| fns.push(fun.clone())),
+                    _ => return block.span.syntax(format!("The block '{}' cannot be used in this position.", tag))
                 }
                 Ok(())
             })?;
@@ -93,7 +93,7 @@ impl Parser {
 
     fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
         if tokens.is_empty() {
-            return Err(Error::syntax("Can't make block from an empty list of tokens.".into(), 0));
+            panic!("Can't make block from an empty list of tokens.");
         }
 
         if tokens.len() == 1 {
@@ -102,9 +102,10 @@ impl Parser {
         }
 
         parse_ops::parse_operators(&mut tokens);
+        let span = tokens[0].span.clone();
         match BlockStream::new(tokens).next().transpose()? {
             Some(block) => self.parse_block_expression(block),
-            None => return Err(Error::syntax("Can't make block from an empty list of tokens.".into(), 0)),
+            None => return span.syntax("Can't make block from these tokens.".into()),
         }
     }
 
@@ -119,22 +120,25 @@ impl Parser {
     }
     
     fn parse_param(&self, tokens: Vec<Token>) -> Result<(String, Vec<Token>)> {
+        assert!(tokens.len() > 0);
         let mut tokens = tokens.into_iter();
         let name = match tokens.next() {
-            Some(Token::Ident(name)) => name,
-            _ => return Err(Error::syntax("Expected an identifier as parameter name".to_string(), 0))
+            Some(Token{kind: TokenKind::Ident(name), ..}) => name,
+            Some(token) => return token.span.syntax("Expected an identifier as parameter name".to_string()),
+            None => unreachable!(),
         };
 
-        if !matches!(tokens.next(), Some(Token::Operator(Operator::Colon))) {  
-            return Err(Error::syntax("Expected an ':'".to_string(), 0))
+        match tokens.next() {  
+            Some(Token{kind: TokenKind::Operator(Operator::Colon), span: _}) => Ok((name, tokens.collect())),
+            Some(Token{kind: _, span}) => return span.syntax("Expected an ':'".to_string()),
+            _ => Ok((name, tokens.collect())),
         }
-        Ok((name, tokens.collect()))
     }
 
     fn parse_parameter(&self, tokens: Vec<Token>) -> Result<(String, Type)> {
         assert!(tokens.len() > 0);
-        match &tokens[0] {
-            Token::Ident(name) if name == "self" => {
+        match &tokens[0].kind {
+            TokenKind::Ident(name) if name == "self" => {
                 assert!(tokens.len() == 1);
                 return Ok((name.to_owned(), Type::Inferred));
             }
@@ -150,22 +154,26 @@ impl Parser {
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {
         if block.is_anonymous() {
             if block.header.len() > 1 {
-                return Err(Error::syntax("Can't parse anonymous block.".into(), 0));
+                return block.span.syntax("Can't parse anonymous block.".into());
             }
 
             assert!(block.body.is_empty());
-            let block = match block.header.first().unwrap() {
-                Token::Ident(name) => return Ok(Expression::Symbol(name.clone(), Type::Inferred)),
-                Token::Literal(literal) => return Ok(Expression::Literal(literal.clone())),
-                Token::Group(Delimeter::Parens, tokens) => return self.parse_expression(tokens.clone()),
-                Token::Group(Delimeter::Brackets, _) => Block { tag: "array".into(), header: block.header, body: vec![], chain: None },
-                Token::Group(Delimeter::Braces, body) => Block { tag: "group".into(), header: vec![], body: body.clone(), chain: None },
-                _ => return Err(Error::syntax("Can't parse anonymous block.".into(), 0)),
+            let token = block.header.first().unwrap();
+            let block = match &token.kind {
+                TokenKind::Ident(name) => return Ok(Expression::new(ExpressionKind::Symbol(name.clone(), Type::Inferred), token.span.clone())),
+                TokenKind::Literal(literal) => return Ok(Expression::new(ExpressionKind::Literal(literal.clone()), token.span.clone())),
+                TokenKind::Group(Delimeter::Parens, tokens) => return self.parse_expression(tokens.clone()),
+                TokenKind::Group(Delimeter::Brackets, _) => Block { tag: "array".into(), span: block.span, header: block.header, body: vec![], chain: None },
+                TokenKind::Group(Delimeter::Braces, body) => Block { tag: "group".into(), span: block.span, header: vec![], body: body.clone(), chain: None },
+                _ => return token.span.syntax("Can't parse anonymous block.".into()),
             };
             return self.parse_block_expression(block);
         }
 
-        let expr = self.blockdefs.get(&block.tag)?.parse(block.header, block.body, self);
+        let expr = self.blockdefs.get(&block.tag, &block.span)?
+            .parse(&block.span, block.header, block.body, self)
+            .map(|kind| Expression::new(kind, block.span));
+        
         match block.chain {
             Some(chain) => self.parse_chained_block_expression(*chain, expr?),
             None => expr,
@@ -173,7 +181,9 @@ impl Parser {
     }
     
     fn parse_chained_block_expression(&self, block: Block, input: Expression) -> Result<Expression> {
-        let expr = self.blockdefs.get(&block.tag)?.parse_chained(block.header, block.body, input, self);
+        let expr = self.blockdefs.get(&block.tag, &block.span)?
+            .parse_chained(&block.span, block.header, block.body, input, self)
+            .map(|kind| Expression::new(kind, block.span));
         match block.chain {
             Some(chain) => self.parse_chained_block_expression(*chain, expr?),
             None => expr,
@@ -184,7 +194,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::Result, lexer::Literal, parser::syntax_tree::fn_expr::Signature};
+    use crate::{error::Result, lexer::{Literal, Span, Position}, parser::syntax_tree::fn_expr::Signature};
 
     #[test]
     fn parser_test() -> Result<()> {
@@ -203,42 +213,45 @@ mod tests {
 		"#;
         let syntax_tree = parse(s)?;
 
-        let print_call = |string: String| {
-            Expression::Call(
+        let print_call = |string: String, span: Span| {
+            Expression::new(ExpressionKind::Call(
                 Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
                 vec![
-                    Expression::Literal(Literal::Int(0)), 
-                    Expression::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::Literal(Literal::Int(1))]), 
-                    Expression::Literal(Literal::String(string)), 
-                    Expression::Literal(Literal::Int(0)), 
-                    Expression::Literal(Literal::Int(0))
+                    Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone()), 
+                    Expression::new(ExpressionKind::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), 
+                        vec![Expression::new(ExpressionKind::Literal(Literal::Int(1)), span.clone())])
+                    , span.clone()), 
+                    Expression::new(ExpressionKind::Literal(Literal::String(string)), span.clone()), 
+                    Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone()), 
+                    Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone())
                 ],
-            )
+            ), span.clone())
         };
+
         assert_eq!(
             syntax_tree,
             SyntaxTree::new(vec![Fn::new(
                 Signature::new(None, "main", vec![], Type::Void),
                 vec![],
                 vec![
-                    Expression::Fn(Fn::new(
+                    Expression::new(ExpressionKind::Fn(Fn::new(
                         Signature::new(None, "function", vec![], Type::Void),
                         vec![],
                         vec![
-                            print_call("Line1".to_string()),
-                            print_call("Line2".to_string()),
-                            print_call("Line3".to_string()),
+                            print_call("Line1".to_string(), Span::new(Position::new(3, 11), Position::new(3, 18))),
+                            print_call("Line2".to_string(), Span::new(Position::new(4, 11), Position::new(4, 18))),
+                            print_call("Line3".to_string(), Span::new(Position::new(5, 11), Position::new(5, 18))),
                         ],
-                    )),
-                    Expression::Fn(Fn::new(
+                    )), Span::new(Position::new(2, 7), Position::new(6, 0))),
+                    Expression::new(ExpressionKind::Fn(Fn::new(
                         Signature::new(None, "f2", vec![], Type::Void),
                         vec![],
                         vec![
-                            print_call("one liner".to_string()),
+                            print_call("one liner".to_string(), Span::new(Position::new(7, 19), Position::new(7, 30))),
                         ],
-                    )),
-                    Expression::Call(Signature::new(None, "f2", vec![], Type::Inferred), vec![]),
-                    Expression::Call(Signature::new(None, "function", vec![], Type::Inferred), vec![]),
+                    )), Span::new(Position::new(7, 7), Position::new(7, 30))),
+                    Expression::new(ExpressionKind::Call(Signature::new(None, "f2", vec![], Type::Inferred), vec![]), Span::new(Position::new(9, 9), Position::new(9, 13))),
+                    Expression::new(ExpressionKind::Call(Signature::new(None, "function", vec![], Type::Inferred), vec![]), Span::new(Position::new(10, 9), Position::new(10, 19))),
                 ],
             )
         ], 

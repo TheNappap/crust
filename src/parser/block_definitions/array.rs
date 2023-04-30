@@ -1,8 +1,8 @@
 use itertools::Itertools;
 
-use crate::{error::{Error, Result}, lexer::{Token, Delimeter}, parser::{
+use crate::{error::{Result, ErrorKind, ThrowablePosition}, lexer::{Token, Delimeter, TokenKind, Span}, parser::{
         syntax_tree::{Expression},
-        Parser, Type,
+        Parser, Type, ExpressionKind,
     }};
 
 use super::BlockDefinition;
@@ -16,20 +16,20 @@ impl BlockDefinition for Array {
         "array"
     }
 
-    fn parse(&self, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        if let Some(Token::Group(Delimeter::Brackets, tokens)) = header.first() {
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        if let Some(TokenKind::Group(Delimeter::Brackets, tokens)) = header.first().map(|t|&t.kind) {
             let list = parser.parse_list(tokens.clone())
                 .into_iter()
                 .map(|tokens|parser.parse_expression(tokens))
                 .try_collect()?;
-            Ok(Expression::Array(list))
+            Ok(ExpressionKind::Array(list))
         } else {
-            Err(Error::syntax("Expected array in brackets".to_string(), 0))
+            Err(span.error(ErrorKind::Syntax, "Expected array in brackets".to_string()))
         }
     }
 
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -42,27 +42,30 @@ impl BlockDefinition for Index {
         "index"
     }
 
-    fn parse(&self, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, _: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
-        if let Some(Token::Group(Delimeter::Brackets, tokens)) = header.pop() {
-            let index: Vec<_> = parser.parse_list(tokens)
+        assert!(!header.is_empty());
+
+        let first_token = header.pop().unwrap();
+        if let TokenKind::Group(Delimeter::Brackets, tokens) = first_token.kind {
+            let index: Vec<_> = parser.parse_list(tokens.clone())
                 .into_iter()
                 .map(|tokens| parser.parse_expression(tokens))
                 .try_collect()?;
             if index.len() != 1 {
-                return Err(Error::syntax("Expected exactly one index".to_string(), 0));
+                return Err(first_token.span.error(ErrorKind::Syntax, "Expected exactly one index".to_string()));
             }
             let index = index[0].clone();
 
             let collection = parser.parse_expression(header)?;
 
-            Ok(Expression::Index(Box::new(collection), Box::new(index), Type::Inferred, 0))
+            Ok(ExpressionKind::Index(Box::new(collection), Box::new(index), Type::Inferred, 0))
         } else {
-            return Err(Error::syntax("Expected brackets at the end of index block".to_string(), 0));
+            return Err(first_token.span.error(ErrorKind::Syntax, "Expected brackets at the end of index block".to_string()));
         }
     }
 
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{lexer::{Token, Operator}, parser::{Parser, Expression, syntax_tree::patterns::Pattern, Type}, error::{Result, Error}};
+use crate::{lexer::{Token, Operator, Span, TokenKind}, parser::{Parser, Expression, syntax_tree::patterns::Pattern, Type, ExpressionKind}, error::{Result, ThrowablePosition, ErrorKind}};
 
 use super::BlockDefinition;
 
@@ -13,21 +13,21 @@ impl BlockDefinition for Match {
         "match"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let match_value = parser.parse_expression(header)?;
         let cases = parser.parse_group(body)?
             .into_iter()
-            .map(|expr| match expr {
-                Expression::Case(pattern, exprs) => Ok((pattern, exprs)),
-                _ => Err(Error::syntax("Expected case expression in match expression".to_string(), 0))
+            .map(|expr| match expr.kind {
+                ExpressionKind::Case(pattern, exprs) => Ok((pattern.clone(), exprs.clone())),
+                _ => Err(span.error(ErrorKind::Syntax, "Expected case expression in match expression".to_string()))
             })
             .try_collect()?;
 
-        Ok(Expression::Match(Box::new(match_value), Type::Inferred, cases))
+        Ok(ExpressionKind::Match(Box::new(match_value), Type::Inferred, cases))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -39,19 +39,19 @@ impl BlockDefinition for Case {
         "case"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        let pattern = match header.as_slice() {
-            [Token::Underscore] => Pattern::Ident("_".to_owned()),
-            [Token::Ident(name)] => Pattern::Ident(name.to_owned()),
-            [Token::Ident(ty), Token::Operator(Operator::ColonColon), Token::Ident(name)] => Pattern::EnumVariant(ty.to_owned(), name.to_owned()),
-            _ => return Err(Error::syntax("Failed to parse pattern in match expression".to_string(), 0)),
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let pattern = match header.iter().map(|t|&t.kind).collect_vec().as_slice() {
+            [TokenKind::Underscore] => Pattern::Ident("_".to_owned()),
+            [TokenKind::Ident(name)] => Pattern::Ident(name.to_owned()),
+            [TokenKind::Ident(ty), TokenKind::Operator(Operator::ColonColon), TokenKind::Ident(name)] => Pattern::EnumVariant(ty.to_owned(), name.to_owned()),
+            _ => return Err(span.error(ErrorKind::Syntax, "Failed to parse pattern in match expression".to_string())),
         };
 
         let exprs = parser.parse_group(body)?;
-        Ok(Expression::Case(pattern, exprs))
+        Ok(ExpressionKind::Case(pattern, exprs))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

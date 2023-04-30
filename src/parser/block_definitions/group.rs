@@ -1,6 +1,6 @@
 
 
-use crate::{lexer::{Token}, parser::{Parser, Expression}, error::{Result, Error}};
+use crate::{lexer::{Token, Span}, parser::{Parser, Expression, ExpressionKind}, error::{Result, ErrorKind, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -13,13 +13,13 @@ impl BlockDefinition for Group {
         "group"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.is_empty());
         let exprs = parser.parse_group(body)?;
-        Ok(Expression::Group(exprs))
+        Ok(ExpressionKind::Group(exprs))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

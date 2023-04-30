@@ -1,7 +1,7 @@
 
 use std::convert::identity;
 
-use crate::{lexer::{Token, Delimeter, Operator}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate, dot}};
+use crate::{lexer::{Token, Delimeter, Operator, TokenKind}, parser::block_definitions::{binary_ops::{Add, Multiply, Divide, Subtract, Equals, NotEquals}, BlockDefinition, unary_ops::Negate, dot}};
 
 #[derive(Debug, PartialEq, Clone)]
 enum OpKind {
@@ -45,10 +45,10 @@ fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, OpKind, Operator)>
     let (_, op) = tokens.iter()
         .enumerate()
         .scan(None::<Token>, |last_token,(i,token)| {
-            let out = match (&last_token, &token) {
-                (None, Token::Operator(op)) => Some(Some((i,OpKind::Prefix,op))),
-                (Some(Token::Operator(_)), Token::Operator(_)) => Some(None),
-                (_,Token::Operator(op)) => Some(Some((i,OpKind::Binary,op))),
+            let out = match (&last_token, &token.kind) {
+                (None, TokenKind::Operator(op)) => Some(Some((i,OpKind::Prefix,op))),
+                (Some(Token{kind: TokenKind::Operator(_), ..}), TokenKind::Operator(_)) => Some(None),
+                (_,TokenKind::Operator(op)) => Some(Some((i,OpKind::Binary,op))),
                 (_,_) => Some(None),
             };
             *last_token = Some(token.clone());
@@ -56,7 +56,7 @@ fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, OpKind, Operator)>
         })  
         .filter_map(identity)
         .fold((None, None), |acc, op| {
-            match (acc.0, precedence(op.1.clone(), op.2)) {
+            match (acc.0, precedence(op.1.clone(), &op.2)) {
                 (None, Some(pr)) => (Some(pr), Some(op)),
                 (Some(acc), Some(pr)) if pr > acc => (Some(pr), Some(op)),
                 _ => acc
@@ -67,8 +67,10 @@ fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, OpKind, Operator)>
 }
 
 fn parse_indexing(tokens: &mut Vec<Token>) {
-    if let Token::Group(Delimeter::Brackets, _) = tokens.last().unwrap() {
-        tokens.insert(0, Token::Ident("index".into()));
+    let last_token = tokens.last().unwrap();
+    if let TokenKind::Group(Delimeter::Brackets, _) = last_token.kind {
+        let new_token = Token::new(TokenKind::Ident("index".into()), last_token.span.clone());
+        tokens.insert(0, new_token);
     }
 }
 
@@ -78,13 +80,15 @@ pub fn parse_operators(tokens: &mut Vec<Token>)  {
     }
 
     if let Some((index, kind, op)) = next_operator_index(&tokens) {
+        let span = tokens.iter().map(|t|t.span.clone()).fold(tokens.first().unwrap().span.clone(), |acc, s| acc.union(&s));
         if let Some(tag) = id_of_operator(kind, &op) {
             if index == 0 {
                 tokens.remove(0);
             } else {
-                tokens[index] = Token::Operator(Operator::Comma);
+                let new_token = Token::new(TokenKind::Operator(Operator::Comma), tokens[index].span.clone());
+                tokens[index] = new_token;
             }
-            tokens.insert(0, Token::Ident(tag));
+            tokens.insert(0, Token::new(TokenKind::Ident(tag), span));
             return;
         }
     }

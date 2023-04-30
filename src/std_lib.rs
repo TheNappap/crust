@@ -1,8 +1,8 @@
-use crate::{parser::{Library, Fn, Type, Signature}};
+use crate::{parser::{Library, Fn, Type, Signature}, lexer::{Span, Position}};
 
-fn std_data_types() -> Vec<Type> {
+fn std_data_types() -> Vec<(Type, Span)> {
     vec![
-        Type::Struct("Range".to_owned(), [("start".to_owned(), Type::Int),("end".to_owned(), Type::Int)].into_iter().collect())
+        (Type::Struct("Range".to_owned(), [("start".to_owned(), Type::Int),("end".to_owned(), Type::Int)].into_iter().collect()), Span::new(Position::zero(), Position::zero()))
     ]
 }
 
@@ -16,7 +16,7 @@ fn import_functions() -> Vec<Signature> {
 pub struct StdLib {
     fns: Vec<Fn>,
     imported_fns: Vec<Signature>,
-    data_types: Vec<Type>,
+    data_types: Vec<(Type, Span)>,
 }
 
 impl StdLib {
@@ -34,7 +34,7 @@ impl Library for StdLib {
         self.imported_fns.iter().cloned().collect()
     }
 
-    fn data_types(&self) -> Vec<Type> {
+    fn data_types(&self) -> Vec<(Type, Span)> {
         self.data_types.iter().cloned().collect()
     }
 }

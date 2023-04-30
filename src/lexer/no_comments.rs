@@ -1,23 +1,25 @@
 use itertools::{Itertools, PeekingNext};
 use std::str::Chars;
 
-use crate::error::{Error, Result};
+use crate::error::{Result, ThrowablePosition};
+
+use super::span::Position;
 
 pub struct NoCommentsStream<'str> {
-    stream: LineCount<'str>,
+    stream: PositionStream<'str>,
     peeked: Option<Result<char>>,
 }
 
 impl<'str> NoCommentsStream<'str> {
     pub fn from(source: &'str str) -> NoCommentsStream<'str> {
         NoCommentsStream {
-            stream: LineCount::from(source),
+            stream: PositionStream::from(source),
             peeked: None,
         }
     }
 
-    pub fn cur_line(&self) -> usize {
-        self.stream.cur_line()
+    pub fn cur_pos(&self) -> Position {
+        self.stream.cur_pos()
     }
 
     pub fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
@@ -87,33 +89,30 @@ impl<'str> NoCommentsStream<'str> {
                 (Some('/'), _) => {
                     self.take_on_slash().transpose()?;
                 }
-                (None, _) => return Err(Error::lexer(r#"Expected '*/'"#.into(), self.cur_line())),
+                (None, _) => return self.cur_pos().lexer(r#"Expected '*/'"#.into()),
                 _ => (),
             }
         }
     }
 }
 
-struct LineCount<'str> {
+struct PositionStream<'str> {
     chars: Chars<'str>,
     peeked: Option<char>,
-    cur_line: usize,
+    cur_pos: Position,
 }
 
-impl<'str> LineCount<'str> {
-    fn from(source: &'str str) -> LineCount<'str> {
-        LineCount {
+impl<'str> PositionStream<'str> {
+    fn from(source: &'str str) -> PositionStream<'str> {
+        PositionStream {
             chars: source.chars(),
             peeked: None,
-            cur_line: 0,
+            cur_pos: Position::zero(),
         }
     }
 
-    fn cur_line(&self) -> usize {
-        match self.peeked {
-            Some('\n') => self.cur_line - 1,
-            _ => self.cur_line,
-        }
+    fn cur_pos(&self) -> Position {
+        self.cur_pos.clone()
     }
 
     fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
@@ -124,7 +123,7 @@ impl<'str> LineCount<'str> {
     }
 }
 
-impl<'str> Iterator for LineCount<'str> {
+impl<'str> Iterator for PositionStream<'str> {
     type Item = char;
     fn next(&mut self) -> Option<Self::Item> {
         let next = match self.peeked.take() {
@@ -133,16 +132,14 @@ impl<'str> Iterator for LineCount<'str> {
         };
 
         match next {
-            next @ Some('\n') => {
-                self.cur_line += 1;
-                next
-            }
-            next => next,
+            Some('\n') => self.cur_pos.new_line(),
+            _ => self.cur_pos.add_col(),
         }
+        next
     }
 }
 
-impl<'str> PeekingNext for LineCount<'str> {
+impl<'str> PeekingNext for PositionStream<'str> {
     fn peeking_next<F>(&mut self, accept: F) -> Option<Self::Item>
     where
         F: FnOnce(&Self::Item) -> bool,

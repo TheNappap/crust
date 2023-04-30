@@ -1,11 +1,11 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    error::{Error, Result},
-    lexer::{Token},
+    error::{Result, ThrowablePosition, ErrorKind},
+    lexer::{Token, Span},
 };
 
-use super::{syntax_tree::Expression, Parser};
+use super::{syntax_tree::Expression, Parser, ExpressionKind};
 
 pub mod dot;
 pub mod call;
@@ -26,8 +26,8 @@ pub mod pattern_match;
 
 pub trait BlockDefinition {
     fn id(&self) -> &str;
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression>;
-    fn parse_chained(&self, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<Expression>;
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind>;
+    fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind>;
 }
 
 pub struct BlockDefinitions {
@@ -41,11 +41,11 @@ impl BlockDefinitions {
         }
     }
 
-    pub fn get(&self, tag: &str) -> Result<Rc<dyn BlockDefinition>> {
+    pub fn get(&self, tag: &str, span: &Span) -> Result<Rc<dyn BlockDefinition>> {
         self.definitions
             .get(tag)
             .cloned()
-            .ok_or_else(|| Error::syntax(format!("Definition for block not found: {}", tag), 0))
+            .ok_or(span.error(ErrorKind::Syntax, format!("Definition for block not found: {}", tag)))
     }
 
     pub fn add<T: BlockDefinition + Default + 'static>(&mut self) {

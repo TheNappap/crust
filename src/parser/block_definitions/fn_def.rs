@@ -1,9 +1,9 @@
 use itertools::{process_results, Itertools};
 
 use crate::{
-    error::{Error, Result},
-    lexer::{Delimeter, Token, Operator},
-    parser::{Expression, Fn, Parser, Type, syntax_tree::fn_expr::Signature},
+    error::{Result, ErrorKind, ThrowablePosition},
+    lexer::{Delimeter, Token, Operator, Span, TokenKind},
+    parser::{Expression, Fn, Parser, Type, syntax_tree::fn_expr::Signature, ExpressionKind},
 };
 
 use super::BlockDefinition;
@@ -16,31 +16,29 @@ impl BlockDefinition for FnDef {
         "fn"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let mut tokens = header.into_iter();
 
-        let name = match tokens.next() {
-            Some(Token::Ident(value)) => value,
+        let name = match tokens.next().map(|t|t.kind.clone()) {
+            Some(TokenKind::Ident(value)) => value,
             _ => {
-                return Err(
-                    Error::syntax("Expected an identifier as function name".to_string(), 0),
-                )
+                return Err(span.error(ErrorKind::Syntax, "Expected an identifier as function name".to_string()))
             }
         };
 
-        let params = match tokens.next() {
-            Some(Token::Group(Delimeter::Parens, params)) => parser.parse_list(params),
-            _ => return Err(Error::syntax("Expected parameters in parens".to_string(), 0)),
+        let params = match tokens.next().map(|t|t.kind.clone()) {
+            Some(TokenKind::Group(Delimeter::Parens, params)) => parser.parse_list(params.clone()),
+            _ => return Err(span.error(ErrorKind::Syntax, "Expected parameters in parens".to_string())),
         }
         .into_iter()
         .map(|tokens| parser.parse_parameter(tokens));
         
         let (param_names, param_types) : (Vec<String>, Vec<Type>) = process_results(params, |iter| iter.unzip())?;
 
-        let returns = match (tokens.next(), tokens.next()) {
+        let returns = match (tokens.next().map(|t|t.kind.clone()), tokens.next()) {
             (None, None) => Type::Void,
-            (Some(Token::Operator(Operator::Arrow)), Some(token)) => Type::from(token)?,
-            _ => return Err(Error::syntax("Unexpected symbols after function header".to_string(), 0)),
+            (Some(TokenKind::Operator(Operator::Arrow)), Some(token)) => Type::from(token)?,
+            _ => return Err(span.error(ErrorKind::Syntax, "Unexpected symbols after function header".to_string())),
         };
 
         let ty = if param_names.len() > 0 && param_names[0] == "self" {
@@ -53,11 +51,11 @@ impl BlockDefinition for FnDef {
 
 
         let fun = Fn::new(signature, param_names, body);
-        Ok(Expression::Fn(fun))
+        Ok(ExpressionKind::Fn(fun))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
 
@@ -70,25 +68,25 @@ impl BlockDefinition for Impl {
         "impl"
     }
 
-    fn parse(&self, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.len() == 1);
 
-        let Expression::Symbol(name, _) = parser.parse_expression(header)? else {
-            return Err(Error::syntax("Expected symbol as type name".to_string(), 0));
+        let ExpressionKind::Symbol(name, _) = parser.parse_expression(header)?.kind.clone() else {
+            return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string()));
         };
         let fns = parser.parse_group(body)?.into_iter()
             .map(|exp| 
-                if let Expression::Fn(mut fun) = exp {
+                if let ExpressionKind::Fn(mut fun) = exp.kind.clone() {
                     fun.set_self_type(&name);
                     Ok(fun) 
                 }
-                else { return Err(Error::syntax("Expected symbol as type name".to_string(), 0)); } 
+                else { return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string())); } 
             )
             .try_collect()?;
-        Ok(Expression::Impl(name, fns))
+        Ok(ExpressionKind::Impl(name.to_owned(), fns))
     }
     
-    fn parse_chained(&self, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<Expression> {
-        Err(Error::syntax("Unexpected input, block doesn't handle input".to_string(), 0))
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }

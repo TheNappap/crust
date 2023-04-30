@@ -1,4 +1,4 @@
-use crate::{parser::{Signature, Fn, Type}, lexer::Literal};
+use crate::{parser::{Signature, Fn, Type}, lexer::{Literal, Span}};
 
 use super::{patterns::Pattern, ordered_map::OrderedMap};
 
@@ -13,7 +13,19 @@ pub enum UnOpKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Expression {
+pub struct Expression {
+    pub kind: ExpressionKind,
+    pub span: Span,
+}
+
+impl Expression {
+    pub fn new(kind: ExpressionKind, span: Span) -> Self {
+        Expression { kind, span }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ExpressionKind {
     Fn(Fn),
     Impl(String, Vec<Fn>),
     Data(Type),

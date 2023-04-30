@@ -13,9 +13,9 @@ use cranelift_module::{DataContext, Linkage, Module};
 use cranelift_object::ObjectModule;
 use itertools::Itertools;
 
-use crate::error::{Result, Error};
+use crate::error::{Result, ErrorKind, ThrowablePosition};
 use crate::lexer::Literal;
-use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type, Pattern, OrderedMap};
+use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type, Pattern, OrderedMap, ExpressionKind};
 
 use super::comp_kind::CompKind;
 use super::gen_type::GenType;
@@ -111,55 +111,55 @@ impl<'gen> FunctionCodegen<'gen> {
     }
 
     fn create_expression(&mut self, expression: &Expression) -> Result<Vec<Value>> {
-        let value = match expression {
-            Expression::Call(signature, params) => {
+        let value = match &expression.kind {
+            ExpressionKind::Call(signature, params) => {
                 self.create_fn_call(signature, params)?
             }
-            Expression::Return(expr) => {
+            ExpressionKind::Return(expr) => {
                 self.create_return(expr)?
             }
-            Expression::Let(id, expr, ty) => {
+            ExpressionKind::Let(id, expr, ty) => {
                 self.create_local_variable(id.clone(), expr, &GenType::from_type(ty, self.module)?)?
             }
-            Expression::Mut(id, expr) => {
+            ExpressionKind::Mut(id, expr) => {
                 self.create_variable_mutation(id, expr)?
             }
-            Expression::If(condition, if_body, else_body) => {
+            ExpressionKind::If(condition, if_body, else_body) => {
                 self.create_if(condition, if_body, else_body)?
             }
-            Expression::While(condition, while_body) => {
+            ExpressionKind::While(condition, while_body) => {
                 self.create_while(condition, while_body)?
             }
-            Expression::For(iter, var_name, var_type, for_body) => {
+            ExpressionKind::For(iter, var_name, var_type, for_body) => {
                 self.create_for(iter, var_name.clone(), &GenType::from_type(var_type, self.module)?, for_body)?
             }
-            Expression::Iter(iter, _) => {
+            ExpressionKind::Iter(iter, _) => {
                 self.create_expression(iter)?
             }
-            Expression::Index(collection, index, ty, coll_length) => {
+            ExpressionKind::Index(collection, index, ty, coll_length) => {
                 self.create_index(collection, index, &GenType::from_type(ty, self.module)?, *coll_length)?
             }
-            Expression::Group(body) => {
+            ExpressionKind::Group(body) => {
                 self.create_group(body)?
             }
-            Expression::Literal(literal) => vec![match literal {
+            ExpressionKind::Literal(literal) => vec![match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),
                 Literal::Bool(b) => self.builder.ins().bconst(B64, *b),
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }],
-            Expression::AddrOf(expressions) => {
+            ExpressionKind::AddrOf(expressions) => {
                 let values: Vec<_> = expressions.iter()
                         .map(|expr|self.create_expression(expr))
                         .flatten_ok()
                         .try_collect()?;
                 self.create_pointer_to_stack_slot(&values)?
             }
-            Expression::Symbol(name, ty) => {
+            ExpressionKind::Symbol(name, ty) => {
                 self.create_symbol_expr(name, ty, 0)?
             }
-            Expression::Field(expr, _, ty, offset) => {
-                if let Expression::Symbol(name, _) = &**expr {
+            ExpressionKind::Field(expr, _, ty, offset) => {
+                if let ExpressionKind::Symbol(name, _) = &expr.kind {
                     self.create_symbol_expr(&name, ty, *offset)?
                 } else {
                     let name = "__field_temp_".to_string() + &self.var_counter.next().to_string();
@@ -167,7 +167,7 @@ impl<'gen> FunctionCodegen<'gen> {
                     self.create_symbol_expr(&name, ty, *offset)?
                 }
             }
-            Expression::BinOp(kind, param1, param2, ty) => {
+            ExpressionKind::BinOp(kind, param1, param2, ty) => {
                 match kind {
                     BinOpKind::Add => self.create_addition(param1, param2, ty)?,
                     BinOpKind::Sub => self.create_subtraction(param1, param2, ty)?,
@@ -177,36 +177,36 @@ impl<'gen> FunctionCodegen<'gen> {
                     BinOpKind::Neq => self.create_compare(CompKind::NotEqual, param1, param2, ty)?,
                 }
             }
-            Expression::UnOp(kind, param, ty) => {
+            ExpressionKind::UnOp(kind, param, ty) => {
                 match kind {
                     UnOpKind::Neg => self.create_negation(param, ty)?,
                 }
             }
-            Expression::Array(exprs) => {
+            ExpressionKind::Array(exprs) => {
                 self.create_record(exprs)?
             }
-            Expression::New(ty, exprs) => {
+            ExpressionKind::New(ty, exprs) => {
                 match ty {
                     Type::Struct(_, _) => self.create_record(exprs)?,
                     Type::Enum(_, variants) => {
-                        let Expression::Data(data) = &exprs[0] else {
-                            return Err(Error::codegen("Enum variant parsing failed".to_string(), 0));
+                        let ExpressionKind::Data(data) = &exprs[0].kind else {
+                            return Err(expression.span.error(ErrorKind::Codegen, "Enum variant parsing failed".to_string()));
                         };
                         let Some(variant) = variants.get(data.name()) else {
-                            return Err(Error::codegen("Enum variant not found".to_string(), 0));
+                            return Err(expression.span.error(ErrorKind::Codegen, "Enum variant not found".to_string()));
                         };
                         vec![self.builder.ins().iconst(I64, *variant as i64)]
                     }
                     _ => unreachable!(),
                 }
             }
-            Expression::Match(expr, ty, cases) => {
+            ExpressionKind::Match(expr, ty, cases) => {
                 self.create_match(expr, ty, cases)?
             },
-            Expression::Fn(_) => vec![], //ignore, handled before function codegen
-            Expression::Impl(..) => vec![], //ignore, handled before function codegen
-            Expression::Data(_) => vec![], //ignore, handled before function codegen
-            Expression::Case(..) => unreachable!(),
+            ExpressionKind::Fn(_) => vec![], //ignore, handled before function codegen
+            ExpressionKind::Impl(..) => vec![], //ignore, handled before function codegen
+            ExpressionKind::Data(_) => vec![], //ignore, handled before function codegen
+            ExpressionKind::Case(..) => unreachable!(),
         };
         Ok(value)
     }
@@ -408,8 +408,8 @@ impl<'gen> FunctionCodegen<'gen> {
     fn create_index(&mut self, collection: &Expression, index: &Expression, ty: &GenType, coll_length: u32) -> Result<Vec<Value>> {
         let index = self.create_expression(index)?[0];
 
-        let ss = match collection {
-            Expression::Symbol(name, _) => *self.variables.get(name).unwrap(),
+        let ss = match &collection.kind {
+            ExpressionKind::Symbol(name, _) => *self.variables.get(name).unwrap(),
             _ => {
                 let values = self.create_expression(collection)?;
                 let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size()*coll_length));
@@ -436,20 +436,20 @@ impl<'gen> FunctionCodegen<'gen> {
     }
 
     fn create_for(&mut self, iter: &Expression, var_name: String, var_type: &GenType, for_body: &[Expression]) -> Result<Vec<Value>> {  
-        if let Expression::Iter(coll, len) = iter {
+        if let ExpressionKind::Iter(coll, len) = &iter.kind {
             if *len == 0 { return Ok(vec![]); }
 
-            let ss = match &**coll {
-                Expression::Symbol(name, _) => *self.variables.get(name).unwrap(),
-                Expression::Array(_) => {
-                    let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()*len));
+            let ss = match &coll.kind {
+                ExpressionKind::Symbol(name, _) => *self.variables.get(name).unwrap(),
+                ExpressionKind::Array(_) => {
+                    let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()**len));
                     let values = self.create_expression(coll)?;
                     for (i, &value) in values.iter().enumerate() {
                         self.stack_store(value, ss, 8*i as i32);
                     }
                     ss
                 },
-                _ => return Err(Error::codegen("Expected array in iter of for loop".to_string(), 0)),
+                _ => return Err(coll.span.error(ErrorKind::Codegen, "Expected array in iter of for loop".to_string())),
             };
 
             let init_block = self.builder.create_block();
@@ -520,7 +520,7 @@ impl<'gen> FunctionCodegen<'gen> {
             self.builder.seal_block(after_block);
             Ok(vec![])
         } else {
-            Err(Error::codegen("Expected iter".to_string(), 0))
+            Err(iter.span.error(ErrorKind::Codegen, "Expected iter".to_string()))
         }
     }
 
@@ -587,7 +587,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 Ok(vec![self.builder.ins().fadd(v1, v2)])
             },
             Type::String => self.create_fn_call(&Signature::new(None, "strcat",vec![Type::Int,Type::Int],Type::Int), &vec![param1.clone(), param2.clone()]),
-            _ => Err(Error::codegen("Addition for this type is not supported".to_string(), 0))
+            _ => Err(param1.span.error(ErrorKind::Codegen, "Addition for this type is not supported".to_string()))
         }
     }
     
@@ -603,7 +603,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fsub(v1, v2)])
             },
-            _ => Err(Error::codegen("Subtration for this type is not supported".to_string(), 0))
+            _ => Err(param1.span.error(ErrorKind::Codegen, "Subtration for this type is not supported".to_string()))
         }
     }
     
@@ -619,7 +619,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fmul(v1, v2)])
             },
-            _ => Err(Error::codegen("Multiplication for this type is not supported".to_string(), 0))
+            _ => Err(param1.span.error(ErrorKind::Codegen, "Multiplication for this type is not supported".to_string()))
         }
     }
     
@@ -635,7 +635,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fdiv(v1, v2)])
             },
-            _ => Err(Error::codegen("Division for this type is not supported".to_string(), 0))
+            _ => Err(param1.span.error(ErrorKind::Codegen, "Division for this type is not supported".to_string()))
         }
     }
 
@@ -653,7 +653,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v = self.create_expression(param)?[0];
                 Ok(vec![self.builder.ins().bnot(v)])
             },
-            _ => Err(Error::codegen("Division for this type is not supported".to_string(), 0))
+            _ => Err(param.span.error(ErrorKind::Codegen, "Division for this type is not supported".to_string()))
         }
     }
 
@@ -669,7 +669,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fcmp(kind.to_floatcc(), v1, v2)])
             },
-            _ => Err(Error::codegen("Compare for this type is not supported".to_string(), 0))
+            _ => Err(param1.span.error(ErrorKind::Codegen, "Compare for this type is not supported".to_string()))
         }
     }
 
@@ -692,7 +692,7 @@ impl<'gen> FunctionCodegen<'gen> {
     
     fn create_match(&mut self, expr: &Expression, ty: &Type, cases: &OrderedMap<Pattern, Vec<Expression>>) -> Result<Vec<Value>> {
         let Type::Enum(_, variants) = ty else {
-            return Err(Error::codegen("Only enum patterns in match".into(), 0));
+            return Err(expr.span.error(ErrorKind::Codegen, "Only enum patterns in match".into()));
         };
 
         let vals = self.create_expression(expr)?;

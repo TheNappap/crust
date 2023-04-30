@@ -1,3 +1,5 @@
+use crate::lexer::Position;
+
 #[derive(Debug, Clone)]
 pub enum ErrorKind {
     Lexer,
@@ -23,40 +25,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct Error {
     kind: ErrorKind,
     message: String,
-    line: usize,
+    pos: Position,
 }
 
 impl Error {
-    pub fn lexer(message: String, line: usize) -> Error {
-        Error {
-            kind: ErrorKind::Lexer,
-            message,
-            line,
-        }
-    }
-
-    pub fn syntax(message: String, line: usize) -> Error {
-        Error {
-            kind: ErrorKind::Syntax,
-            message,
-            line,
-        }
-    }
-
-    pub fn type_(message: String, line: usize) -> Error {
-        Error {
-            kind: ErrorKind::Type,
-            message,
-            line,
-        }
-    }
-
-    pub fn codegen(message: String, line: usize) -> Error {
-        Error {
-            kind: ErrorKind::Codegen,
-            message,
-            line,
-        }
+    pub fn new(kind: ErrorKind, message: String, pos: Position) -> Self {
+        Error { kind, message, pos }
     }
 }
 
@@ -64,26 +38,28 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} Error (line {}): {}",
-            self.kind, self.line, self.message
+            "{} Error:{}:{}: {}",
+            self.kind, self.pos.row(), self.pos.col(), self.message
         )
     }
 }
 
-impl From<&str> for Error {
-    fn from(err: &str) -> Error {
-        Error::codegen(err.to_string(), 0)
+pub trait ThrowablePosition {
+    fn error(&self, kind: ErrorKind, message: String) -> Error;
+    fn throw<T>(&self, kind: ErrorKind, message: String) -> Result<T> {
+        Err(self.error(kind, message))
+    }
+    fn lexer<T>(&self, message: String) -> Result<T> {
+        self.throw(ErrorKind::Lexer, message)
+    }
+    fn syntax<T>(&self, message: String) -> Result<T> {
+        self.throw(ErrorKind::Syntax, message)
+    }
+    fn type_<T>(&self, message: String) -> Result<T> {
+        self.throw(ErrorKind::Type, message)
+    }
+    fn codegen<T>(&self, message: String) -> Result<T> {
+        self.throw(ErrorKind::Codegen, message)
     }
 }
 
-impl From<String> for Error {
-    fn from(err: String) -> Error {
-        Error::codegen(err, 0)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
-        Error::codegen(err.to_string(), 0)
-    }
-}

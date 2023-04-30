@@ -6,7 +6,9 @@ pub mod expression;
 pub mod ordered_map;
 pub mod patterns;
 
-pub use expression::{Expression, BinOpKind, UnOpKind};
+pub use expression::{Expression, ExpressionKind, BinOpKind, UnOpKind};
+
+use crate::lexer::Span;
 
 use self::fn_expr::Fn;
 
@@ -15,18 +17,18 @@ use super::{Type, Signature};
 pub trait Library {
     fn fns(&self) -> Vec<Fn>;
     fn imported_fns(&self) -> Vec<Signature>;
-    fn data_types(&self) -> Vec<Type>;
+    fn data_types(&self) -> Vec<(Type, Span)>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SyntaxTree {
     fns: Vec<Fn>,
     imports: Vec<Signature>,
-    data_types: Vec<Type>,
+    data_types: Vec<(Type, Span)>,
 }
 
 impl SyntaxTree {
-    pub fn new(fns: Vec<Fn>, imports: Vec<Signature>, data_types: Vec<Type>) -> SyntaxTree {
+    pub fn new(fns: Vec<Fn>, imports: Vec<Signature>, data_types: Vec<(Type, Span)>) -> SyntaxTree {
         SyntaxTree { fns, imports, data_types }
     }
 
@@ -42,7 +44,7 @@ impl SyntaxTree {
         self.imports.iter()
     }
 
-    pub fn data_types(&self) -> impl Iterator<Item=&Type> + '_ {
+    pub fn data_types(&self) -> impl Iterator<Item=&(Type, Span)> + '_ {
         self.data_types.iter()
     }
 
