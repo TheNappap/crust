@@ -10,7 +10,7 @@ pub use expression::{Expression, ExpressionKind, BinOpKind, UnOpKind};
 
 use crate::lexer::Span;
 
-use self::fn_expr::Fn;
+use self::fn_expr::{Fn, Trait};
 
 use super::{Type, Signature};
 
@@ -25,11 +25,12 @@ pub struct SyntaxTree {
     fns: Vec<Fn>,
     imports: Vec<Signature>,
     data_types: Vec<(Type, Span)>,
+    traits: Vec<Trait>,
 }
 
 impl SyntaxTree {
-    pub fn new(fns: Vec<Fn>, imports: Vec<Signature>, data_types: Vec<(Type, Span)>) -> SyntaxTree {
-        SyntaxTree { fns, imports, data_types }
+    pub fn new(fns: Vec<Fn>, imports: Vec<Signature>, data_types: Vec<(Type, Span)>, traits: Vec<Trait>) -> SyntaxTree {
+        SyntaxTree { fns, imports, data_types, traits }
     }
 
     pub fn fns_impls(&self) -> impl Iterator<Item=&Fn> + '_ {
@@ -46,6 +47,10 @@ impl SyntaxTree {
 
     pub fn data_types(&self) -> impl Iterator<Item=&(Type, Span)> + '_ {
         self.data_types.iter()
+    }
+    
+    pub fn traits(&self) -> impl Iterator<Item=&Trait> + '_ {
+        self.traits.iter()
     }
 
     pub fn add_lib(&mut self, lib: &dyn Library) {

@@ -14,6 +14,13 @@ impl Data {
     }
 }
 
+trait Num {
+    fn num() -> Int;
+    fn double_num(self) -> Int {
+        return self.num() * self.num();
+    }
+}
+
 enum Option {
     None,
     Some,

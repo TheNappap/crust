@@ -1,5 +1,5 @@
 use super::{Expression, types::Type};
-use core::slice::{Iter, IterMut};
+use core::{slice::{Iter, IterMut}};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Signature {
@@ -98,5 +98,22 @@ impl Fn {
 
     pub fn body_mut(&mut self) -> IterMut<Expression> {
         self.body.iter_mut()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Trait {
+    name: String,
+    sigs: Vec<Signature>,
+    fns: Vec<Fn>,
+}
+
+impl Trait {
+    pub fn new(name: String, sigs: Vec<Signature>, fns: Vec<Fn>) -> Self {
+        Trait {
+            name,
+            sigs,
+            fns,
+        }
     }
 }

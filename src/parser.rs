@@ -27,6 +27,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<returns::Return>();
     blockdefs.add::<fn_def::FnDef>();
     blockdefs.add::<fn_def::Impl>();
+    blockdefs.add::<traits::Trait>();
     blockdefs.add::<data::Struct>();
     blockdefs.add::<data::Enum>();
     blockdefs.add::<data::New>();
@@ -71,6 +72,7 @@ impl Parser {
     pub fn parse_code(&self, source: &str) -> Result<SyntaxTree> {
         let mut fns = Vec::new();
         let mut datas = Vec::new();
+        let mut traits = Vec::new();
         BlockStream::from(source)
             .try_for_each(|block| {
                 let block = match block {
@@ -83,12 +85,13 @@ impl Parser {
                     ExpressionKind::Fn(fun) => fns.push(fun.clone()),
                     ExpressionKind::Data(data) => datas.push((data.clone(), parsed_expression.span.to_owned())),
                     ExpressionKind::Impl(_, methods) => methods.into_iter().for_each(|fun| fns.push(fun.clone())),
+                    ExpressionKind::Trait(trait_) => traits.push(trait_.clone()),
                     _ => return block.span.syntax(format!("The block '{}' cannot be used in this position.", tag))
                 }
                 Ok(())
             })?;
 
-        Ok(SyntaxTree::new(fns, vec![], datas))
+        Ok(SyntaxTree::new(fns, vec![], datas, traits))
     }
 
     fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
@@ -256,7 +259,8 @@ mod tests {
             )
         ], 
         vec![],
-        vec![]));
+        vec![],
+        vec![],));
         Ok(())
     }
 }

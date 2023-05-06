@@ -47,11 +47,14 @@ impl BlockDefinition for FnDef {
             None
         };
         let signature = Signature::new(ty, &name, param_types, returns);
-        let body = parser.parse_group(body)?;
 
-
-        let fun = Fn::new(signature, param_names, body);
-        Ok(ExpressionKind::Fn(fun))
+        if body.is_empty() {
+            Ok(ExpressionKind::Signature(signature))
+        } else {
+            let body = parser.parse_group(body)?;
+            let fun = Fn::new(signature, param_names, body);
+            Ok(ExpressionKind::Fn(fun))
+        }
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {

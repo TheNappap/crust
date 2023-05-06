@@ -203,7 +203,9 @@ impl<'gen> FunctionCodegen<'gen> {
             ExpressionKind::Match(expr, ty, cases) => {
                 self.create_match(expr, ty, cases)?
             },
+            ExpressionKind::Signature(_) => vec![], //ignore, handled before function codegen
             ExpressionKind::Fn(_) => vec![], //ignore, handled before function codegen
+            ExpressionKind::Trait(_) => vec![], //ignore, handled before function codegen
             ExpressionKind::Impl(..) => vec![], //ignore, handled before function codegen
             ExpressionKind::Data(_) => vec![], //ignore, handled before function codegen
             ExpressionKind::Case(..) => unreachable!(),

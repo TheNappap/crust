@@ -1,6 +1,6 @@
 use crate::{parser::{Signature, Fn, Type}, lexer::{Literal, Span}};
 
-use super::{patterns::Pattern, ordered_map::OrderedMap};
+use super::{patterns::Pattern, ordered_map::OrderedMap, fn_expr::Trait};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinOpKind {
@@ -27,8 +27,10 @@ impl Expression {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExpressionKind {
     Fn(Fn),
+    Signature(Signature),
     Impl(String, Vec<Fn>),
     Data(Type),
+    Trait(Trait),
     Call(Signature, Vec<Expression>),
     New(Type, Vec<Expression>),
     Field(Box<Expression>, String, Type, i32),

@@ -124,6 +124,9 @@ impl<'f> TypeCheck<'f> {
                 self.check_expression(expr)?;
                 Type::Void
             },
+            ExpressionKind::Signature(_) => {
+                todo!()
+            }
             ExpressionKind::Fn(fun) => {
                 self.check_fun(fun)?;
                 Type::Inferred
@@ -132,6 +135,9 @@ impl<'f> TypeCheck<'f> {
                 self.data_types.check_type_name(name)?;
                 fns.iter_mut().try_for_each(|fun| self.check_fun(fun))?;
                 Type::Inferred
+            }
+            ExpressionKind::Trait(_) => {
+                todo!()
             }
             ExpressionKind::Data(_) => {
                 Type::Inferred
