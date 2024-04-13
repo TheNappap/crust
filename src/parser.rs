@@ -73,6 +73,8 @@ impl Parser {
         let mut fns = Vec::new();
         let mut datas = Vec::new();
         let mut traits = Vec::new();
+        let mut impls = Vec::new();
+
         BlockStream::from(source)
             .try_for_each(|block| {
                 let block = match block {
@@ -84,12 +86,45 @@ impl Parser {
                 match parsed_expression.kind {
                     ExpressionKind::Fn(fun) => fns.push(fun.clone()),
                     ExpressionKind::Data(data) => datas.push((data.clone(), parsed_expression.span.to_owned())),
-                    ExpressionKind::Impl(_, methods) => methods.into_iter().for_each(|fun| fns.push(fun.clone())),
+                    ExpressionKind::Impl(type_name, methods, trait_name) => impls.push((type_name, methods, trait_name, parsed_expression.span)),
                     ExpressionKind::Trait(trait_) => traits.push(trait_.clone()),
-                    _ => return block.span.syntax(format!("The block '{}' cannot be used in this position.", tag))
+                    _ => return parsed_expression.span.syntax(format!("The block '{}' cannot be used in this position.", tag))
                 }
                 Ok(())
             })?;
+        
+        for (type_name, methods, trait_name, span) in impls {
+            if let Some(trait_name) = trait_name {
+                if let Ok(i) = traits.binary_search_by_key(&trait_name, |t| t.name.clone()) {
+                    let t = &traits[i];
+                    t.fns.iter().cloned().for_each(|mut fun| {
+                        fun.set_self_type(&type_name);
+                        fns.push(fun)
+                    });
+                    t.sigs.iter().cloned().map(|mut sig| {
+                        sig.set_self_type(&type_name);
+                        let has_impl = methods.iter().any(|fun| fun.signature().name() == sig.name());
+                        if !has_impl {
+                            return span.syntax("Not all trait functions implemented".to_string());
+                        }
+                        Ok(())
+                    }).try_collect()?;
+                    methods.into_iter().map(|fun| {
+                        let is_in_trait = t.sigs.iter().cloned().any(|mut sig| {
+                            sig.set_self_type(&type_name);
+                            fun.signature().name() == sig.name()
+                        });
+                        if !is_in_trait {
+                            return span.syntax("Function not part of trait".to_string());
+                        }
+                        fns.push(fun.clone());
+                        Ok(())
+                    }).try_collect()?;
+                }
+            } else {
+                methods.into_iter().for_each(|fun| fns.push(fun.clone()));
+            }
+        }
 
         Ok(SyntaxTree::new(fns, vec![], datas, traits))
     }

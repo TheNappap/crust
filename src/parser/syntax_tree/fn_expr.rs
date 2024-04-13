@@ -103,9 +103,9 @@ impl Fn {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Trait {
-    name: String,
-    sigs: Vec<Signature>,
-    fns: Vec<Fn>,
+    pub name: String,
+    pub sigs: Vec<Signature>,
+    pub fns: Vec<Fn>,
 }
 
 impl Trait {

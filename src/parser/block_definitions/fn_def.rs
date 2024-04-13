@@ -72,21 +72,24 @@ impl BlockDefinition for Impl {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        assert!(header.len() == 1);
-
-        let ExpressionKind::Symbol(name, _) = parser.parse_expression(header)?.kind.clone() else {
-            return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string()));
+        let header = header.iter().map(|t|&t.kind).collect_vec();
+        let (type_name, trait_name) = match header.as_slice() {
+            [TokenKind::Ident(name)] => (name.clone(), None),
+            [TokenKind::Ident(trait_name), TokenKind::Ident(for_), TokenKind::Ident(name)]
+                if for_ == "for" => (name.clone(), Some(trait_name.clone())),
+            _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name or trait".to_string())),
         };
+
         let fns = parser.parse_group(body)?.into_iter()
             .map(|exp| 
                 if let ExpressionKind::Fn(mut fun) = exp.kind.clone() {
-                    fun.set_self_type(&name);
+                    fun.set_self_type(&type_name);
                     Ok(fun) 
                 }
                 else { return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string())); } 
             )
             .try_collect()?;
-        Ok(ExpressionKind::Impl(name.to_owned(), fns))
+        Ok(ExpressionKind::Impl(type_name.to_owned(), fns, trait_name))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {

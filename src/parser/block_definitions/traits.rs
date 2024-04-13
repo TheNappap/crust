@@ -15,7 +15,7 @@ impl BlockDefinition for Trait {
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.len() == 1);
         let Some(TokenKind::Ident(name)) = header.first().map(|t|&t.kind) else {
-            return Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string()));
         };
 
         let mut sigs = vec![];

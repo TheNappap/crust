@@ -21,6 +21,12 @@ trait Num {
     }
 }
 
+impl Num for Data {
+    fn num(self) -> Int {
+        return self.a + self.b;
+    }
+}
+
 enum Option {
     None,
     Some,
@@ -55,6 +61,8 @@ fn impl_blocks() {
     println "method call a(): %i", call Data::new().a();
     println "static fn data member b: %i", call Data::new().b;
     println "What is this? %s", new Option::Some.some_func();
+    println "trait method call num(): %i", call Data::new().num();
+    println "trait method call double_num(): %i", call Data::new().double_num();
 }
 
 fn custom_data(data: Data) {

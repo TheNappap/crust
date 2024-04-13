@@ -47,7 +47,7 @@ impl DataTypeCheck for HashMap<String, (Type, Span)> {
     fn check_type_name(&self, name: &str) -> Result<Type> {
         match self.get(name) {
             Some((data, _)) => Ok(data.to_owned()),
-            None => return Err(Error::new(ErrorKind::Type, "Data structure not found".to_string(), Position::zero()))
+            None => return Err(Error::new(ErrorKind::Type, format!("Data structure not found: {}", name), Position::zero()))
         }
     }
 }
@@ -131,7 +131,7 @@ impl<'f> TypeCheck<'f> {
                 self.check_fun(fun)?;
                 Type::Inferred
             }
-            ExpressionKind::Impl(name, fns) => {
+            ExpressionKind::Impl(name, fns, _) => {
                 self.data_types.check_type_name(name)?;
                 fns.iter_mut().try_for_each(|fun| self.check_fun(fun))?;
                 Type::Inferred

@@ -28,7 +28,7 @@ impl Expression {
 pub enum ExpressionKind {
     Fn(Fn),
     Signature(Signature),
-    Impl(String, Vec<Fn>),
+    Impl(String, Vec<Fn>, Option<String>),
     Data(Type),
     Trait(Trait),
     Call(Signature, Vec<Expression>),
