@@ -2,7 +2,7 @@ use crate::{parser::{Library, Fn, Type, Signature}, lexer::{Span, Position}};
 
 fn std_data_types() -> Vec<(Type, Span)> {
     vec![
-        (Type::Struct("Range".to_owned(), [("start".to_owned(), Type::Int),("end".to_owned(), Type::Int)].into_iter().collect()), Span::new(Position::zero(), Position::zero()))
+        (Type::Struct("Range".to_owned(), [("start".to_owned(), (Type::Int, 0)),("end".to_owned(), (Type::Int, 8))].into_iter().collect()), Span::new(Position::zero(), Position::zero()))
     ]
 }
 

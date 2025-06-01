@@ -110,7 +110,7 @@ impl<'f> TypeCheck<'f> {
                       .map(|(r,t)| {
                             r.and_then(|ty| {
                                 if *t != ty {
-                                    return Err(span.error(ErrorKind::Type, "Mismatched types for parameter".to_string()));
+                                    return Err(span.error(ErrorKind::Type, format!("Mismatched types for parameter, expected: {:?}, got: {:?}", t, ty).to_string()));
                                 }
                                 Ok(ty)
                             })
@@ -147,15 +147,19 @@ impl<'f> TypeCheck<'f> {
 
                 match ty {
                     Type::Struct(_, fields) => {
-                        fields.iter().zip(exprs.into_iter())
-                            .map(|((_,ty), expr)| -> Result<_> { 
+                        let offsets: Vec<i32> = fields.iter().zip(exprs.into_iter())
+                            .map(|((_,(ty, offset)), expr)| -> Result<_> { 
                                 let expr_ty =  self.check_expression(expr)?;
                                 if *ty != expr_ty {
                                     return Err(expr.span.error(ErrorKind::Type, "Mismatch types for parameter expression".to_string()));
                                 }
-                                Ok(())
+                                Ok(*offset)
                             })
                             .try_collect()?;
+                        for (i, (_, (_, offset))) in  fields.iter_mut().enumerate() {
+                            if i == 0 { *offset = 0; }
+                            else { *offset = offsets[i] }
+                        }
                     }
                     Type::Enum(_, variants) => {
                         assert!(exprs.len() == 1);
@@ -176,17 +180,12 @@ impl<'f> TypeCheck<'f> {
 
                 match ty {
                     Type::Struct(_, map) => {
-                        let Some(ty) = map.get(field_name) else { 
+                        let Some((ty, offset)) = map.get(field_name) else { 
                             return Err(expr.span.error(ErrorKind::Type, format!("No field found with this name: {}", field_name))); 
                         };
 
                         *field_type = ty.to_owned();
-                        map.iter().fold(0, |offset, (name, ty)| {
-                            if name == field_name {
-                                *field_offset = offset;
-                            }
-                            offset+ty.size() as i32
-                        });
+                        *field_offset = *offset;
                         ty.to_owned()
                     },
                     _ => return Err(expr.span.error(ErrorKind::Type, format!("No field for type: {:?}", ty)))
@@ -201,13 +200,27 @@ impl<'f> TypeCheck<'f> {
                 *let_ty = ty.clone();
                 ty
             },
-            ExpressionKind::Mut(name, expr) => {
-                let ty = self.check_expression(expr)?;
+            ExpressionKind::Mut(name, field, expr) => {
                 let var_type = self.variables.get(name);
-                if let Some(var_ty) = var_type {
-                    if *var_ty != Type::Inferred && *var_ty != ty {
-                        return Err(expr.span.error(ErrorKind::Type, format!("Mismatch types for assignment, expected: {:?}", var_ty)));
-                    }
+                if let Some(var_ty) = var_type.cloned() {
+                    let ty = if let Some(field) = field {
+                        if let Type::Struct(_, fields) = var_ty.clone() {
+                            if let Some((ty, offset)) = fields.get(&field.0) {
+                                field.1 = *offset;
+                                ty.to_owned()
+                            } else {
+                                return expr.span.type_("Field name not found".to_string());
+                            }
+                        } else {
+                            return expr.span.type_("Type does not have fields".to_string());
+                        }
+                    } else {
+                        let ty = self.check_expression(expr)?;
+                        if var_ty != Type::Inferred && var_ty != ty {
+                            return Err(expr.span.error(ErrorKind::Type, format!("Mismatch types for assignment, expected: {:?}, but got {:?}", var_ty, ty)));
+                        }
+                        ty
+                    };
                     ty
                 } else {
                     return Err(expr.span.error(ErrorKind::Type, format!("No variable found with this name: {:?}", name)));

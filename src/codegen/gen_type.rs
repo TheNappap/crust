@@ -25,7 +25,7 @@ impl GenType {
             Type::Bool => GenTypeKind::Type(B64),
             Type::String => GenTypeKind::Type(module.target_config().pointer_type()),
             Type::Array(ty, len) => GenType::kind_from_types((0..*len).map(|_| *ty.clone()).collect(), module)?,
-            Type::Struct(_, types) => GenType::kind_from_types(types.values().cloned().collect(), module)?,
+            Type::Struct(_, types) => GenType::kind_from_types(types.values().map(|t| t.0.clone()).collect(), module)?,
             Type::Enum(_, _) => GenTypeKind::Type(I64),
             Type::Iter(_) => GenTypeKind::Type(module.target_config().pointer_type()),
             Type::Void => GenTypeKind::Vec(vec![]),

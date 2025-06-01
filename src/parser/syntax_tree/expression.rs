@@ -35,7 +35,7 @@ pub enum ExpressionKind {
     New(Type, Vec<Expression>),
     Field(Box<Expression>, String, Type, i32),
     Let(String, Box<Expression>, Type),
-    Mut(String, Box<Expression>),
+    Mut(String, Option<(String, i32)>, Box<Expression>),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
     While(Box<Expression>, Vec<Expression>),
     For(Box<Expression>, String, Type, Vec<Expression>),

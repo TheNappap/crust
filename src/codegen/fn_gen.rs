@@ -121,8 +121,8 @@ impl<'gen> FunctionCodegen<'gen> {
             ExpressionKind::Let(id, expr, ty) => {
                 self.create_local_variable(id.clone(), expr, &GenType::from_type(ty, self.module)?)?
             }
-            ExpressionKind::Mut(id, expr) => {
-                self.create_variable_mutation(id, expr)?
+            ExpressionKind::Mut(id, field, expr) => {
+                self.create_variable_mutation(id, field.clone(), expr)?
             }
             ExpressionKind::If(condition, if_body, else_body) => {
                 self.create_if(condition, if_body, else_body)?
@@ -299,12 +299,16 @@ impl<'gen> FunctionCodegen<'gen> {
     fn create_variable_mutation(
         &mut self,
         name: &str,
+        field: Option<(String, i32)>,
         expr: &Expression
     ) -> Result<Vec<Value>> {
         let values = self.create_expression(expr)?;
         let ss = *self.variables.get(name).unwrap();
+        let field_offset = if let Some((_,offset)) = field {
+            offset
+        } else { 0 };
         for (i, &value) in values.iter().enumerate() {
-            self.stack_store(value, ss, 8*i as i32);
+            self.stack_store(value, ss, field_offset + 8*i as i32);
         }
         Ok(values)
     }

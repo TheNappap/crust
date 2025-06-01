@@ -1,11 +1,10 @@
 use itertools::Itertools;
 
 use crate::{
-    error::{Result, ThrowablePosition, ErrorKind},
-    lexer::{Token, Operator, Span, TokenKind},
+    error::{ErrorKind, Result, ThrowablePosition},
+    lexer::{Operator, Span, Token, TokenKind},
     parser::{
-        syntax_tree::{Expression},
-        Parser, Type, ExpressionKind
+        syntax_tree::Expression, ExpressionKind, OrderedMap, Parser, Type
     },
 };
 
@@ -25,9 +24,22 @@ impl BlockDefinition for Struct {
             return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string()));
         };
 
-        let types = parser.parse_list(body).into_iter()
+        let types : OrderedMap<_,_> = parser.parse_list(body).into_iter()
             .map(|tokens| parser.parse_parameter(tokens))
             .try_collect()?;
+
+        let offsets: Vec<i32> = types.values()
+            .scan(0, |acc, t| {
+                *acc = *acc + t.size() as i32;
+                Some(*acc)
+            })
+            .collect();
+        let types = types.iter()
+            .enumerate()
+            .map(|(i, (s,t))| 
+                if i == 0 { (s.clone(), (t.clone(),0)) }
+                else { (s.clone(), (t.clone(), offsets[i-1])) }
+            ).collect();
 
         let data = Type::Struct(name.to_owned(), types);
         Ok(ExpressionKind::Data(data))

@@ -48,25 +48,31 @@ fn main() {
 }
 
 fn pattern_matching() {
+    println "Pattern matching:";
     let opt = new Option::Some;
     match opt {
         case Option::Some: println "matched Some!";
         case Option::None: println "matched None!";
         case _: println "default case!";
     }
+    println;
 }
 
 fn impl_blocks() {
+    println "Impl blocks:";
     println "full fn method a(): %i", call Data::a(call Data::new());
     println "method call a(): %i", call Data::new().a();
     println "static fn data member b: %i", call Data::new().b;
     println "What is this? %s", new Option::Some.some_func();
     println "trait method call num(): %i", call Data::new().num();
     println "trait method call double_num(): %i", call Data::new().double_num();
+    println;
 }
 
 fn custom_data(data: Data) {
-    //mut data.a = 666; //TODO
+    println "Custom data:";
+
+    mut data.b = 333;
     println "custom data member a: %i", data.a;
     println "custom data member b: %i", data.b;
     println "custom data member arr: [%i, %i]", data.arr;
@@ -78,9 +84,12 @@ fn custom_data(data: Data) {
     if variant == new Option::Some {
         println "if enum variant Some: %i", variant;
     }
+
+    println;
 }
 
 fn groups() {
+    println "Groups:";
     {
         let group = {
             let a = 8;
@@ -88,9 +97,12 @@ fn groups() {
         }
         println "group result: %i", group;
     }
+    println;
 }
 
 fn basics() {
+    println "Basics:";
+
     fn f2(): println "one liner";
     
     call! f2();
@@ -113,6 +125,8 @@ fn basics() {
         println "else was activated";
     }
     println "%s %i %i %i %i %i", "Operations:", 6/3, 5*6, 4+4, 34-35, 5*-4 - --9/3;
+
+    println;
 }
 
 fn plus_one(a: Int, b: Int) -> Int {
@@ -120,7 +134,7 @@ fn plus_one(a: Int, b: Int) -> Int {
 }
 
 fn loops_and_arrays() {
-    println "loops_and_arrays:";
+    println "Loops and arrays:";
 
     let add = 0;
     while add != 100 {
@@ -135,4 +149,6 @@ fn loops_and_arrays() {
         println "iter %i %i", i;
     }
     //iter 0..10 {} //TODO
+
+    println;
 }

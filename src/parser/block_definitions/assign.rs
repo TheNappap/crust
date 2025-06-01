@@ -1,4 +1,5 @@
 
+use itertools::Itertools;
 
 use crate::{error::{Result, ErrorKind, ThrowablePosition}, lexer::{Token, Span}, parser::{
         syntax_tree::{Expression},
@@ -43,15 +44,24 @@ impl BlockDefinition for Mut {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let name_expr = parser.parse_expression(header)?;
-        let id = match name_expr.kind {
-            ExpressionKind::Symbol(id, _) => id,
-            _ => {
-                return Err(span.error(ErrorKind::Syntax, "Expected an identifier as variable name".to_string()));
+        let operands: Vec<_> = parser.parse_list(header).into_iter()
+            .map(|tokens| parser.parse_expression(tokens) )
+            .try_collect()?;
+        let (id, field) = match &operands[0].kind {
+            ExpressionKind::Symbol(id, _) => (id, None),
+            ExpressionKind::Field(expr, field, _, offset) => 
+                match &expr.kind {
+                    ExpressionKind::Symbol(id, _) => (id, Some((field.clone(), *offset))),
+                    k => {
+                        return Err(span.error(ErrorKind::Syntax, format!("Expected an identifier as variable name, got {:?}", k)));
+                    }
+                },
+            k => {
+                return Err(span.error(ErrorKind::Syntax, format!("Expected an identifier as variable name, got {:?}", k)));
             }
         };
         let value = parser.parse_expression(body)?;
-        Ok(ExpressionKind::Mut(id.clone(), Box::new(value)))
+        Ok(ExpressionKind::Mut(id.clone(), field, Box::new(value)))
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {

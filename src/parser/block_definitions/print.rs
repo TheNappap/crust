@@ -54,12 +54,15 @@ fn parse_print(span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parse
                                     .map(|tokens| parser.parse_expression(tokens))
                                     .try_collect()?;
     
+    let string_expr = if params.is_empty() { Expression::new(ExpressionKind::Literal(Literal::String("".into())), (span.clone())) }
+                                  else { params[0].clone() };
+    
     let string_expr = if let Some(add_str) = add {
-        let span = params[0].span.to_owned();
+        let span = string_expr.span.to_owned();
         let add_token = Expression::new(ExpressionKind::Literal(Literal::String(add_str)), span.clone());
-        let token = ExpressionKind::BinOp(BinOpKind::Add, Box::new(params[0].clone()), Box::new(add_token), Type::String);
+        let token = ExpressionKind::BinOp(BinOpKind::Add, Box::new(string_expr.clone()), Box::new(add_token), Type::String);
         Expression::new(token, span)
-    } else { params[0].clone() };
+    } else { string_expr.clone() };
 
     let args_expr = if params.len() > 1 {
         let exprs = params.into_iter().skip(1).collect();
