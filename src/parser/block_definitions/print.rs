@@ -54,7 +54,7 @@ fn parse_print(span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parse
                                     .map(|tokens| parser.parse_expression(tokens))
                                     .try_collect()?;
     
-    let string_expr = if params.is_empty() { Expression::new(ExpressionKind::Literal(Literal::String("".into())), (span.clone())) }
+    let string_expr = if params.is_empty() { Expression::new(ExpressionKind::Literal(Literal::String("".into())), span.clone()) }
                                   else { params[0].clone() };
     
     let string_expr = if let Some(add_str) = add {

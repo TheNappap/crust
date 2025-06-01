@@ -2,7 +2,7 @@
 use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_module::Module;
 use cranelift_object::ObjectModule;
-use cranelift_codegen::ir::types::{I64, F64, B64};
+use cranelift_codegen::ir::types::{I64, F64};
 use itertools::Itertools;
 
 use crate::{parser::Type, error::{Result}};
@@ -22,7 +22,7 @@ impl GenType {
         let kind = match ty {
             Type::Int => GenTypeKind::Type(I64),
             Type::Float => GenTypeKind::Type(F64),
-            Type::Bool => GenTypeKind::Type(B64),
+            Type::Bool => GenTypeKind::Type(I64),
             Type::String => GenTypeKind::Type(module.target_config().pointer_type()),
             Type::Array(ty, len) => GenType::kind_from_types((0..*len).map(|_| *ty.clone()).collect(), module)?,
             Type::Struct(_, types) => GenType::kind_from_types(types.values().map(|t| t.0.clone()).collect(), module)?,

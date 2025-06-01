@@ -49,7 +49,7 @@ impl SyntaxTree {
         self.data_types.iter()
     }
     
-    pub fn traits(&self) -> impl Iterator<Item=&Trait> + '_ {
+    pub fn _traits(&self) -> impl Iterator<Item=&Trait> + '_ {
         self.traits.iter()
     }
 

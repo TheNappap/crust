@@ -101,7 +101,7 @@ impl Parser {
                         fun.set_self_type(&type_name);
                         fns.push(fun)
                     });
-                    t.sigs.iter().cloned().map(|mut sig| {
+                    let _: () = t.sigs.iter().cloned().map(|mut sig| {
                         sig.set_self_type(&type_name);
                         let has_impl = methods.iter().any(|fun| fun.signature().name() == sig.name());
                         if !has_impl {
@@ -109,7 +109,7 @@ impl Parser {
                         }
                         Ok(())
                     }).try_collect()?;
-                    methods.into_iter().map(|fun| {
+                    let _: () = methods.into_iter().map(|fun| {
                         let is_in_trait = t.sigs.iter().cloned().any(|mut sig| {
                             sig.set_self_type(&type_name);
                             fun.signature().name() == sig.name()

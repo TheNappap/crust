@@ -100,6 +100,26 @@ fn groups() {
     println;
 }
 
+fn loops_and_arrays() {
+    println "Loops and arrays:";
+
+    let add = 0;
+    while add != 100 {
+        println "%i %i", add, add == 50; // TODO fix output for bools, since bools are now int in background
+        mut add = 25 + add;
+    }
+
+    let arr = [[2,3],[4,5],[6,7]];
+    //mut index arr[1] = 12; //TODO
+    println "array[2][1]: %i", arr[2][1];
+    iter arr {} for i {
+        println "iter %i %i", i;
+    }
+    //iter 0..10 {} //TODO
+
+    println;
+}
+
 fn basics() {
     println "Basics:";
 
@@ -131,24 +151,4 @@ fn basics() {
 
 fn plus_one(a: Int, b: Int) -> Int {
     return a + b + 1;
-}
-
-fn loops_and_arrays() {
-    println "Loops and arrays:";
-
-    let add = 0;
-    while add != 100 {
-        println "%i %i", add, add == 50;
-        mut add = 25 + add;
-    }
-
-    let arr = [[2,3],[4,5],[6,7]];
-    //mut index arr[1] = 12; //TODO
-    println "array[2][1]: %i", arr[2][1];
-    iter arr {} for i {
-        println "iter %i %i", i;
-    }
-    //iter 0..10 {} //TODO
-
-    println;
 }

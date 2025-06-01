@@ -1,8 +1,8 @@
 
-use cranelift_codegen::settings::Flags;
+use cranelift_codegen::settings::{Configurable, Flags};
 use cranelift_codegen::{settings, Context, CodegenError};
 use cranelift_frontend::{FunctionBuilderContext};
-use cranelift_module::{DataContext, Linkage, Module};
+use cranelift_module::{DataDescription, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule, ObjectProduct};
 
 use crate::error::{Result, Error, ErrorKind};
@@ -17,18 +17,21 @@ impl From<CodegenError> for Error {
 
 pub struct Codegen {
     pub fun_ctx: FunctionBuilderContext,
-    pub data_ctx: DataContext,
+    pub data_ctx: DataDescription,
     pub module: ObjectModule,
 }
 
 impl Codegen {
     pub fn new() -> Result<Self> {
-        let isa = cranelift_native::builder()?.finish(Flags::new(settings::builder()))?;
+        let mut flag_builder = settings::builder();
+        flag_builder.set("enable_multi_ret_implicit_sret", "true").unwrap();
+        let shared_flags = Flags::new(flag_builder);
+        let isa = cranelift_native::builder()?.finish(shared_flags)?;
         let builder = ObjectBuilder::new(isa, "main", cranelift_module::default_libcall_names())?;
         let module = ObjectModule::new(builder);
         Ok(Self {
             fun_ctx: FunctionBuilderContext::new(),
-            data_ctx: DataContext::new(),
+            data_ctx: DataDescription::new(),
             module,
         })
     }

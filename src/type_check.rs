@@ -8,7 +8,7 @@ use crate::{parser::{SyntaxTree, Type, Fn, Expression, ExpressionKind, Signature
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     let mut data_map = HashMap::new();
-    syntax_tree.data_types()
+    let _: () = syntax_tree.data_types()
         .map(|(data, span)| match data_map.entry(data.name().to_owned()) {
             Entry::Occupied(_) => return Err(span.error(ErrorKind::Type, "Data structure already defined".to_string())),
             Entry::Vacant(v) => { v.insert((data.to_owned(), span.to_owned())); Ok(()) },

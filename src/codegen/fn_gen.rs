@@ -4,26 +4,26 @@ use std::collections::HashMap;
 use std::ops::{RangeFrom, Range};
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::types::{I64, B64};
-use cranelift_codegen::ir::{ExternalName, Function, InstBuilder, Value, StackSlotData, StackSlotKind, FuncRef, Block, InstBuilderBase, StackSlot, self, MemFlags};
+use cranelift_codegen::ir::types::I64;
+use cranelift_codegen::ir::{self, Block, FuncRef, Function, InstBuilder, MemFlags, StackSlot, StackSlotData, StackSlotKind, UserFuncName, Value};
 
 use cranelift_codegen::verifier::verify_function;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable, Switch};
-use cranelift_module::{DataContext, Linkage, Module};
+use cranelift_module::{DataDescription, Linkage, Module};
 use cranelift_object::ObjectModule;
 use itertools::Itertools;
 
-use crate::error::{Result, ErrorKind, ThrowablePosition};
+use crate::error::{Result, ThrowablePosition};
 use crate::lexer::Literal;
 use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type, Pattern, OrderedMap, ExpressionKind};
 
 use super::comp_kind::CompKind;
 use super::gen_type::GenType;
 
-pub fn create_fn<'gen>(
-    fun_ctx: &'gen mut FunctionBuilderContext,
-    data_ctx: &'gen mut DataContext,
-    module: &'gen mut ObjectModule,
+pub fn create_fn<'codegen>(
+    fun_ctx: &'codegen mut FunctionBuilderContext,
+    data_ctx: &'codegen mut DataDescription,
+    module: &'codegen mut ObjectModule,
     path: &str,
     fun: &Fn,
 ) -> Result<Function> {
@@ -35,13 +35,12 @@ pub fn create_fn<'gen>(
     let ty = GenType::from_type(fun.signature().returns(), module)?;
     ty.add_to_params(&mut sig.returns);
 
-    let mut func = Function::with_name_signature(ExternalName::user(0, 0), sig);
+    let mut func = Function::with_name_signature(UserFuncName::user(0, 0), sig);
     let builder = FunctionBuilder::new(&mut func, fun_ctx);
 
-    let mut fun_codegen = FunctionCodegen {
+    let ctx = FunctionCodegenContext {
         data_ctx,
         module,
-        builder,
         path: path.to_string() + fun.signature().name(),
         variables: HashMap::new(),
         functions: HashMap::new(),
@@ -49,6 +48,7 @@ pub fn create_fn<'gen>(
         var_counter: Counter::new(),
     };
 
+    let fun_codegen = FunctionCodegen::new(ctx, builder);
     fun_codegen.create_fn(fun)?;
 
     //println!("{}", func.display());
@@ -72,10 +72,9 @@ impl Counter {
     }
 }
 
-struct FunctionCodegen<'gen> {
-    data_ctx: &'gen mut DataContext,
-    module: &'gen mut ObjectModule,
-    builder: FunctionBuilder<'gen>,
+struct FunctionCodegenContext<'codegen> {
+    data_ctx: &'codegen mut DataDescription,
+    module: &'codegen mut ObjectModule,
     path: String,
     variables: HashMap<String, StackSlot>,
     functions: HashMap<String, FuncRef>,
@@ -83,8 +82,17 @@ struct FunctionCodegen<'gen> {
     var_counter: Counter,
 }
 
-impl<'gen> FunctionCodegen<'gen> {
-    fn create_fn(&mut self, fun: &Fn) -> Result<()> {
+struct FunctionCodegen<'codegen> {
+    ctx: FunctionCodegenContext<'codegen>,
+    builder: FunctionBuilder<'codegen>,
+}
+
+impl<'codegen> FunctionCodegen<'codegen> {
+    fn new(ctx: FunctionCodegenContext<'codegen>, builder: FunctionBuilder<'codegen>) -> Self {
+        FunctionCodegen {ctx, builder}
+    }
+
+    fn create_fn(mut self, fun: &Fn) -> Result<()> {
         let block = self.builder.create_block();
         self.builder.append_block_params_for_function_params(block);
         
@@ -93,7 +101,7 @@ impl<'gen> FunctionCodegen<'gen> {
 
         let mut offset = 0;
         for (name, ty) in fun.params() {
-            let ty = GenType::from_type(ty, self.module)?;
+            let ty = GenType::from_type(ty, self.ctx.module)?;
             let new_offset = offset + ty.offsets().len();
             self.create_parameter(name.clone(), offset..new_offset, &ty, block)?;
             offset = new_offset;
@@ -119,7 +127,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 self.create_return(expr)?
             }
             ExpressionKind::Let(id, expr, ty) => {
-                self.create_local_variable(id.clone(), expr, &GenType::from_type(ty, self.module)?)?
+                self.create_local_variable(id.clone(), expr, &GenType::from_type(ty, self.ctx.module)?)?
             }
             ExpressionKind::Mut(id, field, expr) => {
                 self.create_variable_mutation(id, field.clone(), expr)?
@@ -131,13 +139,13 @@ impl<'gen> FunctionCodegen<'gen> {
                 self.create_while(condition, while_body)?
             }
             ExpressionKind::For(iter, var_name, var_type, for_body) => {
-                self.create_for(iter, var_name.clone(), &GenType::from_type(var_type, self.module)?, for_body)?
+                self.create_for(iter, var_name.clone(), &GenType::from_type(var_type, self.ctx.module)?, for_body)?
             }
             ExpressionKind::Iter(iter, _) => {
                 self.create_expression(iter)?
             }
             ExpressionKind::Index(collection, index, ty, coll_length) => {
-                self.create_index(collection, index, &GenType::from_type(ty, self.module)?, *coll_length)?
+                self.create_index(collection, index, &GenType::from_type(ty, self.ctx.module)?, *coll_length)?
             }
             ExpressionKind::Group(body) => {
                 self.create_group(body)?
@@ -145,7 +153,7 @@ impl<'gen> FunctionCodegen<'gen> {
             ExpressionKind::Literal(literal) => vec![match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),
-                Literal::Bool(b) => self.builder.ins().bconst(B64, *b),
+                Literal::Bool(b) => self.builder.ins().iconst(I64, *b as i64),
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }],
             ExpressionKind::AddrOf(expressions) => {
@@ -162,8 +170,8 @@ impl<'gen> FunctionCodegen<'gen> {
                 if let ExpressionKind::Symbol(name, _) = &expr.kind {
                     self.create_symbol_expr(&name, ty, *offset)?
                 } else {
-                    let name = "__field_temp_".to_string() + &self.var_counter.next().to_string();
-                    self.create_local_variable(name.clone(), expr, &GenType::from_type(ty, self.module)?)?;
+                    let name = "__field_temp_".to_string() + &self.ctx.var_counter.next().to_string();
+                    self.create_local_variable(name.clone(), expr, &GenType::from_type(ty, self.ctx.module)?)?;
                     self.create_symbol_expr(&name, ty, *offset)?
                 }
             }
@@ -190,10 +198,10 @@ impl<'gen> FunctionCodegen<'gen> {
                     Type::Struct(_, _) => self.create_record(exprs)?,
                     Type::Enum(_, variants) => {
                         let ExpressionKind::Data(data) = &exprs[0].kind else {
-                            return Err(expression.span.error(ErrorKind::Codegen, "Enum variant parsing failed".to_string()));
+                            return expression.span.codegen("Enum variant parsing failed".to_string());
                         };
                         let Some(variant) = variants.get(data.name()) else {
-                            return Err(expression.span.error(ErrorKind::Codegen, "Enum variant not found".to_string()));
+                            return expression.span.codegen("Enum variant not found".to_string());
                         };
                         vec![self.builder.ins().iconst(I64, *variant as i64)]
                     }
@@ -218,26 +226,26 @@ impl<'gen> FunctionCodegen<'gen> {
         signature: &Signature,
         params: &[Expression],
     ) -> Result<Vec<Value>> {
-        let callee = if let Some(f) = self.functions.get(signature.name()) {
+        let callee = if let Some(f) = self.ctx.functions.get(signature.name()) {
             *f
         } else {
             let sig = {
-                let mut sig = self.module.make_signature();
+                let mut sig = self.ctx.module.make_signature();
                 for param_type in signature.params() {
-                    let ty = GenType::from_type(param_type, self.module)?;
+                    let ty = GenType::from_type(param_type, self.ctx.module)?;
                     ty.add_to_params(&mut sig.params);
                 }
-                let ty = GenType::from_type(signature.returns(), self.module)?;
+                let ty = GenType::from_type(signature.returns(), self.ctx.module)?;
                 ty.add_to_params(&mut sig.returns);
                 sig
             };
 
-            let id = self
+            let id = self.ctx
                 .module
                 .declare_function(signature.name(), Linkage::Import, &sig)?;
         
-            let callee = self.module.declare_func_in_func(id, self.builder.func);
-            self.functions.insert(signature.name().to_string(), callee);
+            let callee = self.ctx.module.declare_func_in_func(id, self.builder.func);
+            self.ctx.functions.insert(signature.name().to_string(), callee);
             callee
         };
 
@@ -288,11 +296,11 @@ impl<'gen> FunctionCodegen<'gen> {
         values: Vec<Value>,
         ty: &GenType
     ) -> Result<Vec<Value>> {
-        let stack_slot = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size()));
+        let stack_slot = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size(), 0));
         for (i, &value) in values.iter().enumerate() {
             self.stack_store(value, stack_slot, 8*i as i32);
         }
-        self.variables.insert(name, stack_slot);
+        self.ctx.variables.insert(name, stack_slot);
         Ok(values)
     }
 
@@ -303,7 +311,7 @@ impl<'gen> FunctionCodegen<'gen> {
         expr: &Expression
     ) -> Result<Vec<Value>> {
         let values = self.create_expression(expr)?;
-        let ss = *self.variables.get(name).unwrap();
+        let ss = *self.ctx.variables.get(name).unwrap();
         let field_offset = if let Some((_,offset)) = field {
             offset
         } else { 0 };
@@ -341,21 +349,17 @@ impl<'gen> FunctionCodegen<'gen> {
     }
 
     fn create_if(&mut self, condition: &Expression, if_body: &[Expression], else_body: &Option<Vec<Expression>>) -> Result<Vec<Value>> {
-        let has_else = else_body.is_some();
         let if_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
         let after_block = self.builder.create_block();
-        let branch_block = if has_else { 
-            self.builder.create_block()
-        } else { after_block };
 
         let cond = self.create_expression(condition)?[0];
-        self.builder.ins().brz(cond, branch_block, &[]);
-        self.builder.ins().jump(if_block, &[]);
+        self.builder.ins().brif(cond, if_block, &[],
+                                        else_block, &[]);
 
         //if block
         self.builder.switch_to_block(if_block);
         self.builder.seal_block(if_block);
-
         for statement in if_body {
             self.create_expression(statement)?;
         }
@@ -363,20 +367,19 @@ impl<'gen> FunctionCodegen<'gen> {
         self.builder.ins().jump(after_block, &[]);
 
         //else block
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
         if let Some(else_body) = else_body {
-            self.builder.switch_to_block(branch_block);
-            self.builder.seal_block(branch_block);
-    
             for statement in else_body {
                 self.create_expression(statement)?;
             }
-            
-            self.builder.ins().jump(after_block, &[]);
         }
+        self.builder.ins().jump(after_block, &[]);
         
         //after block
         self.builder.switch_to_block(after_block);
         self.builder.seal_block(after_block);
+        
         Ok(vec![])
     }
 
@@ -391,8 +394,8 @@ impl<'gen> FunctionCodegen<'gen> {
         self.builder.switch_to_block(check_block);
 
         let cond = self.create_expression(condition)?[0];
-        self.builder.ins().brz(cond, after_block, &[]);
-        self.builder.ins().jump(while_block, &[]);
+        self.builder.ins().brif(cond, while_block, &[],
+                                        after_block, &[]);
 
         //while block
         self.builder.switch_to_block(while_block);
@@ -415,10 +418,10 @@ impl<'gen> FunctionCodegen<'gen> {
         let index = self.create_expression(index)?[0];
 
         let ss = match &collection.kind {
-            ExpressionKind::Symbol(name, _) => *self.variables.get(name).unwrap(),
+            ExpressionKind::Symbol(name, _) => *self.ctx.variables.get(name).unwrap(),
             _ => {
                 let values = self.create_expression(collection)?;
-                let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size()*coll_length));
+                let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size()*coll_length, 0));
                 for (i, &value) in values.iter().enumerate() {
                     self.stack_store(value, ss, 8*i as i32);
                 }
@@ -446,16 +449,16 @@ impl<'gen> FunctionCodegen<'gen> {
             if *len == 0 { return Ok(vec![]); }
 
             let ss = match &coll.kind {
-                ExpressionKind::Symbol(name, _) => *self.variables.get(name).unwrap(),
+                ExpressionKind::Symbol(name, _) => *self.ctx.variables.get(name).unwrap(),
                 ExpressionKind::Array(_) => {
-                    let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()**len));
+                    let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()**len, 0));
                     let values = self.create_expression(coll)?;
                     for (i, &value) in values.iter().enumerate() {
                         self.stack_store(value, ss, 8*i as i32);
                     }
                     ss
                 },
-                _ => return Err(coll.span.error(ErrorKind::Codegen, "Expected array in iter of for loop".to_string())),
+                _ => return coll.span.codegen("Expected array in iter of for loop".to_string()),
             };
 
             let init_block = self.builder.create_block();
@@ -469,7 +472,7 @@ impl<'gen> FunctionCodegen<'gen> {
             //init block
             self.builder.switch_to_block(init_block);
 
-            let iter_var = Variable::new(self.var_counter.next());
+            let iter_var = Variable::new(self.ctx.var_counter.next());
             self.builder.declare_var(iter_var, I64);
             let init_value = self.builder.ins().iconst(I64, 0);
             self.builder.def_var(iter_var, init_value);
@@ -491,9 +494,8 @@ impl<'gen> FunctionCodegen<'gen> {
             let arg1 = self.builder.use_var(iter_var);
             let arg2 = self.builder.ins().iconst(I64, *len as i64);
             let cond = self.builder.ins().icmp(CompKind::Equal.to_intcc(), arg1, arg2);
-            self.builder.ins().brnz(cond, after_block, &[]);
-
-            self.builder.ins().jump(for_block, &[]);
+            self.builder.ins().brif(cond, after_block, &[],
+                                            for_block, &[]);
 
             //for block
             self.builder.switch_to_block(for_block);
@@ -501,7 +503,7 @@ impl<'gen> FunctionCodegen<'gen> {
             let iter_var = self.builder.use_var(iter_var);
             let indexed_values = self.create_indexed(ss, var_type, iter_var);
 
-            match self.variables.get(&var_name) {
+            match self.ctx.variables.get(&var_name) {
                 Some(ss) => {
                     let ss = ss.clone();
                     for (i, &value) in indexed_values.iter().enumerate() {
@@ -526,30 +528,20 @@ impl<'gen> FunctionCodegen<'gen> {
             self.builder.seal_block(after_block);
             Ok(vec![])
         } else {
-            Err(iter.span.error(ErrorKind::Codegen, "Expected iter".to_string()))
+            iter.span.codegen("Expected iter".to_string())
         }
     }
 
     fn stack_store(&mut self, value: Value, stack_slot: StackSlot, offset: i32) {
-        if self.builder.ins().data_flow_graph().value_type(value).is_bool() {
-            let value = self.builder.ins().bint(I64, value);
-            self.builder.ins().stack_store(value, stack_slot, offset);
-        } else {
-            self.builder.ins().stack_store(value, stack_slot, offset);
-        }
+        self.builder.ins().stack_store(value, stack_slot, offset);
     }
 
     fn stack_load(&mut self, ty: ir::Type, stack_slot: StackSlot, offset: i32) -> Value {
-        if ty.is_bool() {
-            let value = self.builder.ins().stack_load(I64, stack_slot, offset);
-            self.builder.ins().icmp_imm(CompKind::NotEqual.to_intcc(), value, 0)
-        } else {
-            self.builder.ins().stack_load(ty, stack_slot, offset)
-        }
+        self.builder.ins().stack_load(ty, stack_slot, offset)
     }
 
     fn create_pointer_to_stack_slot(&mut self, values: &[Value]) -> Result<Vec<Value>> {
-        let slot_data = StackSlotData::new(StackSlotKind::ExplicitSlot, 8*values.len() as u32);
+        let slot_data = StackSlotData::new(StackSlotKind::ExplicitSlot, 8*values.len() as u32, 0);
         let stack_slot = self.builder.create_sized_stack_slot(slot_data);
         for (i, &value) in values.iter().enumerate() {
             self.stack_store(value, stack_slot, 8*i as i32);
@@ -559,23 +551,23 @@ impl<'gen> FunctionCodegen<'gen> {
 
     fn create_literal_string(&mut self, mut str: String) -> Result<Value> {
         str.push('\0');
-        let name = self.path.clone() + "_string_" + &self.str_counter.next().to_string();
+        let name = self.ctx.path.clone() + "_string_" + &self.ctx.str_counter.next().to_string();
         let contents = str.as_bytes().to_vec().into_boxed_slice();
 
         self.create_data(&name, contents)
     }
     
     fn create_data(&mut self, name: &str, contents: Box<[u8]>) -> Result<Value> {
-        self.data_ctx.define(contents);
-        let data = self
+        self.ctx.data_ctx.define(contents);
+        let data = self.ctx
             .module
             .declare_data(name, Linkage::Local, true, false)?;
-        self.module.define_data(data, self.data_ctx)?;
-        self.data_ctx.clear();
+        self.ctx.module.define_data(data, self.ctx.data_ctx)?;
+        self.ctx.data_ctx.clear();
 
         
-        let global_value = self.module.declare_data_in_func(data, self.builder.func);
-        let pointer = self.module.target_config().pointer_type();
+        let global_value = self.ctx.module.declare_data_in_func(data, self.builder.func);
+        let pointer = self.ctx.module.target_config().pointer_type();
         let value = self.builder.ins().symbol_value(pointer, global_value);
         Ok(value)
     }
@@ -593,7 +585,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 Ok(vec![self.builder.ins().fadd(v1, v2)])
             },
             Type::String => self.create_fn_call(&Signature::new(None, "strcat",vec![Type::Int,Type::Int],Type::Int), &vec![param1.clone(), param2.clone()]),
-            _ => Err(param1.span.error(ErrorKind::Codegen, "Addition for this type is not supported".to_string()))
+            _ => param1.span.codegen("Addition for this type is not supported".to_string())
         }
     }
     
@@ -609,7 +601,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fsub(v1, v2)])
             },
-            _ => Err(param1.span.error(ErrorKind::Codegen, "Subtration for this type is not supported".to_string()))
+            _ => param1.span.codegen("Subtration for this type is not supported".to_string())
         }
     }
     
@@ -625,7 +617,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fmul(v1, v2)])
             },
-            _ => Err(param1.span.error(ErrorKind::Codegen, "Multiplication for this type is not supported".to_string()))
+            _ => param1.span.codegen("Multiplication for this type is not supported".to_string())
         }
     }
     
@@ -641,7 +633,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fdiv(v1, v2)])
             },
-            _ => Err(param1.span.error(ErrorKind::Codegen, "Division for this type is not supported".to_string()))
+            _ => param1.span.codegen("Division for this type is not supported".to_string())
         }
     }
 
@@ -659,7 +651,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v = self.create_expression(param)?[0];
                 Ok(vec![self.builder.ins().bnot(v)])
             },
-            _ => Err(param.span.error(ErrorKind::Codegen, "Division for this type is not supported".to_string()))
+            _ => param.span.codegen("Division for this type is not supported".to_string())
         }
     }
 
@@ -675,7 +667,7 @@ impl<'gen> FunctionCodegen<'gen> {
                 let v2 = self.create_expression(param2)?[0];
                 Ok(vec![self.builder.ins().fcmp(kind.to_floatcc(), v1, v2)])
             },
-            _ => Err(param1.span.error(ErrorKind::Codegen, "Compare for this type is not supported".to_string()))
+            _ => param1.span.codegen("Compare for this type is not supported".to_string())
         }
     }
 
@@ -688,8 +680,8 @@ impl<'gen> FunctionCodegen<'gen> {
 
     fn create_symbol_expr(&mut self, name: &String, ty: &Type, field_offset: i32) -> Result<Vec<Value>> {
         assert!(field_offset >= 0);
-        let ss = *self.variables.get(name).unwrap();
-        let ty = GenType::from_type(ty, self.module)?;
+        let ss = *self.ctx.variables.get(name).unwrap();
+        let ty = GenType::from_type(ty, self.ctx.module)?;
         let values = ty.types().into_iter().zip(ty.offsets()).map(|(ty, offset)|{
             self.stack_load(*ty, ss, offset + field_offset)
         }).collect();
@@ -698,7 +690,7 @@ impl<'gen> FunctionCodegen<'gen> {
     
     fn create_match(&mut self, expr: &Expression, ty: &Type, cases: &OrderedMap<Pattern, Vec<Expression>>) -> Result<Vec<Value>> {
         let Type::Enum(_, variants) = ty else {
-            return Err(expr.span.error(ErrorKind::Codegen, "Only enum patterns in match".into()));
+            return expr.span.codegen("Only enum patterns in match".into());
         };
 
         let vals = self.create_expression(expr)?;
