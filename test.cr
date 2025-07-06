@@ -38,6 +38,14 @@ impl Option {
     }
 }
 
+fn print_bool(bool: Bool) -> String {
+    if bool {
+        return "true"
+    } else {
+        return "false"
+    }
+}
+
 fn main() {
     call basics(); 
     call loops_and_arrays();
@@ -105,7 +113,7 @@ fn loops_and_arrays() {
 
     let add = 0;
     while add != 100 {
-        println "%i %i", add, add == 50; // TODO fix output for bools, since bools are now int in background
+        println "%i %s", add, call print_bool(add == 50);
         mut add = 25 + add;
     }
 
@@ -140,7 +148,7 @@ fn basics() {
         println "%.2f", var2;
         println "one word %s", "second word";
         println "concat string: %s", concat;
-        println "bool: %i", !false;
+        println "bool: %s", call print_bool(!false);
     } else {
         println "else was activated";
     }

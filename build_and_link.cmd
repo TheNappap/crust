@@ -1,2 +1,2 @@
 cargo run test.cr
-link /OUT:main.exe /ENTRY:main /LibPath:"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.18362.0\um\x64" main.o "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.18362.0\ucrt\x64\ucrt.lib"
+link /OUT:main.exe /ENTRY:main /LibPath:"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\x64" main.o "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\ucrt\x64\ucrt.lib"
