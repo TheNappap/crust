@@ -8,6 +8,9 @@ use super::span::Position;
 pub struct NoCommentsStream<'str> {
     stream: PositionStream<'str>,
     peeked: Option<Result<char>>,
+    peek_second: Option<Result<char>>,
+    peek_pos: Position,
+    peek_second_pos: Position,
 }
 
 impl<'str> NoCommentsStream<'str> {
@@ -15,18 +18,41 @@ impl<'str> NoCommentsStream<'str> {
         NoCommentsStream {
             stream: PositionStream::from(source),
             peeked: None,
+            peek_second: None,
+            peek_pos: Position::zero(),
+            peek_second_pos: Position::zero(),
         }
     }
 
     pub fn cur_pos(&self) -> Position {
+        if self.peeked.is_some() {
+            return self.peek_pos.clone();
+        }
         self.stream.cur_pos()
     }
 
     pub fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
         if self.peeked.is_none() {
-            self.peeked = self.next();
+            self.peek_pos = self.stream.cur_pos();
+            self.peeked = self.unpeeked_next();
         }
         self.peeked.as_ref()
+    }
+    
+    pub fn peek_second(&mut self) -> Option<&<Self as Iterator>::Item> {
+        self.peek();
+        if self.peek_second.is_none() {
+            self.peek_second_pos = self.stream.cur_pos();
+            self.peek_second = self.unpeeked_next();
+        }
+        self.peek_second.as_ref()
+    }
+
+    fn unpeeked_next(&mut self) -> Option<<Self as Iterator>::Item> {
+        match self.stream.next() {
+            Some('/') => self.take_on_slash(),
+            c => Ok(c).transpose(),
+        }
     }
 }
 
@@ -35,13 +61,13 @@ impl<'str> Iterator for NoCommentsStream<'str> {
     fn next(&mut self) -> Option<Self::Item> {
         let next = match self.peeked.take() {
             next @ Some(_) => next,
-            None => Ok(self.stream.next()).transpose(),
+            None => self.unpeeked_next(),
         };
-
-        match next {
-            Some(Ok('/')) => self.take_on_slash(),
-            c => c,
+        if self.peek_second.is_some() {
+            self.peeked = self.peek_second.take();
+            self.peek_pos = self.peek_second_pos.clone();
         }
+        next
     }
 }
 

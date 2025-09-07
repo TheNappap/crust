@@ -251,7 +251,7 @@ mod tests {
 		"#;
         let syntax_tree = parse(s)?;
 
-        let print_call = |string: String, span: Span| {
+        let print_call = |string: String, span: Span, literal_start_pos: Position| {
             Expression::new(ExpressionKind::Call(
                 Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
                 vec![
@@ -259,7 +259,7 @@ mod tests {
                     Expression::new(ExpressionKind::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), 
                         vec![Expression::new(ExpressionKind::Literal(Literal::Int(1)), span.clone())])
                     , span.clone()), 
-                    Expression::new(ExpressionKind::Literal(Literal::String(string)), span.clone()), 
+                    Expression::new(ExpressionKind::Literal(Literal::String(string)), Span::new(literal_start_pos, span.end())), 
                     Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone()), 
                     Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone())
                 ],
@@ -276,20 +276,20 @@ mod tests {
                         Signature::new(None, "function", vec![], Type::Void),
                         vec![],
                         vec![
-                            print_call("Line1".to_string(), Span::new(Position::new(3, 11), Position::new(3, 18))),
-                            print_call("Line2".to_string(), Span::new(Position::new(4, 11), Position::new(4, 18))),
-                            print_call("Line3".to_string(), Span::new(Position::new(5, 11), Position::new(5, 18))),
+                            print_call("Line1".to_string(), Span::new(Position::new(3, 0), Position::new(3, 18)), Position::new(3, 10)),
+                            print_call("Line2".to_string(), Span::new(Position::new(4, 0), Position::new(4, 18)), Position::new(4, 10)),
+                            print_call("Line3".to_string(), Span::new(Position::new(5, 0), Position::new(5, 18)), Position::new(5, 10)),
                         ],
-                    )), Span::new(Position::new(2, 7), Position::new(6, 0))),
+                    )), Span::new(Position::new(2, 0), Position::new(6, 0))),
                     Expression::new(ExpressionKind::Fn(Fn::new(
                         Signature::new(None, "f2", vec![], Type::Void),
                         vec![],
                         vec![
-                            print_call("one liner".to_string(), Span::new(Position::new(7, 19), Position::new(7, 30))),
+                            print_call("one liner".to_string(), Span::new(Position::new(7, 12), Position::new(7, 30)), Position::new(7, 18)),
                         ],
-                    )), Span::new(Position::new(7, 7), Position::new(7, 30))),
-                    Expression::new(ExpressionKind::Call(Signature::new(None, "f2", vec![], Type::Inferred), vec![]), Span::new(Position::new(9, 9), Position::new(9, 13))),
-                    Expression::new(ExpressionKind::Call(Signature::new(None, "function", vec![], Type::Inferred), vec![]), Span::new(Position::new(10, 9), Position::new(10, 19))),
+                    )), Span::new(Position::new(7, 0), Position::new(7, 30))),
+                    Expression::new(ExpressionKind::Call(Signature::new(None, "f2", vec![], Type::Inferred), vec![]), Span::new(Position::new(9, 0), Position::new(9, 13))),
+                    Expression::new(ExpressionKind::Call(Signature::new(None, "function", vec![], Type::Inferred), vec![]), Span::new(Position::new(10, 0), Position::new(10, 19))),
                 ],
             )
         ], 
