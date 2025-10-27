@@ -40,6 +40,7 @@ pub enum ExpressionKind {
     While(Box<Expression>, Vec<Expression>),
     For(Box<Expression>, String, Type, Vec<Expression>),
     Iter(Box<Expression>, u32),
+    Range(i64, i64),
     Group(Vec<Expression>),
     Literal(Literal),
     AddrOf(Vec<Expression>),

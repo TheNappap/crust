@@ -193,6 +193,11 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::Array(exprs) => {
                 self.create_record(exprs)?
             }
+            ExpressionKind::Range(start, end) => {
+                let start_value = self.builder.ins().iconst(I64, *start);
+                let end_value = self.builder.ins().iconst(I64, *end);
+                vec![start_value, end_value]
+            }
             ExpressionKind::New(ty, exprs) => {
                 match ty {
                     Type::Struct(_, _) => self.create_record(exprs)?,
@@ -456,7 +461,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
 
             let ss = match &coll.kind {
                 ExpressionKind::Symbol(name, _) => *self.ctx.variables.get(name).unwrap(),
-                ExpressionKind::Array(_) => {
+                ExpressionKind::Array(_) | ExpressionKind::Range(_, _) => {
                     let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()**len, 0));
                     let values = self.create_expression(coll, &mut false)?;
                     for (i, &value) in values.iter().enumerate() {
@@ -464,7 +469,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
                     }
                     ss
                 },
-                _ => return coll.span.codegen("Expected array in iter of for loop".to_string()),
+                _ => return coll.span.codegen("Expected array or range in iter of for loop".to_string()),
             };
 
             let init_block = self.builder.create_block();
@@ -507,7 +512,14 @@ impl<'codegen> FunctionCodegen<'codegen> {
             self.builder.switch_to_block(for_block);
 
             let iter_var = self.builder.use_var(iter_var);
-            let indexed_values = self.create_indexed(ss, var_type, iter_var);
+            let indexed_values = match &coll.kind {
+                ExpressionKind::Range(start, _) => {
+                    let start_value = self.builder.ins().iconst(I64, *start);
+                    let new_value = self.builder.ins().iadd(iter_var, start_value);
+                    vec![new_value]
+                },
+                _ => self.create_indexed(ss, var_type, iter_var),
+            }; 
 
             match self.ctx.variables.get(&var_name) {
                 Some(ss) => {

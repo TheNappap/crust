@@ -123,7 +123,9 @@ fn loops_and_arrays() {
     iter arr {} for i {
         println "iter %i %i", i;
     }
-    //iter 0..10 {} //TODO
+    iter 3..6 {} for i {
+        println "range %i", i;
+    }
 
     println;
 }

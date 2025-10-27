@@ -1,5 +1,5 @@
 
-use std::{collections::{HashMap, hash_map::Entry}};
+use std::{collections::{hash_map::Entry, HashMap}};
 
 use itertools::Itertools;
 
@@ -253,8 +253,8 @@ impl<'f> TypeCheck<'f> {
             },
             ExpressionKind::For(iter, var_name, var_type, for_body) => {
                 let ty = self.check_expression(iter)?;
-                if let Type::Iter(arr) = ty {
-                    if let Type::Array(arr_type, _) = *arr {
+                if let Type::Iter(iter_ty) = ty {
+                    if let Type::Array(arr_type, _) = *iter_ty {
                         if *var_type == Type::Inferred {
                             *var_type = *arr_type.clone();
                         }
@@ -266,23 +266,40 @@ impl<'f> TypeCheck<'f> {
                             self.check_expression(expr)?;
                         }
                         Type::Void
+                    } else if let Type::Range(_) = *iter_ty {
+                        if *var_type == Type::Inferred {
+                            *var_type = Type::Int;
+                        }
+                        self.variables.insert(var_name.clone(), var_type.clone());
+                        if Type::Int != *var_type {
+                            return Err(expr.span.error(ErrorKind::Type, "Range type and for type do not match".to_string()));
+                        }
+                        for expr in for_body {
+                            self.check_expression(expr)?;
+                        }
+                        Type::Void
                     } else {
-                        return Err(expr.span.error(ErrorKind::Type, "Expected array as iterator".to_string()));
+                        return Err(expr.span.error(ErrorKind::Type, "Expected array or range as iterator".to_string()));
                     }
                 } else {
                     return Err(expr.span.error(ErrorKind::Type, "Expected iter as input for for block".to_string()));
                 }
             },
-            ExpressionKind::Iter(iter, len) => {
-                let ty = self.check_expression(iter)?;
+            ExpressionKind::Iter(iter_expr, len) => {
+                let ty = self.check_expression(iter_expr)?;
                 match ty {
                     Type::Array(_, l) => {
                         *len = l as u32;
                         Type::Iter(Box::new(ty))
                     },
+                    Type::Range(l) => {
+                        *len = l as u32;
+                        Type::Iter(Box::new(ty))
+                    }
                     _ => return Err(expr.span.error(ErrorKind::Type, "Expected array as iterable".to_string())),
                 }
             },
+            ExpressionKind::Range(start, end) => Type::Range((*end-*start) as u32),
             ExpressionKind::Group(body) => self.check_group(body)?,
             ExpressionKind::Literal(Literal::Int(_)) => Type::Int,
             ExpressionKind::Literal(Literal::Float(_)) => Type::Float,

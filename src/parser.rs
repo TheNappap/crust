@@ -53,6 +53,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<array::Array>();
     blockdefs.add::<array::Index>();
     blockdefs.add::<iter::Iter>();
+    blockdefs.add::<range::Range>();
     blockdefs.add::<pattern_match::Match>();
     blockdefs.add::<pattern_match::Case>();
     blockdefs

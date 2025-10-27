@@ -31,11 +31,11 @@ impl Signature {
         &self.name
     }
 
-    pub fn params(&self) -> Iter<Type> {
+    pub fn params(&self) -> Iter<'_, Type> {
         self.params.iter()
     }
 
-    pub fn params_mut(&mut self) -> IterMut<Type> {
+    pub fn params_mut(&mut self) -> IterMut<'_, Type> {
         self.params.iter_mut()
     }
 
@@ -92,11 +92,11 @@ impl Fn {
         self.params.iter().zip(self.signature.params_mut())
     }
 
-    pub fn body(&self) -> Iter<Expression> {
+    pub fn body(&self) -> Iter<'_, Expression> {
         self.body.iter()
     }
 
-    pub fn body_mut(&mut self) -> IterMut<Expression> {
+    pub fn body_mut(&mut self) -> IterMut<'_, Expression> {
         self.body.iter_mut()
     }
 }
