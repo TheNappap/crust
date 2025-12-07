@@ -21,6 +21,7 @@ pub mod loops;
 pub mod group;
 pub mod array;
 pub mod iter;
+pub mod iter_transforms;
 pub mod range;
 pub mod data;
 pub mod traits;

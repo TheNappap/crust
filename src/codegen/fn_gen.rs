@@ -121,9 +121,17 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_expression(&mut self, expression: &Expression, returned: &mut bool) -> Result<Vec<Value>> {
         let value = match &expression.kind {
             ExpressionKind::Call(signature, params) => {
-                self.create_fn_call(signature, params)?
+                let param_values: Vec<Value> = params.iter().map(|param|{
+                        self.create_expression(param, &mut false)
+                    })
+                    .flatten_ok()
+                    .try_collect()?;
+                self.create_fn_call(signature, &param_values)?
             }
             ExpressionKind::Return(expr) => {
+                self.create_return(returned, expr)?
+            }
+            ExpressionKind::Forward(expr) => {
                 self.create_return(returned, expr)?
             }
             ExpressionKind::Let(id, expr, ty) => {
@@ -141,7 +149,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::For(iter, var_name, var_type, for_body) => {
                 self.create_for(iter, var_name.clone(), &GenType::from_type(var_type, self.ctx.module)?, for_body)?
             }
-            ExpressionKind::Iter(iter, _) => {
+            ExpressionKind::Iter(iter, _, _) => {
                 self.create_expression(iter, returned)?
             }
             ExpressionKind::Index(collection, index, ty, coll_length) => {
@@ -229,7 +237,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_fn_call(
         &mut self,
         signature: &Signature,
-        params: &[Expression],
+        param_values: &[Value],
     ) -> Result<Vec<Value>> {
         let callee = if let Some(f) = self.ctx.functions.get(signature.name()) {
             *f
@@ -253,12 +261,6 @@ impl<'codegen> FunctionCodegen<'codegen> {
             self.ctx.functions.insert(signature.name().to_string(), callee);
             callee
         };
-
-        let mut param_values = Vec::new();
-        for param in params.iter() {
-            let param = self.create_expression(param, &mut false)?;
-            param_values.extend(param);
-        }
 
         let inst = self.builder.ins().call(callee, &param_values);
         let return_values = self.builder.inst_results(inst).to_vec();
@@ -455,101 +457,94 @@ impl<'codegen> FunctionCodegen<'codegen> {
             .collect()
     }
 
-    fn create_for(&mut self, iter: &Expression, var_name: String, var_type: &GenType, for_body: &[Expression]) -> Result<Vec<Value>> {  
-        if let ExpressionKind::Iter(coll, len) = &iter.kind {
-            if *len == 0 { return Ok(vec![]); }
+    fn create_for(&mut self, iter: &Expression, var_name: String, var_type: &GenType, for_body: &[Expression]) -> Result<Vec<Value>> {
+        let ExpressionKind::Iter(coll, iter_transforms, len) = &iter.kind else {
+            return iter.span.codegen("Expected iter".to_string())
+        };
 
-            let ss = match &coll.kind {
-                ExpressionKind::Symbol(name, _) => *self.ctx.variables.get(name).unwrap(),
-                ExpressionKind::Array(_) | ExpressionKind::Range(_, _) => {
-                    let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()**len, 0));
-                    let values = self.create_expression(coll, &mut false)?;
-                    for (i, &value) in values.iter().enumerate() {
-                        self.stack_store(value, ss, 8*i as i32);
-                    }
-                    ss
-                },
-                _ => return coll.span.codegen("Expected array or range in iter of for loop".to_string()),
-            };
+        if *len == 0 { return Ok(vec![]); }
 
-            let init_block = self.builder.create_block();
-            let add_block = self.builder.create_block();
-            let check_block = self.builder.create_block();
-            let for_block = self.builder.create_block();
-            let after_block = self.builder.create_block();
+        let ss = match &coll.kind {
+            ExpressionKind::Symbol(name, _) => *self.ctx.variables.get(name).unwrap(),
+            ExpressionKind::Array(_) | ExpressionKind::Range(_, _) => {
+                let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()**len, 0));
+                let values = self.create_expression(coll, &mut false)?;
+                for (i, &value) in values.iter().enumerate() {
+                    self.stack_store(value, ss, 8*i as i32);
+                }
+                ss
+            },
+            _ => return coll.span.codegen("Expected array or range in iter of for loop".to_string()),
+        };
 
-            self.builder.ins().jump(init_block, &[]);
+        let init_block = self.builder.create_block();
+        let add_block = self.builder.create_block();
+        let check_block = self.builder.create_block();
+        let for_block = self.builder.create_block();
+        let after_block = self.builder.create_block();
+        self.builder.ins().jump(init_block, &[]);
 
-            //init block
-            self.builder.switch_to_block(init_block);
+        //init block
+        self.builder.switch_to_block(init_block);
+        let iter_var = Variable::new(self.ctx.var_counter.next());
+        self.builder.declare_var(iter_var, I64);
+        let init_value = self.builder.ins().iconst(I64, 0);
+        self.builder.def_var(iter_var, init_value);
+        self.builder.ins().jump(check_block, &[]);
 
-            let iter_var = Variable::new(self.ctx.var_counter.next());
-            self.builder.declare_var(iter_var, I64);
-            let init_value = self.builder.ins().iconst(I64, 0);
-            self.builder.def_var(iter_var, init_value);
-            self.builder.ins().jump(check_block, &[]);
+        //add block
+        self.builder.switch_to_block(add_block);
+        let arg1 = self.builder.use_var(iter_var);
+        let arg2 = self.builder.ins().iconst(I64, 1);
+        let new_value = self.builder.ins().iadd(arg1, arg2);
+        self.builder.def_var(iter_var, new_value);
+        self.builder.ins().jump(check_block, &[]);
 
-            //add block
-            self.builder.switch_to_block(add_block);
+        //check block
+        self.builder.switch_to_block(check_block);
+        let arg1 = self.builder.use_var(iter_var);
+        let arg2 = self.builder.ins().iconst(I64, *len as i64);
+        let cond = self.builder.ins().icmp(CompKind::Equal.to_intcc(), arg1, arg2);
+        self.builder.ins().brif(cond, after_block, &[],
+                                        for_block, &[]);
 
-            let arg1 = self.builder.use_var(iter_var);
-            let arg2 = self.builder.ins().iconst(I64, 1);
-            let new_value = self.builder.ins().iadd(arg1, arg2);
-            self.builder.def_var(iter_var, new_value);
+        //for block
+        self.builder.switch_to_block(for_block);
+        let iter_var = self.builder.use_var(iter_var);
+        
+        let indexed_values = match &coll.kind {
+            ExpressionKind::Range(start, _) => {
+                let start_value = self.builder.ins().iconst(I64, *start);
+                let new_value = self.builder.ins().iadd(iter_var, start_value);
+                vec![new_value]
+            },
+            _ => self.create_indexed(ss, var_type, iter_var),
+        };
+        let indexed_values = iter_transforms.into_iter()
+            .fold(Ok(indexed_values), |values, transform|{
+                let ExpressionKind::Fn(transform_fn) = &transform.kind else {
+                    return transform.span.codegen("Could not generate iter transform call".into());
+                };
+                self.create_fn_call(transform_fn.signature(), &values?)
+            })?;
+        self.create_variable(var_name.clone(), indexed_values, var_type)?;
 
-            self.builder.ins().jump(check_block, &[]);
-
-            //check block
-            self.builder.switch_to_block(check_block);
-
-            let arg1 = self.builder.use_var(iter_var);
-            let arg2 = self.builder.ins().iconst(I64, *len as i64);
-            let cond = self.builder.ins().icmp(CompKind::Equal.to_intcc(), arg1, arg2);
-            self.builder.ins().brif(cond, after_block, &[],
-                                            for_block, &[]);
-
-            //for block
-            self.builder.switch_to_block(for_block);
-
-            let iter_var = self.builder.use_var(iter_var);
-            let indexed_values = match &coll.kind {
-                ExpressionKind::Range(start, _) => {
-                    let start_value = self.builder.ins().iconst(I64, *start);
-                    let new_value = self.builder.ins().iadd(iter_var, start_value);
-                    vec![new_value]
-                },
-                _ => self.create_indexed(ss, var_type, iter_var),
-            }; 
-
-            match self.ctx.variables.get(&var_name) {
-                Some(ss) => {
-                    let ss = ss.clone();
-                    for (i, &value) in indexed_values.iter().enumerate() {
-                        self.stack_store(value, ss, 8*i as i32);
-                    }
-                },
-                None => { self.create_variable(var_name.clone(), indexed_values, var_type)?; },
-            };
-
-            for statement in for_body {
-                self.create_expression(statement, &mut false)?;
-            }
-            
-            self.builder.ins().jump(add_block, &[]);
-                
-            //after block
-            self.builder.switch_to_block(after_block);
-            self.builder.seal_block(init_block);
-            self.builder.seal_block(add_block);
-            self.builder.seal_block(check_block);
-            self.builder.seal_block(for_block);
-            self.builder.seal_block(after_block);
-            Ok(vec![])
-        } else {
-            iter.span.codegen("Expected iter".to_string())
+        for statement in for_body {
+            self.create_expression(statement, &mut false)?;
         }
+        
+        self.builder.ins().jump(add_block, &[]);
+            
+        //after block
+        self.builder.switch_to_block(after_block);
+        self.builder.seal_block(init_block);
+        self.builder.seal_block(add_block);
+        self.builder.seal_block(check_block);
+        self.builder.seal_block(for_block);
+        self.builder.seal_block(after_block);
+        Ok(vec![])
     }
-
+    
     fn stack_store(&mut self, value: Value, stack_slot: StackSlot, offset: i32) {
         self.builder.ins().stack_store(value, stack_slot, offset);
     }
@@ -602,7 +597,11 @@ impl<'codegen> FunctionCodegen<'codegen> {
                 let v2 = self.create_expression(param2, &mut false)?[0];
                 Ok(vec![self.builder.ins().fadd(v1, v2)])
             },
-            Type::String => self.create_fn_call(&Signature::new(None, "strcat",vec![Type::Int,Type::Int],Type::Int), &vec![param1.clone(), param2.clone()]),
+            Type::String => {
+                let mut param_values= self.create_expression(param1, &mut false)?;
+                param_values.extend(self.create_expression(param2, &mut false)?);
+                self.create_fn_call(&Signature::new(None, "strcat",vec![Type::Int,Type::Int],Type::Int), &param_values)
+            }
             _ => param1.span.codegen("Addition for this type is not supported".to_string())
         }
     }

@@ -7,7 +7,7 @@ use cranelift_object::{ObjectBuilder, ObjectModule, ObjectProduct};
 
 use crate::error::{Result, Error, ErrorKind};
 use crate::lexer::Position;
-use crate::parser::{SyntaxTree, Fn, ExpressionKind};
+use crate::parser::{SyntaxTree, Fn};
 
 impl From<CodegenError> for Error {
     fn from(e: CodegenError) -> Self {
@@ -37,19 +37,17 @@ impl Codegen {
     }
 
     pub fn compile(mut self, syntax_tree: SyntaxTree) -> Result<ObjectProduct> {
+        for fun in syntax_tree.hidden_fns_impls() {
+            self.compile_fn(fun, Linkage::Local, "")?; // TODO: add path for hidden fns
+        }
         for fun in syntax_tree.fns_impls() {
-            for expr in fun.body() {
-                if let ExpressionKind::Fn(f) = &expr.kind {
-                    self.compile_fn(f, fun.signature().name())?;
-                }
-            }
-
-            self.compile_fn(fun, "")?;
+            self.compile_fn(fun, Linkage::Export, "")?;
         }
         Ok(self.module.finish())
     }
 
-    pub fn compile_fn(&mut self, fun: &Fn, path: &str) -> Result<()> {
+    pub fn compile_fn(&mut self, fun: &Fn, linkage: Linkage, path: &str) -> Result<()> {
+        //println!("Compiling: {:?}", fun.signature().name());
         let func = super::fn_gen::create_fn(
             &mut self.fun_ctx,
             &mut self.data_ctx,
@@ -59,11 +57,8 @@ impl Codegen {
         )?;
 
         let mut ctx = Context::for_function(func);
-        let id =
-            self.module
-                .declare_function(fun.signature().name(), Linkage::Export, &ctx.func.signature)?;
-        self.module
-            .define_function(id, &mut ctx)?;
+        let id = self.module.declare_function(fun.signature().name(), linkage, &ctx.func.signature)?;
+        self.module.define_function(id, &mut ctx)?;
         Ok(())
     }
 }

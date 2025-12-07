@@ -121,10 +121,10 @@ fn loops_and_arrays() {
     //mut index arr[1] = 12; //TODO
     println "array[2][1]: %i", arr[2][1];
     iter arr {} for i {
-        println "iter %i %i", i;
+        println "iter array %i %i", i;
     }
-    iter 3..6 {} for i {
-        println "range %i", i;
+    iter 3..6 {} map x { forward x+2 } map y { forward y*2 } for z {
+        println "transformed range %i", z;
     }
 
     println;

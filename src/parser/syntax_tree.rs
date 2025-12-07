@@ -23,6 +23,7 @@ pub trait Library {
 #[derive(Debug, PartialEq, Clone)]
 pub struct SyntaxTree {
     fns: Vec<Fn>,
+    hidden_fns: Vec<Fn>,
     imports: Vec<Signature>,
     data_types: Vec<(Type, Span)>,
     traits: Vec<Trait>,
@@ -30,11 +31,15 @@ pub struct SyntaxTree {
 
 impl SyntaxTree {
     pub fn new(fns: Vec<Fn>, imports: Vec<Signature>, data_types: Vec<(Type, Span)>, traits: Vec<Trait>) -> SyntaxTree {
-        SyntaxTree { fns, imports, data_types, traits }
+        SyntaxTree { fns, hidden_fns: vec![], imports, data_types, traits }
     }
 
     pub fn fns_impls(&self) -> impl Iterator<Item=&Fn> + '_ {
         self.fns.iter()
+    }
+    
+    pub fn hidden_fns_impls(&self) -> impl Iterator<Item=&Fn> + '_ {
+        self.hidden_fns.iter()
     }
 
     pub fn fns_impls_mut(&mut self) -> impl Iterator<Item=&mut Fn> + '_ {
@@ -57,5 +62,9 @@ impl SyntaxTree {
         self.fns.extend(lib.fns());
         self.imports.extend(lib.imported_fns());
         self.data_types.extend(lib.data_types());
+    }
+
+    pub fn add_hidden_fns(&mut self, fns: Vec<Fn>) {
+        self.hidden_fns = fns;
     }
 }

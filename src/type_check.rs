@@ -26,9 +26,11 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     }
     functions.values_mut().try_for_each(|sig| sig.params_mut().try_for_each(|ty| data_map.check_named_type(ty)))?;
 
+    let mut type_checker = TypeCheck::new(&functions, &data_map);
     for fun in syntax_tree.fns_impls_mut() {
-        TypeCheck::new(&functions, &data_map).check_fun(fun)?
+        type_checker.check_fun(fun)?
     }
+    syntax_tree.add_hidden_fns(type_checker.hidden_fns());
     Ok(())
 }
 
@@ -56,6 +58,7 @@ struct TypeCheck<'f> {
     variables: HashMap<String, Type>,
     functions: &'f HashMap<String, Signature>,
     data_types: &'f HashMap<String, (Type, Span)>,
+    hidden_fns: Vec<Fn>,
 }
 
 impl<'f> TypeCheck<'f> {
@@ -64,7 +67,12 @@ impl<'f> TypeCheck<'f> {
             variables: HashMap::new(),
             functions,
             data_types,
+            hidden_fns: vec![],
         }
+    }
+
+    fn hidden_fns(self) -> Vec<Fn> {
+        self.hidden_fns
     }
 
     fn check_fun(&mut self, fun: &mut Fn) -> Result<()> {
@@ -78,6 +86,15 @@ impl<'f> TypeCheck<'f> {
         self.data_types.check_named_type(fun.signature_mut().returns_mut())?;
         for expr in fun.body_mut() {
             self.check_expression(expr)?;
+        }
+        if *fun.signature().returns() == Type::Inferred {
+            let return_type = fun.body_mut().fold(Ok(Type::Void), |acc, expr| {
+                match &mut expr.kind {
+                    ExpressionKind::Forward(expr) => self.check_expression(expr),
+                    _ => acc,
+                }
+            })?;
+            *fun.signature_mut().returns_mut() = return_type;
         }
         Ok(())
     }
@@ -121,14 +138,17 @@ impl<'f> TypeCheck<'f> {
                 signature.returns().clone()
             },
             ExpressionKind::Return(expr) => {
-                self.check_expression(expr)?;
-                Type::Void
+                self.check_expression(expr)?
+            },
+            ExpressionKind::Forward(expr) => {
+                self.check_expression(expr)?
             },
             ExpressionKind::Signature(_) => {
                 todo!()
             }
             ExpressionKind::Fn(fun) => {
                 self.check_fun(fun)?;
+                self.hidden_fns.push(fun.clone());
                 Type::Inferred
             }
             ExpressionKind::Impl(name, fns, _) => {
@@ -285,19 +305,32 @@ impl<'f> TypeCheck<'f> {
                     return Err(expr.span.error(ErrorKind::Type, "Expected iter as input for for block".to_string()));
                 }
             },
-            ExpressionKind::Iter(iter_expr, len) => {
-                let ty = self.check_expression(iter_expr)?;
-                match ty {
-                    Type::Array(_, l) => {
-                        *len = l as u32;
-                        Type::Iter(Box::new(ty))
-                    },
-                    Type::Range(l) => {
-                        *len = l as u32;
-                        Type::Iter(Box::new(ty))
-                    }
-                    _ => return Err(expr.span.error(ErrorKind::Type, "Expected array as iterable".to_string())),
+            ExpressionKind::Iter(input_expr, iter_transforms, len) => {
+                let ty = self.check_expression(input_expr)?;
+                let (iter_len, el_ty) = match &ty {
+                    Type::Array(arr_ty, l) => (*l as u32, *arr_ty.clone()),
+                    Type::Range(l) => (*l as u32, Type::Int),
+                    _ => return Err(expr.span.error(ErrorKind::Type, "Expected array or range as iter input".to_string())),
+                };
+                *len = iter_len;
+
+                let mut in_type = el_ty;
+                for transform in iter_transforms {
+                    let ExpressionKind::Fn(transform_fun) = &mut transform.kind else {
+                        return Err(expr.span.error(ErrorKind::Type, "Expected iter transform to be function".to_string()));
+                    };
+
+                    transform_fun.signature_mut().params_mut().for_each(|param_type| {
+                        if *param_type == Type::Inferred {
+                            *param_type = in_type.clone();
+                        }
+                    });
+
+                    self.check_fun(transform_fun)?;
+                    self.hidden_fns.push(transform_fun.clone());
+                    in_type = transform_fun.signature().returns().clone();
                 }
+                Type::Iter(Box::new(ty))
             },
             ExpressionKind::Range(start, end) => Type::Range((*end-*start) as u32),
             ExpressionKind::Group(body) => self.check_group(body)?,

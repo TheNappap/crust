@@ -25,6 +25,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<dot::Dot>();
     blockdefs.add::<call::Call>();
     blockdefs.add::<returns::Return>();
+    blockdefs.add::<returns::Forward>();
     blockdefs.add::<fn_def::FnDef>();
     blockdefs.add::<fn_def::Impl>();
     blockdefs.add::<traits::Trait>();
@@ -53,6 +54,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<array::Array>();
     blockdefs.add::<array::Index>();
     blockdefs.add::<iter::Iter>();
+    blockdefs.add::<iter_transforms::Map>();
     blockdefs.add::<range::Range>();
     blockdefs.add::<pattern_match::Match>();
     blockdefs.add::<pattern_match::Case>();
