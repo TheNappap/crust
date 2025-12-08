@@ -125,7 +125,7 @@ impl<'str> BlockStream<'str> {
             };
 
             break match token.kind {
-                TokenKind::NewLine => continue,
+                TokenKind::NewLine | TokenKind::Operator(Operator::Arrow2) => continue,
                 TokenKind::Ident(id) => Some(self.collect_block(id.to_owned(), token.span)),
                 TokenKind::Literal(_) => Some(Ok(Block::anonymous_block(vec![token]))),
                 TokenKind::Group(Delimeter::Braces, _) => Some(Ok(Block::anonymous_block(vec![token]))),
@@ -158,7 +158,7 @@ impl<'str> BlockStream<'str> {
             .peeking_take_while(|token| match token {
                 Ok(Token{kind, ..}) => !matches!(
                     kind,
-                    TokenKind::Operator(Operator::Colon | Operator::Eq | Operator::Semicolon) | TokenKind::Group(Delimeter::Braces, _)
+                    TokenKind::Operator(Operator::Colon | Operator::Eq | Operator::Arrow2 | Operator::Semicolon) | TokenKind::Group(Delimeter::Braces, _)
                 ),
                 Err(_) => true,
             })
@@ -183,7 +183,7 @@ impl<'str> BlockStream<'str> {
             .peeking_take_while(|token| match token {
                 Ok(Token{kind, ..}) => !matches!(
                     kind,
-                    TokenKind::Operator(Operator::Semicolon) | TokenKind::Group(Delimeter::Braces, _) | TokenKind::NewLine
+                    TokenKind::Operator(Operator::Semicolon | Operator::Arrow2) | TokenKind::Group(Delimeter::Braces, _) | TokenKind::NewLine
                 ),
                 Err(_) => false,
             })
@@ -197,7 +197,7 @@ impl<'str> BlockStream<'str> {
 
         let (tokens, chained_block) = match &next_token.kind {
             TokenKind::Operator(Operator::Semicolon) => (tokens, None),
-            TokenKind::NewLine => {
+            TokenKind::NewLine | TokenKind::Operator(Operator::Arrow2) => {
                 (tokens, self.take_block().transpose()?)
             }
             TokenKind::Group(Delimeter::Braces, group_tokens) => {
@@ -209,6 +209,10 @@ impl<'str> BlockStream<'str> {
 
                 let chained = match self.stream.peek() {
                     Some(Ok(Token{kind: TokenKind::NewLine, ..})) => None,
+                    Some(Ok(Token{kind: TokenKind::Operator(Operator::Arrow2), ..})) => {
+                        self.stream.next();
+                        self.take_block().transpose()?
+                    },
                     _ => self.take_block().transpose()?,
                 };
                 (tokens, chained)
@@ -321,11 +325,13 @@ mod tests {
         } else {
             print "Line2.1"
         }
+
+        iter 0..2 => map x: x+1
+                    filter y: y < 3
+                    for z: call do_something(z);
 		"#;
         let blocks: Vec<Block> = BlockStream::from(s).try_collect()?;
-        assert_eq!(
-            blocks,
-            vec![
+        let test_blocks = vec![
                 Block {
                     tag: "if".to_string(),
                     span: Span::new(Position::new(1, 0), Position::new(1, 32)),
@@ -368,8 +374,53 @@ mod tests {
                         chain: None,
                     })),
                 },
-            ],
-        );
+                Block {
+                    tag: "iter".to_string(),
+                    span: Span::new(Position::new(10, 0), Position::new(10, 17)),
+                    header: vec![
+                        Token { kind: TokenKind::Literal(Literal::Int(0)), span: Span::new(Position::new(10, 12), Position::new(10, 14)) },
+                        Token { kind: TokenKind::Operator(Operator::Range), span: Span::new(Position::new(10, 14), Position::new(10, 16)) }, 
+                        Token { kind: TokenKind::Literal(Literal::Int(2)), span: Span::new(Position::new(10, 16), Position::new(10, 17)) },
+                    ],
+                    body: vec![],
+                    chain: Some( Box::new(Block {
+                        tag: "map".into(), 
+                        span: Span::new(Position::new(10, 20), Position::new(10, 31)),
+                        header: vec![Token { kind: TokenKind::Ident("x".into()), span: Span::new(Position::new(10, 24), Position::new(10, 26)) }],
+                        body: vec![
+                            Token { kind: TokenKind::Ident("x".into()), span: Span::new(Position::new(10, 27), Position::new(10, 29)) }, 
+                            Token { kind: TokenKind::Operator(Operator::Plus), span: Span::new(Position::new(10, 29), Position::new(10, 30)) }, 
+                            Token { kind: TokenKind::Literal(Literal::Int(1)), span: Span::new(Position::new(10, 30), Position::new(10, 31)) }
+                        ],
+                        chain: Some( Box::new(Block { 
+                            tag: "filter".into(),
+                            span: Span::new(Position::new(11, 0), Position::new(11, 35)), 
+                            header: vec![Token { kind: TokenKind::Ident("y".into()), span: Span::new(Position::new(11, 26), Position::new(11, 28)) }], 
+                            body: vec![
+                                Token { kind: TokenKind::Ident("y".into()), span: Span::new(Position::new(11, 29), Position::new(11, 31)) }, 
+                                Token { kind: TokenKind::Symbol('<'), span: Span::new(Position::new(11, 31), Position::new(11, 33)) }, 
+                                Token { kind: TokenKind::Literal(Literal::Int(3)), span: Span::new(Position::new(11, 33), Position::new(11, 35)) }
+                            ],
+                            chain: Some( Box::new(Block { 
+                                tag: "for".into(), 
+                                span: Span::new(Position::new(12, 0), Position::new(12, 47)), 
+                                header: vec![Token { kind: TokenKind::Ident("z".into()), span: Span::new(Position::new(12, 23), Position::new(12, 25)) }], 
+                                body: vec![
+                                    Token { kind: TokenKind::Ident("call".into()), span: Span::new(Position::new(12, 26), Position::new(12, 31)) }, 
+                                    Token { kind: TokenKind::Ident("do_something".into()), span: Span::new(Position::new(12, 31), Position::new(12, 44)) }, 
+                                    Token { 
+                                        kind: TokenKind::Group(Delimeter::Parens, vec![Token { kind: TokenKind::Ident("z".into()), span: Span::new(Position::new(12, 45), Position::new(12, 46)) }]),
+                                        span: Span::new(Position::new(12, 44), Position::new(12, 47)) 
+                                    }], 
+                                chain: None
+                            }))
+                        }))
+                    }))
+                },
+            ];
+        for (block, test_block) in blocks.into_iter().zip(test_blocks.into_iter()) {
+            assert_eq!( block, test_block);
+        }
         Ok(())
     }
 }
