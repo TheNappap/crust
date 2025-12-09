@@ -7,7 +7,7 @@ mod parse_list;
 
 pub use crate::error::Result;
 use itertools::Itertools;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
     error::{ThrowablePosition},
@@ -55,6 +55,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<array::Index>();
     blockdefs.add::<iter::Iter>();
     blockdefs.add::<iter_transforms::Map>();
+    blockdefs.add::<iter_transforms::Filter>();
     blockdefs.add::<range::Range>();
     blockdefs.add::<pattern_match::Match>();
     blockdefs.add::<pattern_match::Case>();

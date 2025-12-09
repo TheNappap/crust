@@ -6,7 +6,7 @@ pub mod expression;
 pub mod ordered_map;
 pub mod patterns;
 
-pub use expression::{Expression, ExpressionKind, BinOpKind, UnOpKind};
+pub use expression::{Expression, ExpressionKind, BinOpKind, UnOpKind, TransformKind};
 
 use crate::lexer::Span;
 

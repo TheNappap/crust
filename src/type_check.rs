@@ -316,19 +316,15 @@ impl<'f> TypeCheck<'f> {
 
                 let mut in_type = el_ty;
                 for transform in iter_transforms {
-                    let ExpressionKind::Fn(transform_fun) = &mut transform.kind else {
-                        return Err(expr.span.error(ErrorKind::Type, "Expected iter transform to be function".to_string()));
-                    };
-
-                    transform_fun.signature_mut().params_mut().for_each(|param_type| {
+                    transform.fun.signature_mut().params_mut().for_each(|param_type| {
                         if *param_type == Type::Inferred {
                             *param_type = in_type.clone();
                         }
                     });
 
-                    self.check_fun(transform_fun)?;
-                    self.hidden_fns.push(transform_fun.clone());
-                    in_type = transform_fun.signature().returns().clone();
+                    self.check_fun(&mut transform.fun)?;
+                    self.hidden_fns.push(transform.fun.clone());
+                    in_type = transform.fun.signature().returns().clone();
                 }
                 Type::Iter(Box::new(ty))
             },

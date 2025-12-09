@@ -1,4 +1,4 @@
-use crate::{parser::{Signature, Fn, Type}, lexer::{Literal, Span}};
+use crate::{lexer::{Literal, Span}, parser::{Fn, Signature, Type}};
 
 use super::{patterns::Pattern, ordered_map::OrderedMap, fn_expr::Trait};
 
@@ -25,6 +25,19 @@ impl Expression {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum TransformKind {
+    Map,
+    Filter,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct IterTransform {
+    pub kind: TransformKind,
+    pub fun: Fn,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum ExpressionKind {
     Fn(Fn),
     Signature(Signature),
@@ -39,7 +52,7 @@ pub enum ExpressionKind {
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
     While(Box<Expression>, Vec<Expression>),
     For(Box<Expression>, String, Type, Vec<Expression>),
-    Iter(Box<Expression>, Vec<Expression>, u32),
+    Iter(Box<Expression>, Vec<IterTransform>, u32),
     Range(i64, i64),
     Group(Vec<Expression>),
     Literal(Literal),

@@ -15,7 +15,7 @@ use itertools::Itertools;
 
 use crate::error::{Result, ThrowablePosition};
 use crate::lexer::Literal;
-use crate::parser::{Fn, Expression, Signature, BinOpKind, UnOpKind, Type, Pattern, OrderedMap, ExpressionKind};
+use crate::parser::{BinOpKind, Expression, ExpressionKind, Fn, OrderedMap, Pattern, Signature, TransformKind, Type, UnOpKind};
 
 use super::comp_kind::CompKind;
 use super::gen_type::GenType;
@@ -522,10 +522,23 @@ impl<'codegen> FunctionCodegen<'codegen> {
         };
         let indexed_values = iter_transforms.into_iter()
             .fold(Ok(indexed_values), |values, transform|{
-                let ExpressionKind::Fn(transform_fn) = &transform.kind else {
-                    return transform.span.codegen("Could not generate iter transform call".into());
-                };
-                self.create_fn_call(transform_fn.signature(), &values?)
+                match transform.kind {
+                    TransformKind::Map => self.create_fn_call(transform.fun.signature(), &values?),
+                    TransformKind::Filter => {
+                        let if_block = self.builder.create_block();
+                        let after_block = self.builder.create_block();
+                        let cond = self.create_fn_call(transform.fun.signature(), &values.clone()?)?[0];
+                        self.builder.ins().brif(cond, if_block, &[], after_block, &[]);
+                        //if block
+                        self.builder.switch_to_block(if_block);
+                        self.builder.seal_block(if_block);
+                        self.builder.ins().jump(add_block, &[]);
+                        //after block
+                        self.builder.switch_to_block(after_block);
+                        self.builder.seal_block(after_block);
+                        values
+                    },
+                }
             })?;
         self.create_variable(var_name.clone(), indexed_values, var_type)?;
 
