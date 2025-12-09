@@ -24,19 +24,19 @@ impl BlockDefinition for Map {
             return Err(span.error(ErrorKind::Syntax, "Expected iter as block input".to_string()))
         };
 
-        let (var_name, var_type) = match parser.parse_expression(header)?.kind.clone() {
-            ExpressionKind::Symbol(s, t) => (s,t),
+        let symbol = match parser.parse_expression(header)?.kind.clone() {
+            ExpressionKind::Symbol(symbol) => symbol,
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for map variable".to_string()))
         };
         let body = parser.parse_group(body)?;
         let id = TRANSFORM_FN_ID.load(Ordering::Relaxed);
         TRANSFORM_FN_ID.store(id+1, Ordering::Relaxed);
         let name = format!("__map_function{}", id);
-        let signature = Signature::new(None, &name, vec![var_type], Type::Inferred);
+        let signature = Signature::new(None, &name, vec![symbol.ty], Type::Inferred);
 
         let transform = IterTransform{
             kind: TransformKind::Map,
-            fun: Fn::new(signature, vec![var_name], body),
+            fun: Fn::new(signature, vec![symbol.name], body),
             span: span.clone()
         };
         iter_transforms.push(transform);
@@ -63,19 +63,19 @@ impl BlockDefinition for Filter {
             return Err(span.error(ErrorKind::Syntax, "Expected iter as block input".to_string()))
         };
 
-        let (var_name, var_type) = match parser.parse_expression(header)?.kind.clone() {
-            ExpressionKind::Symbol(s, t) => (s,t),
+        let symbol = match parser.parse_expression(header)?.kind.clone() {
+            ExpressionKind::Symbol(symbol) => symbol,
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for filter variable".to_string()))
         };
         let body = parser.parse_group(body)?;
         let id = TRANSFORM_FN_ID.load(Ordering::Relaxed);
         TRANSFORM_FN_ID.store(id+1, Ordering::Relaxed);
         let name = format!("__filter_function{}", id);
-        let signature = Signature::new(None, &name, vec![var_type], Type::Bool);
+        let signature = Signature::new(None, &name, vec![symbol.ty], Type::Bool);
 
         let transform = IterTransform{
             kind: TransformKind::Filter,
-            fun: Fn::new(signature, vec![var_name], body),
+            fun: Fn::new(signature, vec![symbol.name], body),
             span: span.clone()
         };
         iter_transforms.push(transform);

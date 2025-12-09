@@ -1,3 +1,4 @@
+
 use crate::{lexer::{Literal, Span}, parser::{Fn, Signature, Type}};
 
 use super::{patterns::Pattern, ordered_map::OrderedMap, fn_expr::Trait};
@@ -25,6 +26,12 @@ impl Expression {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Symbol {
+    pub name: String,
+    pub ty: Type,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum TransformKind {
     Map,
     Filter,
@@ -46,18 +53,18 @@ pub enum ExpressionKind {
     Trait(Trait),
     Call(Signature, Vec<Expression>),
     New(Type, Vec<Expression>),
-    Field(Box<Expression>, String, Type, i32),
-    Let(String, Box<Expression>, Type),
-    Mut(String, Option<(String, i32)>, Box<Expression>),
+    Field(Box<Expression>, Symbol, i32),
+    Let(Symbol, Box<Expression>),
+    Mut(Symbol, Option<(Symbol, i32)>, Box<Expression>),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
     While(Box<Expression>, Vec<Expression>),
-    For(Box<Expression>, String, Type, Vec<Expression>),
+    For(Box<Expression>, Symbol, Vec<Expression>),
     Iter(Box<Expression>, Vec<IterTransform>, u32),
     Range(i64, i64),
     Group(Vec<Expression>),
     Literal(Literal),
     AddrOf(Vec<Expression>),
-    Symbol(String, Type),
+    Symbol(Symbol),
     BinOp(BinOpKind, Box<Expression>, Box<Expression>, Type),
     UnOp(UnOpKind, Box<Expression>, Type),
     Return(Box<Expression>),

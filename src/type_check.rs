@@ -195,38 +195,38 @@ impl<'f> TypeCheck<'f> {
                     
                 ty.to_owned()
             }
-            ExpressionKind::Field(expr, field_name, field_type, field_offset) => {
+            ExpressionKind::Field(expr, field_symbol, field_offset) => {
                 let ty = self.check_expression(expr)?;
 
                 match ty {
                     Type::Struct(_, map) => {
-                        let Some((ty, offset)) = map.get(field_name) else { 
-                            return Err(expr.span.error(ErrorKind::Type, format!("No field found with this name: {}", field_name))); 
+                        let Some((ty, offset)) = map.get(&field_symbol.name) else { 
+                            return Err(expr.span.error(ErrorKind::Type, format!("No field found with this name: {}", &field_symbol.name))); 
                         };
 
-                        *field_type = ty.to_owned();
+                        field_symbol.ty = ty.to_owned();
                         *field_offset = *offset;
                         ty.to_owned()
                     },
                     _ => return Err(expr.span.error(ErrorKind::Type, format!("No field for type: {:?}", ty)))
                 }
             }
-            ExpressionKind::Let(name, expr, let_ty) => {
+            ExpressionKind::Let(symbol, expr) => {
                 let ty = self.check_expression(expr)?;
-                if *let_ty != Type::Inferred && *let_ty != ty {
-                    return Err(expr.span.error(ErrorKind::Type, format!("Mismatch types for assignment, expected: {:?}", let_ty)));
+                if symbol.ty != Type::Inferred && symbol.ty != ty {
+                    return Err(expr.span.error(ErrorKind::Type, format!("Mismatch types for assignment, expected: {:?}", symbol.ty)));
                 }
-                self.variables.insert(name.clone(), ty.clone());
-                *let_ty = ty.clone();
+                self.variables.insert(symbol.name.clone(), ty.clone());
+                symbol.ty = ty.clone();
                 ty
             },
-            ExpressionKind::Mut(name, field, expr) => {
-                let var_type = self.variables.get(name);
+            ExpressionKind::Mut(symbol, field, expr) => {
+                let var_type = self.variables.get(&symbol.name);
                 if let Some(var_ty) = var_type.cloned() {
-                    let ty = if let Some(field) = field {
+                    let ty = if let Some((field_symbol, field_offset)) = field {
                         if let Type::Struct(_, fields) = var_ty.clone() {
-                            if let Some((ty, offset)) = fields.get(&field.0) {
-                                field.1 = *offset;
+                            if let Some((ty, offset)) = fields.get(&field_symbol.name) {
+                                *field_offset = *offset;
                                 ty.to_owned()
                             } else {
                                 return expr.span.type_("Field name not found".to_string());
@@ -243,7 +243,7 @@ impl<'f> TypeCheck<'f> {
                     };
                     ty
                 } else {
-                    return Err(expr.span.error(ErrorKind::Type, format!("No variable found with this name: {:?}", name)));
+                    return Err(expr.span.error(ErrorKind::Type, format!("No variable found with this name: {:?}", symbol.name)));
                 }
             },
             ExpressionKind::If(condition, if_body, else_body) => {
@@ -271,15 +271,15 @@ impl<'f> TypeCheck<'f> {
                 }
                 Type::Void
             },
-            ExpressionKind::For(iter, var_name, var_type, for_body) => {
+            ExpressionKind::For(iter, var_symbol, for_body) => {
                 let ty = self.check_expression(iter)?;
                 if let Type::Iter(iter_ty) = ty {
                     if let Type::Array(arr_type, _) = *iter_ty {
-                        if *var_type == Type::Inferred {
-                            *var_type = *arr_type.clone();
+                        if var_symbol.ty == Type::Inferred {
+                            var_symbol.ty = *arr_type.clone();
                         }
-                        self.variables.insert(var_name.clone(), var_type.clone());
-                        if *arr_type != *var_type {
+                        self.variables.insert(var_symbol.name.clone(), var_symbol.ty.clone());
+                        if *arr_type != var_symbol.ty {
                             return Err(expr.span.error(ErrorKind::Type, "Array type and for type do not match".to_string()));
                         }
                         for expr in for_body {
@@ -287,11 +287,11 @@ impl<'f> TypeCheck<'f> {
                         }
                         Type::Void
                     } else if let Type::Range(_) = *iter_ty {
-                        if *var_type == Type::Inferred {
-                            *var_type = Type::Int;
+                        if var_symbol.ty == Type::Inferred {
+                            var_symbol.ty = Type::Int;
                         }
-                        self.variables.insert(var_name.clone(), var_type.clone());
-                        if Type::Int != *var_type {
+                        self.variables.insert(var_symbol.name.clone(), var_symbol.ty.clone());
+                        if Type::Int != var_symbol.ty {
                             return Err(expr.span.error(ErrorKind::Type, "Range type and for type do not match".to_string()));
                         }
                         for expr in for_body {
@@ -365,24 +365,24 @@ impl<'f> TypeCheck<'f> {
                 *op_ty = ty.clone();
                 ty
             },
-            ExpressionKind::Symbol(name, ty) => {
-                let var_type = self.variables.get(name);
-                match ty {
+            ExpressionKind::Symbol(symbol) => {
+                let var_type = self.variables.get(&symbol.name);
+                match &symbol.ty {
                     Type::Inferred => match var_type {
                         Some(t) => {
-                            *ty = t.clone();
-                            ty.clone()
+                            symbol.ty = t.clone();
+                            symbol.ty.clone()
                         }
-                        None => return Err(span.error(ErrorKind::Type, format!("Can't infer type for {}", name))),
+                        None => return Err(span.error(ErrorKind::Type, format!("Can't infer type for {}", symbol.name))),
                     }
                     ty => match var_type {
                         Some(t) => if ty != t {
-                            return Err(span.error(ErrorKind::Type, format!("Type mismatch for {}", name)))
+                            return Err(span.error(ErrorKind::Type, format!("Type mismatch for {}", symbol.name)))
                         } else {
                             ty.clone()
                         },
                         None => { 
-                            self.variables.insert(name.clone(), ty.clone());
+                            self.variables.insert(symbol.name.clone(), symbol.ty.clone());
                             ty.clone()
                         },
                     }

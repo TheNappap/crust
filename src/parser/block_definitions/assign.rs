@@ -19,14 +19,14 @@ impl BlockDefinition for Let {
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let name_expr = parser.parse_expression(header)?;
-        let (id, ty) = match name_expr.kind {
-            ExpressionKind::Symbol(id, ty) => (id, ty),
+        let symbol = match name_expr.kind {
+            ExpressionKind::Symbol(symbol) => symbol,
             _ => {
                 return Err(name_expr.span.error(ErrorKind::Syntax, "Expected an identifier as variable name".to_string()));
             }
         };
         let value = parser.parse_expression(body)?;
-        Ok(ExpressionKind::Let(id.clone(), Box::new(value), ty.clone()))
+        Ok(ExpressionKind::Let(symbol.clone(), Box::new(value)))
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
@@ -48,10 +48,10 @@ impl BlockDefinition for Mut {
             .map(|tokens| parser.parse_expression(tokens) )
             .try_collect()?;
         let (id, field) = match &operands[0].kind {
-            ExpressionKind::Symbol(id, _) => (id, None),
-            ExpressionKind::Field(expr, field, _, offset) => 
+            ExpressionKind::Symbol(s) => (s, None),
+            ExpressionKind::Field(expr, field_symbol, offset) => 
                 match &expr.kind {
-                    ExpressionKind::Symbol(id, _) => (id, Some((field.clone(), *offset))),
+                    ExpressionKind::Symbol(symbol) => (symbol, Some((field_symbol.clone(), *offset))),
                     k => {
                         return Err(span.error(ErrorKind::Syntax, format!("Expected an identifier as variable name, got {:?}", k)));
                     }

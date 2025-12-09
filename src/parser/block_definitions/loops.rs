@@ -37,11 +37,11 @@ impl BlockDefinition for For {
     }
     
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
-        let (var_name, var_type) = match parser.parse_expression(header)?.kind.clone() {
-            ExpressionKind::Symbol(s, t) => (s,t),
+        let symbol = match parser.parse_expression(header)?.kind.clone() {
+            ExpressionKind::Symbol(s) => s,
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for loop variable".to_string()))
         };
         let body = parser.parse_group(body)?;
-        Ok(ExpressionKind::For(Box::new(input), var_name.to_owned(), var_type.to_owned(), body))
+        Ok(ExpressionKind::For(Box::new(input), symbol, body))
     }
 }

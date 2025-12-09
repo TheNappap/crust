@@ -135,10 +135,11 @@ impl BlockDefinition for Field {
         let operands: Vec<_> = token_list.into_iter()
             .map(|tokens| parser.parse_expression(tokens) )
             .try_collect()?;
-        let ExpressionKind::Symbol(field_name, _) = &operands[1].kind else {
+        let ExpressionKind::Symbol(field_symbol) = &operands[1].kind else {
             return Err(span.error(ErrorKind::Syntax, "Field expression expected symbol as field name".to_string()));
         };
-        Ok(ExpressionKind::Field(Box::new(operands[0].clone()), field_name.to_owned(), Type::Inferred, -1))
+        assert_eq!(field_symbol.ty, Type::Inferred);
+        Ok(ExpressionKind::Field(Box::new(operands[0].clone()), field_symbol.to_owned(), -1))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {

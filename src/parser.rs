@@ -7,11 +7,11 @@ mod parse_list;
 
 pub use crate::error::Result;
 use itertools::Itertools;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
-    error::{ThrowablePosition},
-    lexer::{Token, Delimeter, Operator, TokenKind},
+    error::ThrowablePosition,
+    lexer::{Delimeter, Operator, Token, TokenKind},
 };
 
 use self::{block_definitions::*, blocks::{BlockStream, Block}};
@@ -202,7 +202,7 @@ impl Parser {
             assert!(block.body.is_empty());
             let token = block.header.first().unwrap();
             let block = match &token.kind {
-                TokenKind::Ident(name) => return Ok(Expression::new(ExpressionKind::Symbol(name.clone(), Type::Inferred), token.span.clone())),
+                TokenKind::Ident(name) => return Ok(Expression::new(ExpressionKind::Symbol(Symbol{name:name.clone(), ty:Type::Inferred}), token.span.clone())),
                 TokenKind::Literal(literal) => return Ok(Expression::new(ExpressionKind::Literal(literal.clone()), token.span.clone())),
                 TokenKind::Group(Delimeter::Parens, tokens) => return self.parse_expression(tokens.clone()),
                 TokenKind::Group(Delimeter::Brackets, _) => Block { tag: "array".into(), span: block.span, header: block.header, body: vec![], chain: None },

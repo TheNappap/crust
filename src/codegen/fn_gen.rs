@@ -15,7 +15,7 @@ use itertools::Itertools;
 
 use crate::error::{Result, ThrowablePosition};
 use crate::lexer::Literal;
-use crate::parser::{BinOpKind, Expression, ExpressionKind, Fn, OrderedMap, Pattern, Signature, TransformKind, Type, UnOpKind};
+use crate::parser::{BinOpKind, Expression, ExpressionKind, Symbol, Fn, OrderedMap, Pattern, Signature, TransformKind, Type, UnOpKind};
 
 use super::comp_kind::CompKind;
 use super::gen_type::GenType;
@@ -134,11 +134,11 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::Forward(expr) => {
                 self.create_return(returned, expr)?
             }
-            ExpressionKind::Let(id, expr, ty) => {
-                self.create_local_variable(id.clone(), expr, &GenType::from_type(ty, self.ctx.module)?)?
+            ExpressionKind::Let(symbol, expr) => {
+                self.create_local_variable(symbol.name.clone(), expr, &GenType::from_type(&symbol.ty, self.ctx.module)?)?
             }
-            ExpressionKind::Mut(id, field, expr) => {
-                self.create_variable_mutation(id, field.clone(), expr)?
+            ExpressionKind::Mut(symbol, field, expr) => {
+                self.create_variable_mutation(&symbol.name, field.clone(), expr)?
             }
             ExpressionKind::If(condition, if_body, else_body) => {
                 self.create_if(condition, if_body, else_body)?
@@ -146,8 +146,8 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::While(condition, while_body) => {
                 self.create_while(condition, while_body)?
             }
-            ExpressionKind::For(iter, var_name, var_type, for_body) => {
-                self.create_for(iter, var_name.clone(), &GenType::from_type(var_type, self.ctx.module)?, for_body)?
+            ExpressionKind::For(iter, var_symbol, for_body) => {
+                self.create_for(iter, var_symbol.name.clone(), &GenType::from_type(&var_symbol.ty, self.ctx.module)?, for_body)?
             }
             ExpressionKind::Iter(iter, _, _) => {
                 self.create_expression(iter, returned)?
@@ -171,17 +171,18 @@ impl<'codegen> FunctionCodegen<'codegen> {
                         .try_collect()?;
                 self.create_pointer_to_stack_slot(&values)?
             }
-            ExpressionKind::Symbol(name, ty) => {
-                self.create_symbol_expr(name, ty, 0)?
+            ExpressionKind::Symbol(symbol) => {
+                self.create_symbol_expr(symbol, 0)?
             }
-            ExpressionKind::Field(expr, _, ty, offset) => {
-                if let ExpressionKind::Symbol(name, _) = &expr.kind {
-                    self.create_symbol_expr(&name, ty, *offset)?
+            ExpressionKind::Field(expr, field_symbol, offset) => {
+                let parent_symbol = if let ExpressionKind::Symbol(symbol) = &expr.kind {
+                    Symbol{name: symbol.name.clone(), ty: field_symbol.ty.clone()}
                 } else {
                     let name = "__field_temp_".to_string() + &self.ctx.var_counter.next().to_string();
-                    self.create_local_variable(name.clone(), expr, &GenType::from_type(ty, self.ctx.module)?)?;
-                    self.create_symbol_expr(&name, ty, *offset)?
-                }
+                    self.create_local_variable(name.clone(), expr, &GenType::from_type(&field_symbol.ty, self.ctx.module)?)?;
+                    Symbol{name, ty: field_symbol.ty.clone()}
+                };
+                self.create_symbol_expr(&parent_symbol, *offset)?
             }
             ExpressionKind::BinOp(kind, param1, param2, ty) => {
                 match kind {
@@ -315,7 +316,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_variable_mutation(
         &mut self,
         name: &str,
-        field: Option<(String, i32)>,
+        field: Option<(Symbol, i32)>,
         expr: &Expression
     ) -> Result<Vec<Value>> {
         let values = self.create_expression(expr, &mut false)?;
@@ -431,7 +432,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
         let index = self.create_expression(index, &mut false)?[0];
 
         let ss = match &collection.kind {
-            ExpressionKind::Symbol(name, _) => *self.ctx.variables.get(name).unwrap(),
+            ExpressionKind::Symbol(symbol) => *self.ctx.variables.get(&symbol.name).unwrap(),
             _ => {
                 let values = self.create_expression(collection, &mut false)?;
                 let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size()*coll_length, 0));
@@ -465,7 +466,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
         if *len == 0 { return Ok(vec![]); }
 
         let ss = match &coll.kind {
-            ExpressionKind::Symbol(name, _) => *self.ctx.variables.get(name).unwrap(),
+            ExpressionKind::Symbol(symbol) => *self.ctx.variables.get(&symbol.name).unwrap(),
             ExpressionKind::Array(_) | ExpressionKind::Range(_, _) => {
                 let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()**len, 0));
                 let values = self.create_expression(coll, &mut false)?;
@@ -708,10 +709,10 @@ impl<'codegen> FunctionCodegen<'codegen> {
             .collect()
     }
 
-    fn create_symbol_expr(&mut self, name: &String, ty: &Type, field_offset: i32) -> Result<Vec<Value>> {
+    fn create_symbol_expr(&mut self, symbol: &Symbol, field_offset: i32) -> Result<Vec<Value>> {
         assert!(field_offset >= 0);
-        let ss = *self.ctx.variables.get(name).unwrap();
-        let ty = GenType::from_type(ty, self.ctx.module)?;
+        let ss = *self.ctx.variables.get(&symbol.name).unwrap();
+        let ty = GenType::from_type(&symbol.ty, self.ctx.module)?;
         let values = ty.types().into_iter().zip(ty.offsets()).map(|(ty, offset)|{
             self.stack_load(*ty, ss, offset + field_offset)
         }).collect();
