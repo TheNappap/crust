@@ -27,6 +27,16 @@ impl Block {
     }
 }
 
+trait Peeking : PeekingNext {
+    fn peek(&mut self) -> Option<&<Self as Iterator>::Item>;
+}
+
+impl<I: Iterator> Peeking for Peekable<I> {
+    fn peek(&mut self) -> Option<&I::Item> {
+        self.peek()
+    }
+}
+
 enum TokenStream2<'str> {
     Stream(TokenStream<'str>),
     Vec(Peekable<IntoIter<Result<Token>>>),
@@ -54,7 +64,7 @@ impl<'str> PeekingNext for TokenStream2<'str> {
     }
 }
 
-impl<'str> TokenStream2<'str> {
+impl<'str> Peeking for TokenStream2<'str> {
     fn peek(&mut self) -> Option<&Result<Token>> {
         match self {
             TokenStream2::Stream(stream) => stream.peek(),
@@ -73,7 +83,7 @@ impl<'str> Iterator for BlockStream<'str> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.peeked.take() {
             next @ Some(_) => next,
-            None => self.take_block(),
+            None => BlockStream::take_block(&mut self.stream),
         }
     }
 }
@@ -117,16 +127,16 @@ impl<'str> BlockStream<'str> {
         self.peeked.as_ref()
     }
 
-    fn take_block(&mut self) -> Option<Result<Block>> {
+    fn take_block<S>(stream: &mut S) -> Option<Result<Block>> where S: Peeking<Item=Result<Token>> {
         loop {
-            let token = match self.stream.next()? {
+            let token = match stream.next()? {
                 Ok(token) => token,
                 Err(e) => break Some(Err(e)),
             };
 
             break match token.kind {
                 TokenKind::NewLine | TokenKind::Operator(Operator::Arrow2) => continue,
-                TokenKind::Ident(id) => Some(self.collect_block(id.to_owned(), token.span)),
+                TokenKind::Ident(id) => Some(BlockStream::collect_block(stream, id.to_owned(), token.span)),
                 TokenKind::Literal(_) => Some(Ok(Block::anonymous_block(vec![token]))),
                 TokenKind::Group(Delimeter::Braces, _) => Some(Ok(Block::anonymous_block(vec![token]))),
                 token_kind => Some(token.span.syntax(
@@ -136,13 +146,18 @@ impl<'str> BlockStream<'str> {
         }
     }
 
-    fn collect_block(&mut self, tag: String, tag_span: Span) -> Result<Block> {
-        if let Some(Ok(Token{kind: TokenKind::Operator(Operator::Not), ..})) = self.stream.peek() {
-            self.stream.next();
+    fn collect_block<S>(stream: &mut S, tag: String, tag_span: Span) -> Result<Block> where S: Peeking<Item=Result<Token>> {
+        if let Some(Ok(Token{kind: TokenKind::Operator(Operator::Not), ..})) = stream.peek() {
+            stream.next();
         }
 
-        let (header, header_token) = self.collect_block_header()?;
-        let (body, chain) = self.collect_block_body_and_chain(header_token)?;
+        let (header, header_token) = BlockStream::collect_block_header(stream)?;
+        let (body, chain) = BlockStream::collect_body_and_chain(stream, header_token)?;
+        let chain = chain.map(|tokens| {
+            let mut peekable = tokens.into_iter().map(Result::Ok).peekable();
+            let block = BlockStream::take_block(&mut peekable)?;
+            Some(block.map(Box::new))
+        }).flatten().transpose()?;
         
         let span = match (&header[..], &body[..]) {
             ([..], [.., last]) => tag_span.union(&last.span),
@@ -152,9 +167,8 @@ impl<'str> BlockStream<'str> {
         Ok(Block { tag, span, header, body, chain })
     }
 
-    fn collect_block_header(&mut self) -> Result<(Vec<Token>, Option<Token>)> {
-        let tokens = self
-            .stream
+    fn collect_block_header<S>(stream: &mut S) -> Result<(Vec<Token>, Option<Token>)> where S: Peeking<Item=Result<Token>> {
+        let tokens = stream
             .peeking_take_while(|token| match token {
                 Ok(Token{kind, ..}) => !matches!(
                     kind,
@@ -170,16 +184,15 @@ impl<'str> BlockStream<'str> {
             })
             .try_collect()?;
 
-        if let Some(Ok(Token{kind:TokenKind::Operator(Operator::Colon | Operator::Eq), ..})) = self.stream.peek() {
-            Ok((tokens, self.stream.next().transpose()?))
+        if let Some(Ok(Token{kind:TokenKind::Operator(Operator::Colon | Operator::Eq), ..})) = stream.peek() {
+            Ok((tokens, stream.next().transpose()?))
         } else {
             Ok((tokens, None))
         }
     }
 
-    fn collect_block_body_and_chain(&mut self, header_token: Option<Token>) -> Result<(Vec<Token>, Option<Box<Block>>)> {
-        let tokens: Vec<Token> = self
-            .stream
+    fn collect_body_and_chain<S>(stream: &mut S, header_token: Option<Token>) -> Result<(Vec<Token>, Option<Vec<Token>>)> where S: Peeking<Item=Result<Token>> {
+        let tokens: Vec<Token> = stream
             .peeking_take_while(|token| match token {
                 Ok(Token{kind, ..}) => !matches!(
                     kind,
@@ -189,38 +202,46 @@ impl<'str> BlockStream<'str> {
             })
             .try_collect()?;
 
-        let next_token = match self.stream.next() {
+        let next_token = match stream.next() {
             None => return Ok((tokens, None)),
-            Some(Ok(token)) => token,
             Some(Err(e)) => return Err(e),
+            Some(Ok(token)) => token,
         };
 
-        let (tokens, chained_block) = match &next_token.kind {
-            TokenKind::Operator(Operator::Semicolon) => (tokens, None),
+        let tokens = match &next_token.kind {
+            TokenKind::Operator(Operator::Semicolon) => return Ok((tokens, None)),
             TokenKind::NewLine | TokenKind::Operator(Operator::Arrow2) => {
-                (tokens, self.take_block().transpose()?)
+                tokens
             }
             TokenKind::Group(Delimeter::Braces, group_tokens) => {
-                let tokens = if header_token.is_some() {
+                if header_token.is_some() {
                     let mut tokens = tokens;
                     tokens.push(next_token);
                     tokens
-                } else { group_tokens.clone() };
-
-                let chained = match self.stream.peek() {
-                    Some(Ok(Token{kind: TokenKind::NewLine, ..})) => None,
-                    Some(Ok(Token{kind: TokenKind::Operator(Operator::Arrow2), ..})) => {
-                        self.stream.next();
-                        self.take_block().transpose()?
-                    },
-                    _ => self.take_block().transpose()?,
-                };
-                (tokens, chained)
+                } else {
+                    assert!(tokens.is_empty());
+                    group_tokens.clone()
+                }
             }
             _ => return next_token.span.syntax("Unexpected end of block".to_owned()),
         };
 
-        Ok((tokens, chained_block.map(Box::new)))
+        match stream.peek() {
+            None | Some(Ok(Token{kind:TokenKind::NewLine, ..})) => return Ok((tokens, None)),
+            Some(Err(e)) => return Err(e.clone()),
+            Some(Ok(_)) => (),
+        };
+
+        let chained_tokens: Vec<_> = stream
+            .take_while_inclusive(|token| match token {
+                Ok(Token{kind:TokenKind::Operator(Operator::Semicolon), ..}) => false,
+                Ok(Token{kind:TokenKind::Group(Delimeter::Braces, _), ..}) => false,
+                Err(_) => false,
+                _ => true
+            })
+            .try_collect()?;
+
+        Ok((tokens, Some(chained_tokens)))
     }
 
 }
