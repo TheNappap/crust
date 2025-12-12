@@ -1,3 +1,6 @@
+
+use std::fmt;
+
 use crate::error::{Result, ThrowablePosition};
 
 use super::{no_comments::NoCommentsStream, span::Span};
@@ -73,7 +76,7 @@ pub enum Operator {
     Range,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
@@ -82,6 +85,12 @@ pub struct Token {
 impl Token {
     pub fn new(kind: TokenKind, span: Span) -> Self {
         Token { kind, span }
+    }
+}
+
+impl fmt::Debug for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Token({:#?}){{ {:?} }}", self.span.start(), self.kind)
     }
 }
 

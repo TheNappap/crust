@@ -14,7 +14,7 @@ impl BlockDefinition for Add {
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Add operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
@@ -38,7 +38,7 @@ impl BlockDefinition for Subtract {
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Subtract operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
@@ -62,7 +62,7 @@ impl BlockDefinition for Multiply {
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Multiply operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
@@ -85,7 +85,7 @@ impl BlockDefinition for Divide {
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Divide operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
@@ -108,7 +108,7 @@ impl BlockDefinition for Equals {
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Equals operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
@@ -131,7 +131,7 @@ impl BlockDefinition for NotEquals {
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let token_list = parser.parse_list(header);
         if token_list.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "NotEquals operator expects exactly 2 operands".to_string()));
         }
 
         let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));

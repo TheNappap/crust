@@ -1,7 +1,9 @@
+use std::fmt;
+
 use crate::error::{ThrowablePosition, ErrorKind, Error};
 
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Position {
     row: u32,
     col: u32,
@@ -35,13 +37,19 @@ impl Position {
     }
 }
 
+impl fmt::Debug for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.row, self.col)
+    }
+}
+
 impl ThrowablePosition for Position {
     fn error(&self, kind: ErrorKind, message: String) -> Error {
         Error::new(kind, message, self.clone())
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct Span {
     start: Position,
     end: Position,
@@ -58,12 +66,18 @@ impl Span {
         Span { start, end }
     }
 
-    pub fn _start(&self) -> Position {
+    pub fn start(&self) -> Position {
         self.start.clone()
     }
 
     pub fn end(&self) -> Position {
         self.end.clone()
+    }
+}
+
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}->{:?}", self.start, self.end)
     }
 }
 

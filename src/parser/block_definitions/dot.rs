@@ -17,7 +17,7 @@ impl BlockDefinition for Dot {
         assert!(body.len() == 0);
         let token_list = parser.parse_list(header.clone());
         if token_list.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Binary operator expects exactly 2 operands".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Dot operator expects exactly 2 operands".to_string()));
         }
 
         match token_list[1][..].iter().map(|t|&t.kind).collect_vec().as_slice() {
