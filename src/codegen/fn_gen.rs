@@ -101,9 +101,9 @@ impl<'codegen> FunctionCodegen<'codegen> {
 
         let mut offset = 0;
         for (name, ty) in fun.params() {
-            let ty = GenType::from_type(ty, self.ctx.module)?;
-            let new_offset = offset + ty.offsets().len();
-            self.create_parameter(name.clone(), offset..new_offset, &ty, block)?;
+            let new_offset = offset + GenType::from_type(ty, self.ctx.module)?.offsets().len();
+            let symbol = Symbol{name: name.clone(), ty: ty.clone() };
+            self.create_parameter(&symbol, offset..new_offset, block)?;
             offset = new_offset;
         }
 
@@ -135,7 +135,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
                 self.create_return(returned, expr)?
             }
             ExpressionKind::Let(symbol, expr) => {
-                self.create_local_variable(symbol.name.clone(), expr, &GenType::from_type(&symbol.ty, self.ctx.module)?)?
+                self.create_local_variable(symbol, expr)?
             }
             ExpressionKind::Mut(symbol, field, expr) => {
                 self.create_variable_mutation(&symbol.name, field.clone(), expr)?
@@ -146,8 +146,8 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::While(condition, while_body) => {
                 self.create_while(condition, while_body)?
             }
-            ExpressionKind::For(iter, var_symbol, for_body) => {
-                self.create_for(iter, var_symbol.name.clone(), &GenType::from_type(&var_symbol.ty, self.ctx.module)?, for_body)?
+            ExpressionKind::Fold(iter, var_symbol, accumulator, for_body) => {
+                self.create_fold(iter, var_symbol, for_body, accumulator)?
             }
             ExpressionKind::Iter(iter, _, _) => {
                 self.create_expression(iter, returned)?
@@ -179,8 +179,9 @@ impl<'codegen> FunctionCodegen<'codegen> {
                     Symbol{name: symbol.name.clone(), ty: field_symbol.ty.clone()}
                 } else {
                     let name = "__field_temp_".to_string() + &self.ctx.var_counter.next().to_string();
-                    self.create_local_variable(name.clone(), expr, &GenType::from_type(&field_symbol.ty, self.ctx.module)?)?;
-                    Symbol{name, ty: field_symbol.ty.clone()}
+                    let symbol = Symbol{name, ty: field_symbol.ty.clone()};
+                    self.create_local_variable(&symbol, expr)?;
+                    symbol
                 };
                 self.create_symbol_expr(&parent_symbol, *offset)?
             }
@@ -280,36 +281,34 @@ impl<'codegen> FunctionCodegen<'codegen> {
 
     fn create_parameter(
         &mut self,
-        name: String,
+        symbol: &Symbol,
         param_range: Range<usize>,
-        ty: &GenType,
         block: Block,
     ) -> Result<Vec<Value>> {
         let values = self.builder.block_params(block)[param_range].to_vec();
-        self.create_variable(name, values, ty)
+        self.create_variable(symbol, values)
     }
     
     fn create_local_variable(
         &mut self,
-        name: String,
+        symbol: &Symbol,
         expr: &Expression,
-        ty: &GenType
     ) -> Result<Vec<Value>> {
         let value = self.create_expression(expr, &mut false)?;
-        self.create_variable(name, value, ty)
+        self.create_variable(symbol, value)
     }
 
     fn create_variable(
         &mut self,
-        name: String,
+        symbol: &Symbol,
         values: Vec<Value>,
-        ty: &GenType
     ) -> Result<Vec<Value>> {
+        let ty = &GenType::from_type(&symbol.ty, self.ctx.module)?;
         let stack_slot = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size(), 0));
         for (i, &value) in values.iter().enumerate() {
             self.stack_store(value, stack_slot, 8*i as i32);
         }
-        self.ctx.variables.insert(name, stack_slot);
+        self.ctx.variables.insert(symbol.name.clone(), stack_slot);
         Ok(values)
     }
 
@@ -458,12 +457,14 @@ impl<'codegen> FunctionCodegen<'codegen> {
             .collect()
     }
 
-    fn create_for(&mut self, iter: &Expression, var_name: String, var_type: &GenType, for_body: &[Expression]) -> Result<Vec<Value>> {
+    fn create_fold(&mut self, iter: &Expression, var_symbol: &Symbol, for_body: &[Expression], accumulator: &Option<(Box<Expression>, Symbol)>) -> Result<Vec<Value>> {
         let ExpressionKind::Iter(coll, iter_transforms, len) = &iter.kind else {
             return iter.span.codegen("Expected iter".to_string())
         };
 
         if *len == 0 { return Ok(vec![]); }
+
+        let var_type = &GenType::from_type(&var_symbol.ty, self.ctx.module)?;
 
         let ss = match &coll.kind {
             ExpressionKind::Symbol(symbol) => *self.ctx.variables.get(&symbol.name).unwrap(),
@@ -475,7 +476,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
                 }
                 ss
             },
-            _ => return coll.span.codegen("Expected array or range in iter of for loop".to_string()),
+            _ => return coll.span.codegen("Expected array or range in iter of loop".to_string()),
         };
 
         let init_block = self.builder.create_block();
@@ -491,6 +492,11 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.builder.declare_var(iter_var, I64);
         let init_value = self.builder.ins().iconst(I64, 0);
         self.builder.def_var(iter_var, init_value);
+
+        if let Some((init, acc_symbol)) = accumulator {
+            self.create_local_variable(acc_symbol, init)?;
+        }
+        
         self.builder.ins().jump(check_block, &[]);
 
         //add block
@@ -521,7 +527,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
             },
             _ => self.create_indexed(ss, var_type, iter_var),
         };
-        let indexed_values = iter_transforms.into_iter()
+        let transformed_values = iter_transforms.into_iter()
             .fold(Ok(indexed_values), |values, transform|{
                 match transform.kind {
                     TransformKind::Map => self.create_fn_call(transform.fun.signature(), &values?),
@@ -541,10 +547,14 @@ impl<'codegen> FunctionCodegen<'codegen> {
                     },
                 }
             })?;
-        self.create_variable(var_name.clone(), indexed_values, var_type)?;
+        self.create_variable(var_symbol, transformed_values)?;
 
         for statement in for_body {
-            self.create_expression(statement, &mut false)?;
+            if let Some((_, acc_symbol)) = accumulator && let Expression{kind:ExpressionKind::Forward(forward), ..} = statement {
+                self.create_variable_mutation(&acc_symbol.name, None, &forward)?;
+            } else {
+                self.create_expression(statement, &mut false)?;
+            }
         }
         
         self.builder.ins().jump(add_block, &[]);
@@ -556,7 +566,11 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.builder.seal_block(check_block);
         self.builder.seal_block(for_block);
         self.builder.seal_block(after_block);
-        Ok(vec![])
+        if let Some((_, acc_symbol)) = accumulator {
+            self.create_symbol_expr(acc_symbol, 0)
+        } else {
+            Ok(vec![])
+        }
     }
     
     fn stack_store(&mut self, value: Value, stack_slot: StackSlot, offset: i32) {

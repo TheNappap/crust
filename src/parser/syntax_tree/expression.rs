@@ -58,7 +58,7 @@ pub enum ExpressionKind {
     Mut(Symbol, Option<(Symbol, i32)>, Box<Expression>),
     If(Box<Expression>, Vec<Expression>, Option<Vec<Expression>>),
     While(Box<Expression>, Vec<Expression>),
-    For(Box<Expression>, Symbol, Vec<Expression>),
+    Fold(Box<Expression>, Symbol, Option<(Box<Expression>, Symbol)>, Vec<Expression>),
     Iter(Box<Expression>, Vec<IterTransform>, u32),
     Range(i64, i64),
     Group(Vec<Expression>),

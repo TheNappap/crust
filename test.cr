@@ -128,12 +128,15 @@ fn loops_and_arrays() {
         }
     }
 
-    iter 3..7 => map x: forward x+2
-                map y: forward y*2
-                filter z: forward z==14
-                for w {
+    let folded_range = iter (3..7)
+                map x: forward (x+2)
+                map y: forward (y*2)
+                filter z: forward (z==14)
+                fold 0, acc, w {
                     println "transformed range %i", w;
+                    forward (acc+w);
                 }
+    println "folded range %i", folded_range;
 
     println;
 }
@@ -143,6 +146,7 @@ fn basics() {
 
     fn f2(): println "one liner";
     
+    // TODO dot syntax for function calls
     call! f2();
 
     if true!: println "if one liner"

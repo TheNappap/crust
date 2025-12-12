@@ -50,6 +50,7 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<conditional::Else>();
     blockdefs.add::<loops::While>();
     blockdefs.add::<loops::For>();
+    blockdefs.add::<loops::Fold>();
     blockdefs.add::<group::Group>();
     blockdefs.add::<array::Array>();
     blockdefs.add::<array::Index>();

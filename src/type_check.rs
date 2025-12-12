@@ -271,7 +271,14 @@ impl<'f> TypeCheck<'f> {
                 }
                 Type::Void
             },
-            ExpressionKind::For(iter, var_symbol, for_body) => {
+            ExpressionKind::Fold(iter, var_symbol, accumulator, for_body) => {
+                if let Some(acc) = accumulator {
+                    let ty = self.check_expression(&mut acc.0)?;
+                    assert!(acc.1.ty == Type::Inferred);
+                    acc.1.ty = ty;
+                    self.variables.insert(acc.1.name.clone(), acc.1.ty.clone());
+                }
+
                 let ty = self.check_expression(iter)?;
                 if let Type::Iter(iter_ty) = ty {
                     if let Type::Array(arr_type, _) = *iter_ty {
@@ -302,7 +309,7 @@ impl<'f> TypeCheck<'f> {
                         return Err(expr.span.error(ErrorKind::Type, "Expected array or range as iterator".to_string()));
                     }
                 } else {
-                    return Err(expr.span.error(ErrorKind::Type, "Expected iter as input for for block".to_string()));
+                    return Err(expr.span.error(ErrorKind::Type, "Expected iter as input for loop block".to_string()));
                 }
             },
             ExpressionKind::Iter(input_expr, iter_transforms, len) => {
