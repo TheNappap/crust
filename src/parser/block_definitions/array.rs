@@ -1,8 +1,8 @@
+
 use itertools::Itertools;
 
-use crate::{error::{Result, ErrorKind, ThrowablePosition}, lexer::{Token, Delimeter, TokenKind, Span}, parser::{
-        syntax_tree::{Expression},
-        Parser, Type, ExpressionKind,
+use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{
+        ExpressionKind, Parser, Type, syntax_tree::Expression
     }};
 
 use super::BlockDefinition;
@@ -18,10 +18,7 @@ impl BlockDefinition for Array {
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         if let Some(TokenKind::Group(Delimeter::Brackets, tokens)) = header.first().map(|t|&t.kind) {
-            let list = parser.parse_list(tokens.clone())
-                .into_iter()
-                .map(|tokens|parser.parse_expression(tokens))
-                .try_collect()?;
+            let list = parser.iter_expression(tokens.clone()).try_collect()?;
             Ok(ExpressionKind::Array(list))
         } else {
             Err(span.error(ErrorKind::Syntax, "Expected array in brackets".to_string()))
@@ -48,10 +45,7 @@ impl BlockDefinition for Index {
 
         let first_token = header.pop().unwrap();
         if let TokenKind::Group(Delimeter::Brackets, tokens) = first_token.kind {
-            let index: Vec<_> = parser.parse_list(tokens.clone())
-                .into_iter()
-                .map(|tokens| parser.parse_expression(tokens))
-                .try_collect()?;
+            let index: Vec<_> = parser.iter_expression(tokens).try_collect()?;
             if index.len() != 1 {
                 return Err(first_token.span.error(ErrorKind::Syntax, "Expected exactly one index".to_string()));
             }

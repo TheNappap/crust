@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{lexer::{Span, Token, TokenKind}, parser::{Parser, ExpressionKind, Expression, syntax_tree::fn_expr}, error::{Result, ErrorKind, ThrowablePosition}};
+use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, syntax_tree::fn_expr}};
 
 use super::BlockDefinition;
 
@@ -20,8 +20,8 @@ impl BlockDefinition for Trait {
 
         let mut sigs = vec![];
         let mut fns = vec![];
-        for expr in parser.parse_group(body)? {
-            match expr.kind {
+        for expr in parser.iter_statement(body) {
+            match expr?.kind {
                 ExpressionKind::Fn(fun) => fns.push(fun),
                 ExpressionKind::Signature(sig) => sigs.push(sig),
                 _ => return Err(span.error(ErrorKind::Syntax, "Unexpected block in trait".to_string())),

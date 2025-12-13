@@ -1,7 +1,7 @@
 
 use itertools::Itertools;
 
-use crate::{lexer::{Token, Delimeter, Operator, Span, TokenKind}, parser::{Parser, Expression, block_definitions::call::Call, ExpressionKind}, error::{Result, ErrorKind, ThrowablePosition}};
+use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Delimeter, Operator, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, block_definitions::call::Call}};
 
 use super::{BlockDefinition, data::Field};
 
@@ -15,7 +15,7 @@ impl BlockDefinition for Dot {
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.len() == 0);
-        let token_list = parser.parse_list(header.clone());
+        let token_list = parser.split_list(header.clone()).collect_vec();
         if token_list.len() != 2 {
             return Err(span.error(ErrorKind::Syntax, "Dot operator expects exactly 2 operands".to_string()));
         }

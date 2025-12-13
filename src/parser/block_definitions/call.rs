@@ -1,11 +1,11 @@
+
 use itertools::Itertools;
 
 use crate::{
-    error::{Result, ThrowablePosition, ErrorKind},
-    lexer::{Delimeter, TokenKind, Span, Token},
+    error::{ErrorKind, Result, ThrowablePosition},
+    lexer::{Delimeter, Span, Token, TokenKind},
     parser::{
-        syntax_tree::{Expression},
-        Parser, Type, Signature, ExpressionKind
+        ExpressionKind, Parser, Signature, Type, syntax_tree::Expression
     },
 };
 
@@ -34,10 +34,7 @@ impl BlockDefinition for Call {
             _ => return Err(span.error(ErrorKind::Syntax, "Badly formed call expression".to_string())),
         };
 
-        let exprs = parser.parse_list(tokens.clone())
-            .into_iter()
-            .map(|tokens| parser.parse_expression(tokens))
-            .try_collect()?;
+        let exprs = parser.iter_expression(tokens.clone()).try_collect()?;
         Ok(ExpressionKind::Call(Signature::new(ty, &name, vec![], Type::Inferred), exprs))
     }
     

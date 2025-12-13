@@ -1,8 +1,9 @@
 
 
+
 use itertools::Itertools;
 
-use crate::{lexer::{Token, Span}, parser::{Parser, Expression, ExpressionKind}, error::{Result, ThrowablePosition, ErrorKind}};
+use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser}};
 
 use super::BlockDefinition;
 
@@ -17,7 +18,7 @@ impl BlockDefinition for While {
 
     fn parse(&self, _: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let condition = parser.parse_expression(header)?;
-        let body = parser.parse_group(body)?;
+        let body = parser.iter_statement(body).try_collect()?;
         Ok(ExpressionKind::While(Box::new(condition), body))
     }
     
@@ -43,7 +44,7 @@ impl BlockDefinition for For {
             ExpressionKind::Symbol(s) => s,
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for loop variable".to_string()))
         };
-        let body = parser.parse_group(body)?;
+        let body = parser.iter_statement(body).try_collect()?;
         Ok(ExpressionKind::Fold(Box::new(input), symbol, None, body))
     }
 }
@@ -61,21 +62,17 @@ impl BlockDefinition for Fold {
     }
     
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
-        let header: Vec<_> = parser.parse_list(header).into_iter()
-                                                    .map(|tokens|{
-                                                        parser.parse_expression(tokens)
-                                                    })
-                                                    .try_collect()?;
-        let init_expression = header[0].clone();
-        let acc_symbol = match &header[1].kind {
+        let mut header: Vec<_> = parser.iter_expression(header).try_collect()?;
+        let init_expression = header.remove(0);
+        let acc_symbol = match header.remove(0).kind {
             ExpressionKind::Symbol(s) => s.clone(),
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for accumulator variable".to_string()))
         };
-        let symbol = match &header[2].kind {
+        let symbol = match header.remove(0).kind {
             ExpressionKind::Symbol(s) => s.clone(),
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for loop variable".to_string()))
         };
-        let body = parser.parse_group(body)?;
+        let body = parser.iter_statement(body).try_collect()?;
         Ok(ExpressionKind::Fold(Box::new(input), symbol, Some((Box::new(init_expression), acc_symbol)), body))
     }
 }

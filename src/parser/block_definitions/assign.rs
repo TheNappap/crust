@@ -1,9 +1,9 @@
 
+
 use itertools::Itertools;
 
-use crate::{error::{Result, ErrorKind, ThrowablePosition}, lexer::{Token, Span}, parser::{
-        syntax_tree::{Expression},
-        Parser, ExpressionKind,
+use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{
+        ExpressionKind, Parser, syntax_tree::Expression
     }};
 
 use super::BlockDefinition;
@@ -44,9 +44,7 @@ impl BlockDefinition for Mut {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let operands: Vec<_> = parser.parse_list(header).into_iter()
-            .map(|tokens| parser.parse_expression(tokens) )
-            .try_collect()?;
+        let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
         let (id, field) = match &operands[0].kind {
             ExpressionKind::Symbol(s) => (s, None),
             ExpressionKind::Field(expr, field_symbol, offset) => 

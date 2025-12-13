@@ -1,4 +1,6 @@
-use crate::{lexer::{Token, Span}, parser::{Parser, Expression, Type, BinOpKind, ExpressionKind}, error::{Result, ThrowablePosition, ErrorKind}};
+use itertools::Itertools;
+
+use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{BinOpKind, Expression, ExpressionKind, Parser, Type}};
 
 use super::BlockDefinition;
 
@@ -12,13 +14,12 @@ impl BlockDefinition for Add {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let token_list = parser.parse_list(header);
-        if token_list.len() != 2 {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
             return Err(span.error(ErrorKind::Syntax, "Add operator expects exactly 2 operands".to_string()));
         }
 
-        let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(ExpressionKind::BinOp(BinOpKind::Add, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Add, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
@@ -36,13 +37,12 @@ impl BlockDefinition for Subtract {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let token_list = parser.parse_list(header);
-        if token_list.len() != 2 {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
             return Err(span.error(ErrorKind::Syntax, "Subtract operator expects exactly 2 operands".to_string()));
         }
 
-        let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(ExpressionKind::BinOp(BinOpKind::Sub, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Sub, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
@@ -60,13 +60,12 @@ impl BlockDefinition for Multiply {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let token_list = parser.parse_list(header);
-        if token_list.len() != 2 {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
             return Err(span.error(ErrorKind::Syntax, "Multiply operator expects exactly 2 operands".to_string()));
         }
 
-        let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(ExpressionKind::BinOp(BinOpKind::Mul, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Mul, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
@@ -83,13 +82,12 @@ impl BlockDefinition for Divide {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let token_list = parser.parse_list(header);
-        if token_list.len() != 2 {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
             return Err(span.error(ErrorKind::Syntax, "Divide operator expects exactly 2 operands".to_string()));
         }
 
-        let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(ExpressionKind::BinOp(BinOpKind::Div, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Div, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
@@ -106,13 +104,12 @@ impl BlockDefinition for Equals {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let token_list = parser.parse_list(header);
-        if token_list.len() != 2 {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
             return Err(span.error(ErrorKind::Syntax, "Equals operator expects exactly 2 operands".to_string()));
         }
 
-        let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(ExpressionKind::BinOp(BinOpKind::Eq, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Eq, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
@@ -129,13 +126,12 @@ impl BlockDefinition for NotEquals {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let token_list = parser.parse_list(header);
-        if token_list.len() != 2 {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
             return Err(span.error(ErrorKind::Syntax, "NotEquals operator expects exactly 2 operands".to_string()));
         }
 
-        let mut operands = token_list.into_iter().map(|tokens| parser.parse_expression(tokens));
-        Ok(ExpressionKind::BinOp(BinOpKind::Neq, Box::new(operands.next().unwrap()?), Box::new(operands.next().unwrap()?), Type::Inferred))
+        Ok(ExpressionKind::BinOp(BinOpKind::Neq, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {

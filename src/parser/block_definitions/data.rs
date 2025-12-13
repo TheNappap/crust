@@ -4,7 +4,7 @@ use crate::{
     error::{ErrorKind, Result, ThrowablePosition},
     lexer::{Operator, Span, Token, TokenKind},
     parser::{
-        syntax_tree::Expression, ExpressionKind, OrderedMap, Parser, Type
+        ExpressionKind, OrderedMap, Parser, Type, syntax_tree::Expression
     },
 };
 
@@ -24,9 +24,12 @@ impl BlockDefinition for Struct {
             return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string()));
         };
 
-        let types : OrderedMap<_,_> = parser.parse_list(body).into_iter()
-            .map(|tokens| parser.parse_parameter(tokens))
-            .try_collect()?;
+        let types : OrderedMap<_,_> = parser.iter_parameter(body)
+                                .map_ok(|(name, tokens)| -> Result<_> {
+                                    Ok((name, Type::from(tokens[0].clone())?))
+                                })
+                                .flatten()
+                                .try_collect()?;
 
         let offsets: Vec<i32> = types.values()
             .scan(0, |acc, t| {
@@ -64,7 +67,7 @@ impl BlockDefinition for Enum {
             return Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()));
         };
 
-        let variants = parser.parse_list(body).into_iter().enumerate()
+        let variants = parser.split_list(body).enumerate()
             .map(|(i, tokens)| match &tokens[0].kind {
                 TokenKind::Ident(variant) => Ok((variant.clone(), i)),
                 _ => return Err(span.error(ErrorKind::Syntax, "Unexpected token as enum variant".to_string())),
@@ -103,8 +106,9 @@ impl BlockDefinition for New {
             let span = Span::new(pos.clone(), pos);
             vec![Expression::new(data, span)]
         } else {
-            parser.parse_list(body).into_iter()
-                .map(|tokens| parser.parse_param_expression(tokens).map(|t|t.1))
+            parser.iter_parameter(body).into_iter()
+                .map_ok(|(_,t)| parser.parse_expression(t))
+                .flatten()
                 .try_collect()?
         };
 
@@ -127,14 +131,11 @@ impl BlockDefinition for Field {
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
-        let token_list = parser.parse_list(header);
-        if token_list.len() != 2 {
+        let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
             return Err(span.error(ErrorKind::Syntax, "Field expression needs exactly 2 operands".to_string()));
         }
 
-        let operands: Vec<_> = token_list.into_iter()
-            .map(|tokens| parser.parse_expression(tokens) )
-            .try_collect()?;
         let ExpressionKind::Symbol(field_symbol) = &operands[1].kind else {
             return Err(span.error(ErrorKind::Syntax, "Field expression expected symbol as field name".to_string()));
         };

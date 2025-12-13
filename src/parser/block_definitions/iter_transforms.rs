@@ -1,6 +1,8 @@
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use itertools::Itertools;
+
 use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{Expression, ExpressionKind, Fn, Parser, Signature, Type, syntax_tree::expression::{IterTransform, TransformKind}}};
 
 use super::BlockDefinition;
@@ -28,7 +30,7 @@ impl BlockDefinition for Map {
             ExpressionKind::Symbol(symbol) => symbol,
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for map variable".to_string()))
         };
-        let body = parser.parse_group(body)?;
+        let body = parser.iter_statement(body).try_collect()?;
         let id = TRANSFORM_FN_ID.load(Ordering::Relaxed);
         TRANSFORM_FN_ID.store(id+1, Ordering::Relaxed);
         let name = format!("__map_function{}", id);
@@ -67,7 +69,7 @@ impl BlockDefinition for Filter {
             ExpressionKind::Symbol(symbol) => symbol,
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for filter variable".to_string()))
         };
-        let body = parser.parse_group(body)?;
+        let body = parser.iter_statement(body).try_collect()?;
         let id = TRANSFORM_FN_ID.load(Ordering::Relaxed);
         TRANSFORM_FN_ID.store(id+1, Ordering::Relaxed);
         let name = format!("__filter_function{}", id);

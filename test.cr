@@ -122,13 +122,13 @@ fn loops_and_arrays() {
     println "array[2][1]: %i", arr[2][1];
 
     // TODO <, <=, >, >= operators
-    iter 0..3 => for i: if i == 1 {
+    iter(0..3) => for i: if i == 1 {
         iter arr => for i {
             println "iter array %i %i", i;
         }
     }
 
-    let folded_range = iter (3..7)
+    let folded_range = iter(3..7)
                 map x: forward (x+2)
                 map y: forward (y*2)
                 filter z: forward (z==14)

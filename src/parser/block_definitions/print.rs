@@ -1,11 +1,11 @@
+
 use itertools::Itertools;
 
 use crate::{
-    error::{Result, ErrorKind, ThrowablePosition},
-    lexer::{Literal, Token, Span},
+    error::{ErrorKind, Result, ThrowablePosition},
+    lexer::{Literal, Span, Token},
     parser::{
-        syntax_tree::{Expression},
-        Parser, Signature, BinOpKind, Type, ExpressionKind
+        BinOpKind, ExpressionKind, Parser, Signature, Type, syntax_tree::Expression
     },
 };
 
@@ -49,10 +49,7 @@ impl BlockDefinition for PrintLn {
 
 fn parse_print(span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser, add: Option<String>) -> Result<ExpressionKind> {
     assert!(body.is_empty());
-    let params: Vec<_> = parser.parse_list(header)
-                                    .into_iter()
-                                    .map(|tokens| parser.parse_expression(tokens))
-                                    .try_collect()?;
+    let params: Vec<_> = parser.iter_expression(header).try_collect()?;
     
     let string_expr = if params.is_empty() { Expression::new(ExpressionKind::Literal(Literal::String("".into())), span.clone()) }
                                   else { params[0].clone() };

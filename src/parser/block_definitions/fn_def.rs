@@ -1,9 +1,9 @@
-use itertools::{process_results, Itertools};
+use itertools::Itertools;
 
 use crate::{
-    error::{Result, ErrorKind, ThrowablePosition},
-    lexer::{Delimeter, Token, Operator, Span, TokenKind},
-    parser::{Expression, Fn, Parser, Type, syntax_tree::fn_expr::Signature, ExpressionKind},
+    error::{ErrorKind, Result, ThrowablePosition},
+    lexer::{Delimeter, Operator, Span, Token, TokenKind},
+    parser::{Expression, ExpressionKind, Fn, Parser, Type, syntax_tree::fn_expr::Signature},
 };
 
 use super::BlockDefinition;
@@ -26,14 +26,22 @@ impl BlockDefinition for FnDef {
             }
         };
 
-        let params = match tokens.next().map(|t|t.kind.clone()) {
-            Some(TokenKind::Group(Delimeter::Parens, params)) => parser.parse_list(params.clone()),
+        let (param_names, param_types) : (Vec<String>, Vec<Type>) = match tokens.next().map(|t|t.kind.clone()) {
+            Some(TokenKind::Group(Delimeter::Parens, params)) => {
+                parser.iter_parameter(params.clone())
+                    .map_ok(|(name, tokens)| -> Result<_> {
+                        if name == "self" && tokens.len() == 0 {
+                            Ok((name, Type::Inferred))
+                        } else {
+                            assert!(tokens.len() == 1);
+                            Ok((name, Type::from(tokens[0].clone())?))
+                        }
+                    })
+                    .flatten()
+                    .process_results(|iter| iter.unzip())?
+            }
             _ => return Err(span.error(ErrorKind::Syntax, "Expected parameters in parens".to_string())),
-        }
-        .into_iter()
-        .map(|tokens| parser.parse_parameter(tokens));
-        
-        let (param_names, param_types) : (Vec<String>, Vec<Type>) = process_results(params, |iter| iter.unzip())?;
+        };
 
         let returns = match (tokens.next().map(|t|t.kind.clone()), tokens.next()) {
             (None, None) => Type::Void,
@@ -51,7 +59,7 @@ impl BlockDefinition for FnDef {
         if body.is_empty() {
             Ok(ExpressionKind::Signature(signature))
         } else {
-            let body = parser.parse_group(body)?;
+            let body = parser.iter_statement(body).try_collect()?;
             let fun = Fn::new(signature, param_names, body);
             Ok(ExpressionKind::Fn(fun))
         }
@@ -80,14 +88,15 @@ impl BlockDefinition for Impl {
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name or trait".to_string())),
         };
 
-        let fns = parser.parse_group(body)?.into_iter()
-            .map(|exp| 
+        let fns = parser.iter_statement(body)
+            .map_ok(|exp| 
                 if let ExpressionKind::Fn(mut fun) = exp.kind.clone() {
                     fun.set_self_type(&type_name);
                     Ok(fun) 
                 }
                 else { return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string())); } 
             )
+            .flatten()
             .try_collect()?;
         Ok(ExpressionKind::Impl(type_name.to_owned(), fns, trait_name))
     }

@@ -1,6 +1,8 @@
 
 
-use crate::{lexer::{Token, Span}, parser::{Parser, Expression, ExpressionKind}, error::{Result, ErrorKind, ThrowablePosition}};
+use itertools::Itertools;
+
+use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser}};
 
 use super::BlockDefinition;
 
@@ -15,7 +17,7 @@ impl BlockDefinition for Group {
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.is_empty());
-        let exprs = parser.parse_group(body)?;
+        let exprs = parser.iter_statement(body).try_collect()?;
         Ok(ExpressionKind::Group(exprs))
     }
     

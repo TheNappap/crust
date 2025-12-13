@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{lexer::{Token, Operator, Span, TokenKind}, parser::{Parser, Expression, syntax_tree::patterns::Pattern, Type, ExpressionKind}, error::{Result, ThrowablePosition, ErrorKind}};
+use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Operator, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, Type, syntax_tree::patterns::Pattern}};
 
 use super::BlockDefinition;
 
@@ -15,12 +15,12 @@ impl BlockDefinition for Match {
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let match_value = parser.parse_expression(header)?;
-        let cases = parser.parse_group(body)?
-            .into_iter()
-            .map(|expr| match expr.kind {
+        let cases = parser.iter_statement(body)
+            .map_ok(|expr| match expr.kind {
                 ExpressionKind::Case(pattern, exprs) => Ok((pattern.clone(), exprs.clone())),
                 _ => Err(span.error(ErrorKind::Syntax, "Expected case expression in match expression".to_string()))
             })
+            .flatten()
             .try_collect()?;
 
         Ok(ExpressionKind::Match(Box::new(match_value), Type::Inferred, cases))
@@ -47,7 +47,7 @@ impl BlockDefinition for Case {
             _ => return Err(span.error(ErrorKind::Syntax, "Failed to parse pattern in match expression".to_string())),
         };
 
-        let exprs = parser.parse_group(body)?;
+        let exprs = parser.iter_statement(body).try_collect()?;
         Ok(ExpressionKind::Case(pattern, exprs))
     }
     

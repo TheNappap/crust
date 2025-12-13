@@ -2,7 +2,6 @@ mod blocks;
 mod block_definitions;
 mod syntax_tree;
 mod parse_ops;
-mod parse_list;
 
 
 pub use crate::error::Result;
@@ -152,46 +151,32 @@ impl Parser {
         }
     }
 
-    fn parse_list(&self, tokens: Vec<Token>) -> Vec<Vec<Token>> {
-        parse_list::parse_list(tokens)
+    fn iter_expression(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
+        self.split_list(tokens).map(|tokens| self.parse_expression(tokens))
     }
 
-    fn parse_group(&self, tokens: Vec<Token>) -> Result<Vec<Expression>> {
+    fn iter_statement(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
         BlockStream::new(tokens)
-            .map(|b|self.parse_block_expression(b?))
-            .try_collect()
+                .map(|b|self.parse_block_expression(b?))
     }
     
-    fn parse_param(&self, tokens: Vec<Token>) -> Result<(String, Vec<Token>)> {
+    fn parse_parameter(&self, mut tokens: Vec<Token>) -> Result<(String, Vec<Token>)> {
         assert!(tokens.len() > 0);
-        let mut tokens = tokens.into_iter();
-        let name = match tokens.next() {
-            Some(Token{kind: TokenKind::Ident(name), ..}) => name,
-            Some(token) => return token.span.syntax("Expected an identifier as parameter name".to_string()),
-            None => unreachable!(),
+        let name = match tokens.remove(0) {
+            Token{kind: TokenKind::Ident(name), ..} => name,
+            token => return token.span.syntax("Expected an identifier as parameter name".to_string()),
         };
 
-        match tokens.next() {  
-            Some(Token{kind: TokenKind::Operator(Operator::Colon), span: _}) => Ok((name, tokens.collect())),
-            Some(Token{kind: _, span}) => return span.syntax("Expected an ':'".to_string()),
-            _ => Ok((name, tokens.collect())),
+        if tokens.is_empty() {
+            Ok((name, vec![]))
+        } else {
+            tokens.remove(0);
+            Ok((name, tokens))
         }
     }
 
-    fn parse_parameter(&self, tokens: Vec<Token>) -> Result<(String, Type)> {
-        assert!(tokens.len() > 0);
-        match &tokens[0].kind {
-            TokenKind::Ident(name) if name == "self" => {
-                assert!(tokens.len() == 1);
-                return Ok((name.to_owned(), Type::Inferred));
-            }
-            _ => ()
-        }
-        self.parse_param(tokens).and_then(|(s,t)| Ok((s, Type::from(t[0].clone())?)))
-    }
-    
-    fn parse_param_expression(&self, tokens: Vec<Token>) -> Result<(String, Expression)> {
-        self.parse_param(tokens).and_then(|(s,t)| Ok((s, self.parse_expression(t)?)))
+    fn iter_parameter(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<(String, Vec<Token>)>> {
+        self.split_list(tokens).map(|tokens| self.parse_parameter(tokens) )
     }
 
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {
@@ -231,6 +216,21 @@ impl Parser {
             Some(chain) => self.parse_chained_block_expression(*chain, expr?),
             None => expr,
         }
+    }
+
+    fn split_list(&self, tokens: Vec<Token>) -> impl Iterator<Item=Vec<Token>> {
+        let tokens = if let Some(Token{kind: TokenKind::Group(Delimeter::Parens, tokens), ..}) = tokens.first() && tokens.len() == 1 {
+                                    tokens.clone()
+                                } else { tokens };
+
+        let mut tokens = tokens.into_iter().filter(|t| !matches!(t.kind, TokenKind::NewLine));
+        (0..).map(move |_| {
+                (&mut tokens).take_while(|token| { 
+                        !matches!(token.kind, TokenKind::Operator(Operator::Comma))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .take_while(|v| !v.is_empty())
     }
 }
 
