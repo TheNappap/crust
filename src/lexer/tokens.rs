@@ -234,6 +234,15 @@ impl<'str> TokenStream<'str> {
                     break self.stream.cur_pos().lexer(r#"Expected end delimeter"#.into())
                 }
                 Some(Token{ kind: TokenKind::Symbol(c), span: end_span }) if c == delimeter.end_char() => {
+                    let mut tokens = tokens.into_iter().peekable();
+                    tokens.peeking_take_while(|token|{
+                        matches!(token, Token { kind:TokenKind::NewLine, .. })
+                    }).for_each(drop);
+                    let mut tokens: Vec<_> = tokens.collect();
+                    while let Some(Token{kind, ..}) = tokens.last() && matches!(kind, TokenKind::NewLine) {
+                        tokens.pop();
+                    }
+                    
                     break Ok(Token{ kind: TokenKind::Group(delimeter, tokens), span: start_span.union(&end_span)})
                 }
                 Some(Token{ kind: TokenKind::Symbol(c), span }) if is_end_delimeter(c) => {
@@ -421,7 +430,6 @@ mod tests {
                 Token{ kind: Group(
                     Braces,
                     vec![
-                        Token{ kind: NewLine, span: Span::new(Position::new(1, 34),Position::new(2, 0)) },
                         Token{ kind: Ident("let".into()), span: Span::new(Position::new(2, 0),Position::new(2, 6)) },
                         Token{ kind: Ident("strings".into()), span: Span::new(Position::new(2, 6),Position::new(2, 14)) },
                         Token{ kind: Operator(Eq), span: Span::new(Position::new(2, 14),Position::new(2, 16)) },
@@ -431,7 +439,6 @@ mod tests {
                             Token{ kind: Literal(String("A String".into())), span: Span::new(Position::new(2, 22),Position::new(2, 32)) }
                         ]), span: Span::new(Position::new(2, 21),Position::new(2, 33)) },
                         Token{ kind: Operator(Semicolon), span: Span::new(Position::new(2, 33),Position::new(2, 34)) },
-                        Token{ kind: NewLine, span: Span::new(Position::new(2, 34),Position::new(3, 0)) },
                     ]
                 ), span: Span::new(Position::new(1, 32),Position::new(3, 3)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(3, 3),Position::new(4, 0)) },
@@ -471,7 +478,6 @@ mod tests {
                 Token{ kind: Group(
                     Braces,
                     vec![
-                        Token{ kind: NewLine, span: Span::new(Position::new(4, 4),Position::new(5, 0)) },
                         Token{ kind: Literal(Int(2)), span: Span::new(Position::new(5, 0),Position::new(5, 4)) },
                         Token{ kind: Operator(Star), span: Span::new(Position::new(5, 4),Position::new(5, 5)) },
                         Token{ kind: Literal(Int(2)), span: Span::new(Position::new(5, 5),Position::new(5, 6)) },
@@ -481,7 +487,6 @@ mod tests {
                         Token{ kind: Group(
                             Braces,
                             vec![
-                                Token{ kind: NewLine, span: Span::new(Position::new(6, 10),Position::new(7, 0)) },
                                 Token{ kind: Ident("let".into()), span: Span::new(Position::new(7, 0),Position::new(7, 7)) },
                                 Token{ kind: Ident("x".into()), span: Span::new(Position::new(7, 7),Position::new(7, 9)) },
                                 Token{ kind: Operator(Eq), span: Span::new(Position::new(7, 9),Position::new(7, 11)) },
@@ -489,14 +494,12 @@ mod tests {
                                 Token{ kind: Operator(Plus), span: Span::new(Position::new(7, 14),Position::new(7, 16)) },
                                 Token{ kind: Literal(Float(5.6)), span: Span::new(Position::new(7, 16),Position::new(7, 22)) },
                                 Token{ kind: Operator(Semicolon), span: Span::new(Position::new(7, 22),Position::new(7, 23)) },
-                                Token{ kind: NewLine, span: Span::new(Position::new(7, 23),Position::new(8, 0)) },
                             ]
                         ), span: Span::new(Position::new(6, 8),Position::new(8, 4)) },
                         Token{ kind: NewLine, span: Span::new(Position::new(8, 4),Position::new(9, 0)) },
                         Token{ kind: Ident("function_call".into()), span: Span::new(Position::new(9, 0),Position::new(9, 16)) },
                         Token{ kind: Group(Parens, vec![]), span: Span::new(Position::new(9, 16),Position::new(9, 18)) },
                         Token{ kind: Operator(Semicolon), span: Span::new(Position::new(9, 18),Position::new(9, 19)) },
-                        Token{ kind: NewLine, span: Span::new(Position::new(9, 19),Position::new(10, 0)) },
                     ]
                 ), span: Span::new(Position::new(4, 0),Position::new(10, 4)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(10, 4),Position::new(11, 0)) },

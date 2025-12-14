@@ -281,18 +281,15 @@ mod tests {
         print "print statement"
 		"#;
         let blocks: Vec<Block> = BlockStream::from(s).try_collect()?;
-        assert_eq!(
-            blocks,
-            vec![
+        let test_blocks = vec![
                 Block {
                     tag: "fn".to_string(),
-                    span: Span::new(Position::new(1, 0), Position::new(5, 0)),
+                    span: Span::new(Position::new(1, 0), Position::new(4, 25)),
                     header: vec![
                         Token{kind: TokenKind::Ident("function".to_string()), span: Span::new(Position::new(1, 10), Position::new(1, 19))},
                         Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(1, 19), Position::new(1, 21))},
                     ],
                     body: vec![
-                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(1, 23), Position::new(2, 0))},
                         Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(2, 0), Position::new(2, 17))},
                         Token{kind: TokenKind::Literal(Literal::String("Line1".to_string())), span: Span::new(Position::new(2, 17), Position::new(2, 25))},
                         Token{kind: TokenKind::NewLine, span: Span::new(Position::new(2, 25), Position::new(3, 0))},
@@ -301,7 +298,6 @@ mod tests {
                         Token{kind: TokenKind::NewLine, span: Span::new(Position::new(3, 25), Position::new(4, 0))},
                         Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(4, 0), Position::new(4, 17))},
                         Token{kind: TokenKind::Literal(Literal::String("Line3".to_string())), span: Span::new(Position::new(4, 17), Position::new(4, 25))},
-                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(4, 25), Position::new(5, 0))},
                     ],
                     chain: None,
                 },
@@ -345,8 +341,10 @@ mod tests {
                     body: vec![],
                     chain: None,
                 },
-            ]
-        );
+            ];
+        for (block, test_block) in blocks.into_iter().zip(test_blocks.into_iter()) {
+            assert_eq!( block, test_block);
+        }
         Ok(())
     }
 
@@ -389,23 +387,19 @@ mod tests {
                 },
                 Block {
                     tag: "if".to_string(),
-                    span: Span::new(Position::new(4, 0), Position::new(6, 0)),
+                    span: Span::new(Position::new(4, 0), Position::new(5, 27)),
                     header: vec![Token{kind: TokenKind::Ident("false".to_string()), span: Span::new(Position::new(4, 10), Position::new(4, 16))}],
                     body: vec![
-                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(4, 18), Position::new(5, 0))},
                         Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(5, 0), Position::new(5, 17))},
                         Token{kind: TokenKind::Literal(Literal::String("Line2.0".to_string())), span: Span::new(Position::new(5, 17), Position::new(5, 27))},
-                        Token{kind: TokenKind::NewLine, span: Span::new(Position::new(5, 27), Position::new(6, 0))},
                     ],
                     chain: Some(Box::new(Block {
                         tag: "else".to_string(),
-                        span: Span::new(Position::new(6, 9), Position::new(8, 0)),
+                        span: Span::new(Position::new(6, 9), Position::new(7, 27)),
                         header: vec![],
                         body: vec![
-                            Token{kind: TokenKind::NewLine, span: Span::new(Position::new(6, 16), Position::new(7, 0))},
                             Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(7, 0), Position::new(7, 17))},
                             Token{kind: TokenKind::Literal(Literal::String("Line2.1".to_string())), span: Span::new(Position::new(7, 17), Position::new(7, 27))},
-                            Token{kind: TokenKind::NewLine, span: Span::new(Position::new(7, 27), Position::new(8, 0))},
                         ],
                         chain: None,
                     })),

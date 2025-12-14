@@ -285,7 +285,7 @@ mod tests {
                             print_call("Line2".to_string(), Span::new(Position::new(4, 0), Position::new(4, 18)), Position::new(4, 10)),
                             print_call("Line3".to_string(), Span::new(Position::new(5, 0), Position::new(5, 18)), Position::new(5, 10)),
                         ],
-                    )), Span::new(Position::new(2, 0), Position::new(6, 0))),
+                    )), Span::new(Position::new(2, 0), Position::new(5, 19))),
                     Expression::new(ExpressionKind::Fn(Fn::new(
                         Signature::new(None, "f2", vec![], Type::Void),
                         vec![],
