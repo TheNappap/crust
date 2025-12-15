@@ -1,5 +1,5 @@
 use crate::{
-    error::{Result, ErrorKind, ThrowablePosition},
+    utils::{Result, ErrorKind, ThrowablePosition},
     lexer::{Token, Delimeter, Span, TokenKind},
     parser::{
         syntax_tree::{Expression},

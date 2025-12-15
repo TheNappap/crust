@@ -13,7 +13,7 @@ use cranelift_module::{DataDescription, Linkage, Module};
 use cranelift_object::ObjectModule;
 use itertools::Itertools;
 
-use crate::error::{Result, ThrowablePosition};
+use crate::utils::{Result, ThrowablePosition};
 use crate::lexer::Literal;
 use crate::parser::{BinOpKind, Expression, ExpressionKind, Symbol, Fn, OrderedMap, Pattern, Signature, TransformKind, Type, UnOpKind};
 

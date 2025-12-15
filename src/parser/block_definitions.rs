@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    error::{Result, ThrowablePosition, ErrorKind},
+    utils::{Result, ThrowablePosition, ErrorKind},
     lexer::{Token, Span},
 };
 

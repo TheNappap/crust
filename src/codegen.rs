@@ -1,6 +1,6 @@
 use self::code_generator::Codegen;
 use crate::{
-    error::{Error, Result, ErrorKind},
+    utils::{Error, Result, ErrorKind},
     parser::SyntaxTree, lexer::Position,
 };
 use cranelift_codegen::verifier::VerifierErrors;

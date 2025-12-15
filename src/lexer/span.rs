@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::error::{ThrowablePosition, ErrorKind, Error};
+use crate::utils::{ThrowablePosition, ErrorKind, Error};
 
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]

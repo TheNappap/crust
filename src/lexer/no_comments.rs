@@ -1,7 +1,7 @@
 use itertools::{Itertools, PeekingNext};
 use std::str::Chars;
 
-use crate::error::{Result, ThrowablePosition};
+use crate::utils::{Peeking, Result, ThrowablePosition};
 
 use super::span::Position;
 
@@ -11,49 +11,6 @@ pub struct NoCommentsStream<'str> {
     peek_second: Option<Result<char>>,
     peek_pos: Position,
     peek_second_pos: Position,
-}
-
-impl<'str> NoCommentsStream<'str> {
-    pub fn from(source: &'str str) -> NoCommentsStream<'str> {
-        NoCommentsStream {
-            stream: PositionStream::from(source),
-            peeked: None,
-            peek_second: None,
-            peek_pos: Position::zero(),
-            peek_second_pos: Position::zero(),
-        }
-    }
-
-    pub fn cur_pos(&self) -> Position {
-        if self.peeked.is_some() {
-            return self.peek_pos.clone();
-        }
-        self.stream.cur_pos()
-    }
-
-    pub fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
-        if self.peeked.is_none() {
-            self.peek_pos = self.stream.cur_pos();
-            self.peeked = self.unpeeked_next();
-        }
-        self.peeked.as_ref()
-    }
-    
-    pub fn peek_second(&mut self) -> Option<&<Self as Iterator>::Item> {
-        self.peek();
-        if self.peek_second.is_none() {
-            self.peek_second_pos = self.stream.cur_pos();
-            self.peek_second = self.unpeeked_next();
-        }
-        self.peek_second.as_ref()
-    }
-
-    fn unpeeked_next(&mut self) -> Option<<Self as Iterator>::Item> {
-        match self.stream.next() {
-            Some('/') => self.take_on_slash(),
-            c => Ok(c).transpose(),
-        }
-    }
 }
 
 impl<'str> Iterator for NoCommentsStream<'str> {
@@ -85,7 +42,50 @@ impl<'str> PeekingNext for NoCommentsStream<'str> {
     }
 }
 
+impl<'str> Peeking for NoCommentsStream<'str> {
+    fn peek(&mut self) -> Option<&Self::Item> {
+        if self.peeked.is_none() {
+            self.peek_pos = self.stream.cur_pos();
+            self.peeked = self.unpeeked_next();
+        }
+        self.peeked.as_ref()
+    }
+}
+
 impl<'str> NoCommentsStream<'str> {
+    pub fn from(source: &'str str) -> NoCommentsStream<'str> {
+        NoCommentsStream {
+            stream: PositionStream::from(source),
+            peeked: None,
+            peek_second: None,
+            peek_pos: Position::zero(),
+            peek_second_pos: Position::zero(),
+        }
+    }
+
+    pub fn cur_pos(&self) -> Position {
+        if self.peeked.is_some() {
+            return self.peek_pos.clone();
+        }
+        self.stream.cur_pos()
+    }
+    
+    pub fn peek_second(&mut self) -> Option<&<Self as Iterator>::Item> {
+        self.peek();
+        if self.peek_second.is_none() {
+            self.peek_second_pos = self.stream.cur_pos();
+            self.peek_second = self.unpeeked_next();
+        }
+        self.peek_second.as_ref()
+    }
+
+    fn unpeeked_next(&mut self) -> Option<<Self as Iterator>::Item> {
+        match self.stream.next() {
+            Some('/') => self.take_on_slash(),
+            c => Ok(c).transpose(),
+        }
+    }
+
     fn take_on_slash(&mut self) -> Option<Result<char>> {
         match self.stream.peek() {
             Some('/') => {
@@ -140,13 +140,6 @@ impl<'str> PositionStream<'str> {
     fn cur_pos(&self) -> Position {
         self.cur_pos.clone()
     }
-
-    fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
-        if self.peeked.is_none() {
-            self.peeked = self.next();
-        }
-        self.peeked.as_ref()
-    }
 }
 
 impl<'str> Iterator for PositionStream<'str> {
@@ -176,6 +169,15 @@ impl<'str> PeekingNext for PositionStream<'str> {
             }
         }
         self.next()
+    }
+}
+
+impl<'str> Peeking for PositionStream<'str> {
+    fn peek(&mut self) -> Option<&Self::Item> {
+        if self.peeked.is_none() {
+            self.peeked = self.next();
+        }
+        self.peeked.as_ref()
     }
 }
 

@@ -2,7 +2,7 @@
 use itertools::Itertools;
 
 use crate::{
-    error::{ErrorKind, Result, ThrowablePosition},
+    utils::{ErrorKind, Result, ThrowablePosition},
     lexer::{Literal, Span, Token},
     parser::{
         BinOpKind, ExpressionKind, Parser, Signature, Type, syntax_tree::Expression

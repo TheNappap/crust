@@ -3,7 +3,7 @@ use std::{collections::{hash_map::Entry, HashMap}};
 
 use itertools::Itertools;
 
-use crate::{parser::{SyntaxTree, Type, Fn, Expression, ExpressionKind, Signature, BinOpKind}, error::{Result, Error, ThrowablePosition, ErrorKind}, lexer::{Literal, Span, Position}};
+use crate::{parser::{SyntaxTree, Type, Fn, Expression, ExpressionKind, Signature, BinOpKind}, utils::{Result, Error, ThrowablePosition, ErrorKind}, lexer::{Literal, Span, Position}};
 
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {

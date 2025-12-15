@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Operator, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, Type, syntax_tree::patterns::Pattern}};
+use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Operator, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, Type, syntax_tree::patterns::Pattern}};
 
 use super::BlockDefinition;
 

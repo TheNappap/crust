@@ -5,7 +5,7 @@ use cranelift_frontend::{FunctionBuilderContext};
 use cranelift_module::{DataDescription, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule, ObjectProduct};
 
-use crate::error::{Result, Error, ErrorKind};
+use crate::utils::{Result, Error, ErrorKind};
 use crate::lexer::Position;
 use crate::parser::{SyntaxTree, Fn};
 

@@ -1,7 +1,7 @@
 
 use std::fmt;
 
-use crate::error::{Result, ThrowablePosition};
+use crate::utils::{Peeking, Result, ThrowablePosition};
 
 use super::{no_comments::NoCommentsStream, span::Span};
 use itertools::{Itertools, PeekingNext};
@@ -134,19 +134,21 @@ impl<'str> PeekingNext for TokenStream<'str> {
     }
 }
 
+impl<'str> Peeking for TokenStream<'str> {
+    fn peek(&mut self) -> Option<&Self::Item> {
+        if self.peeked.is_none() {
+            self.peeked = self.next();
+        }
+        self.peeked.as_ref()
+    }
+}
+
 impl<'str> TokenStream<'str> {
     pub fn from(source: &'str str) -> TokenStream<'str> {
         TokenStream {
             stream: NoCommentsStream::from(source),
             peeked: None,
         }
-    }
-
-    pub fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
-        if self.peeked.is_none() {
-            self.peeked = self.next();
-        }
-        self.peeked.as_ref()
     }
 
     fn take_whitespace(&mut self) -> Result<()> {

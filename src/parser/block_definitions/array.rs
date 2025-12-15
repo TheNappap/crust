@@ -1,7 +1,7 @@
 
 use itertools::Itertools;
 
-use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{
+use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{
         ExpressionKind, Parser, Type, syntax_tree::Expression
     }};
 

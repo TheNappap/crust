@@ -1,4 +1,4 @@
-use crate::error::{Result, ThrowablePosition};
+use crate::utils::{Peeking, Result, ThrowablePosition};
 use crate::lexer::{Delimeter, Token, TokenStream, Operator, Span, TokenKind};
 use itertools::{Itertools, PeekingNext};
 use std::iter::once;
@@ -11,7 +11,6 @@ pub struct Block {
     pub header: Vec<Token>,
     pub body: Vec<Token>,
     pub chain: Option<Box<Block>>,
-    pub forwarding: bool,
 }
 
 impl Block {
@@ -25,22 +24,7 @@ impl Block {
                 Some(acc) => Some(acc.union(&t.span)),
                 None => Some(t.span.clone()),
             }).expect("Can't make anonymous block from empty token list");
-        Self { tag: "".into(), span, header, body: vec![], chain: None, forwarding: false }
-    }
-
-    fn forward(mut self) -> Self {
-        self.forwarding = true;
-        self
-    }
-}
-
-trait Peeking : PeekingNext {
-    fn peek(&mut self) -> Option<&<Self as Iterator>::Item>;
-}
-
-impl<I: Iterator> Peeking for Peekable<I> {
-    fn peek(&mut self) -> Option<&I::Item> {
-        self.peek()
+        Self { tag: "".into(), span, header, body: vec![], chain: None }
     }
 }
 
@@ -82,12 +66,12 @@ impl<'str> Peeking for TokenStream2<'str> {
 
 pub struct BlockStream<'str> {
     stream: TokenStream2<'str>,
-    peeked: Option<Result<Block>>,
+    peeked: Option<Result<(Block, bool)>>,
     forward_last: bool,
 }
 
 impl<'str> Iterator for BlockStream<'str> {
-    type Item = Result<Block>;
+    type Item = Result<(Block, bool)>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.peeked.take() {
             next @ Some(_) => next,
@@ -111,15 +95,17 @@ impl<'str> PeekingNext for BlockStream<'str> {
 }
 
 impl<'str> BlockStream<'str> {
-    pub fn from(source: &'str str) -> BlockStream<'str> {
+    pub fn from(source: &'str str) -> impl PeekingNext<Item=Result<Block>> {
         BlockStream {
             stream: TokenStream2::Stream(TokenStream::from(source)),
             peeked: None,
             forward_last: false,
         }
+        .map_ok(|t|t.0)
+        .peekable()
     }
 
-    pub fn new(tokens: Vec<Token>) -> BlockStream<'str> {
+    pub fn from_vec(tokens: Vec<Token>) -> impl PeekingNext<Item=Result<Block>> {
         let tokens = tokens.into_iter()
             .map(Result::Ok)
             .collect::<Vec<_>>();
@@ -128,11 +114,19 @@ impl<'str> BlockStream<'str> {
             peeked: None,
             forward_last: false,
         }
+        .map_ok(|t|t.0)
+        .peekable()
     }
 
-    pub fn forward_last(mut self) -> BlockStream<'str> {
-        self.forward_last = true;
-        self
+    pub fn forward_last(tokens: Vec<Token>) -> impl PeekingNext<Item=Result<(Block, bool)>> {
+        let tokens = tokens.into_iter()
+            .map(Result::Ok)
+            .collect::<Vec<_>>();
+        BlockStream {
+            stream: TokenStream2::Vec(tokens.into_iter().peekable()),
+            peeked: None,
+            forward_last: true,
+        }
     }
 
     pub fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
@@ -142,7 +136,7 @@ impl<'str> BlockStream<'str> {
         self.peeked.as_ref()
     }
 
-    fn take_block<S>(stream: &mut S, forward_last: bool) -> Result<Option<Block>> where S: Peeking<Item=Result<Token>> {
+    fn take_block<S>(stream: &mut S, forward_last: bool) -> Result<Option<(Block, bool)>> where S: Peeking<Item=Result<Token>> {
         BlockStream::trim_new_lines(stream);
         let tokens = BlockStream::collect_block_tokens(stream)?;
         if tokens.is_empty() {
@@ -152,7 +146,7 @@ impl<'str> BlockStream<'str> {
         if forward_last && is_last_block {
             let last_token = tokens.last().expect("`tokens` is already checked to be none empty");
             if !matches!(last_token.kind, TokenKind::Operator(Operator::Semicolon) | TokenKind::Group(Delimeter::Braces, _)) {
-                return Ok(Some(Block::anonymous_block(tokens).forward()));
+                return Ok(Some( (Block::anonymous_block(tokens), true) ));
             }
         }
 
@@ -166,7 +160,7 @@ impl<'str> BlockStream<'str> {
             TokenKind::Group(_, _) => Block::anonymous_block(vec![token]),
             token_kind => return token.span.syntax(format!("Expected identifier: found {:?}", token_kind)),
         };
-        return Ok(Some(block))
+        return Ok(Some( (block, false) ))
     }
 
     fn collect_block<S>(stream: &mut S, tag: String, tag_span: Span) -> Result<Block> where S: Peeking<Item=Result<Token>> {
@@ -182,7 +176,7 @@ impl<'str> BlockStream<'str> {
             let chain = chain.map(|tokens| -> Result<_> {
                 let mut chain_stream = tokens.into_iter().map(Result::Ok).peekable();
                 let block = BlockStream::take_block(&mut chain_stream, false)?;
-                Ok(block.map(Box::new))
+                Ok(block.map(|t|Box::new(t.0)))
             }).transpose()?.flatten();
             (body, chain)
         };
@@ -197,7 +191,7 @@ impl<'str> BlockStream<'str> {
             ([], []) => tag_span,
         };
         assert!(stream.next().is_none());
-        Ok(Block { tag, span, header, body, chain, forwarding: false })
+        Ok(Block { tag, span, header, body, chain })
     }
 
     fn collect_block_header<S>(stream: &mut S) -> Result<(Vec<Token>, Option<Token>)> where S: Peeking<Item=Result<Token>> {
@@ -300,7 +294,7 @@ impl<'str> BlockStream<'str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::Result, lexer::{Literal, Position}};
+    use crate::{utils::Result, lexer::{Literal, Position}};
 
     #[test]
     fn blocks_test() -> Result<()> {
@@ -336,7 +330,6 @@ mod tests {
                         Token{kind: TokenKind::Literal(Literal::String("Line3".to_string())), span: Span::new(Position::new(4, 17), Position::new(4, 25))},
                     ],
                     chain: None,
-                    forwarding: false,
                 },
                 Block {
                     tag: "fn".to_string(),
@@ -351,7 +344,6 @@ mod tests {
                         Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(6, 34), Position::new(6, 35))},
                     ],
                     chain: None,
-                    forwarding: false,
                 },
                 Block {
                     tag: "call".to_string(),
@@ -362,7 +354,6 @@ mod tests {
                     ],
                     body: vec![],
                     chain: None,
-                    forwarding: false,
                 },
                 Block {
                     tag: "call".to_string(),
@@ -373,7 +364,6 @@ mod tests {
                     ],
                     body: vec![],
                     chain: None,
-                    forwarding: false,
                 },
                 Block {
                     tag: "print".to_string(),
@@ -381,7 +371,6 @@ mod tests {
                     header: vec![Token{kind: TokenKind::Literal(Literal::String("print statement".to_string())), span: Span::new(Position::new(10, 13), Position::new(10, 31))}],
                     body: vec![],
                     chain: None,
-                    forwarding: false,
                 },
             ];
         for (block, test_block) in blocks.into_iter().zip(test_blocks.into_iter()) {
@@ -426,9 +415,7 @@ mod tests {
                             Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(2, 29), Position::new(2, 30))},
                         ],
                         chain: None,
-                        forwarding: false,
                     })),
-                    forwarding: false,
                 },
                 Block {
                     tag: "if".to_string(),
@@ -447,9 +434,7 @@ mod tests {
                             Token{kind: TokenKind::Literal(Literal::String("Line2.1".to_string())), span: Span::new(Position::new(7, 17), Position::new(7, 27))},
                         ],
                         chain: None,
-                        forwarding: false,
                     })),
-                    forwarding: false,
                 },
                 Block {
                     tag: "iter".to_string(),
@@ -492,13 +477,9 @@ mod tests {
                                     Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(12, 47), Position::new(12, 48))},
                                 ],
                                 chain: None,
-                                forwarding: false,
                             })),
-                            forwarding: false,
                         })),
-                        forwarding: false,
                     })),
-                    forwarding: false,
                 },
             ];
         for (block, test_block) in blocks.into_iter().zip(test_blocks.into_iter()) {

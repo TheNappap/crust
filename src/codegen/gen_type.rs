@@ -5,7 +5,7 @@ use cranelift_object::ObjectModule;
 use cranelift_codegen::ir::types::{I64, F64};
 use itertools::Itertools;
 
-use crate::{parser::Type, error::{Result}};
+use crate::{parser::Type, utils::{Result}};
 
 pub enum GenTypeKind {
     Type(ir::Type),

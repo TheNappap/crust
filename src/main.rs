@@ -1,9 +1,9 @@
 mod codegen;
-mod error;
 mod lexer;
 mod parser;
 mod type_check;
 mod std_lib;
+mod utils;
 
 fn build() -> Result<(), String> {
     let args: Vec<String> = std::env::args().collect();

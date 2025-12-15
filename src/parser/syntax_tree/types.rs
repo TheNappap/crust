@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-use crate::{lexer::{Token, TokenKind, Delimeter}, error::{Result, ThrowablePosition}};
+use crate::{lexer::{Token, TokenKind, Delimeter}, utils::{Result, ThrowablePosition}};
 
 use super::ordered_map::OrderedMap;
 

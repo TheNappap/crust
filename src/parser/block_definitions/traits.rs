@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, syntax_tree::fn_expr}};
+use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, syntax_tree::fn_expr}};
 
 use super::BlockDefinition;
 

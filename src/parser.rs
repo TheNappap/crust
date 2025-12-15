@@ -4,12 +4,11 @@ mod syntax_tree;
 mod parse_ops;
 
 
-pub use crate::error::Result;
 use itertools::Itertools;
 pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
-    error::ThrowablePosition,
+    utils::{Result, ThrowablePosition},
     lexer::{Delimeter, Operator, Token, TokenKind},
 };
 
@@ -145,7 +144,7 @@ impl Parser {
 
         parse_ops::parse_operators(&mut tokens);
         let span = tokens[0].span.clone();
-        match BlockStream::new(tokens).next().transpose()? {
+        match BlockStream::from_vec(tokens).next().transpose()? {
             Some(block) => self.parse_block_expression(block),
             None => return span.syntax("Can't make block from these tokens.".into()),
         }
@@ -156,10 +155,10 @@ impl Parser {
     }
 
     fn iter_statement(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
-        BlockStream::new(tokens).forward_last()
-                .map(|b|{
-                    let block = b?;
-                    if block.forwarding {
+        BlockStream::forward_last(tokens)
+                .map(|x|{
+                    let (block, forwarding) = x?;
+                    if forwarding {
                         self.blockdefs.get("forward", &block.span)?
                             .parse_expression(block.span, block.header, block.body, self)
                     } else {
@@ -169,7 +168,7 @@ impl Parser {
     }
     
     fn iter_block(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
-        BlockStream::new(tokens)
+        BlockStream::from_vec(tokens)
                 .map(|b| self.parse_block_expression(b?))
     }
     
@@ -255,7 +254,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::Result, lexer::{Literal, Span, Position}, parser::syntax_tree::fn_expr::Signature};
+    use crate::{utils::Result, lexer::{Literal, Span, Position}, parser::syntax_tree::fn_expr::Signature};
 
     #[test]
     fn parser_test() -> Result<()> {

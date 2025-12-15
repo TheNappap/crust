@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use itertools::Itertools;
 
-use crate::{error::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{Expression, ExpressionKind, Fn, Parser, Signature, Type, syntax_tree::expression::{IterTransform, TransformKind}}};
+use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{Expression, ExpressionKind, Fn, Parser, Signature, Type, syntax_tree::expression::{IterTransform, TransformKind}}};
 
 use super::BlockDefinition;
 
