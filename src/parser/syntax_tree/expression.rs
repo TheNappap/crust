@@ -17,11 +17,27 @@ pub enum UnOpKind {
 pub struct Expression {
     pub kind: ExpressionKind,
     pub span: Span,
+    pub forward: bool,
 }
 
 impl Expression {
     pub fn new(kind: ExpressionKind, span: Span) -> Self {
-        Expression { kind, span }
+        Expression { kind, span, forward: false }
+    }
+
+    pub fn forward(mut self) -> Self {
+        self.forward = true;
+        self
+    }
+
+    pub fn return_if_forward(mut self) -> Self {
+        if self.forward {
+            self.forward = false;
+            let span = self.span.clone();
+            Expression::new(ExpressionKind::Return(Box::new(self)), span)
+        } else {
+            self
+        }
     }
 }
 
@@ -68,7 +84,6 @@ pub enum ExpressionKind {
     BinOp(BinOpKind, Box<Expression>, Box<Expression>, Type),
     UnOp(UnOpKind, Box<Expression>, Type),
     Return(Box<Expression>),
-    Forward(Box<Expression>),
     Array(Vec<Expression>),
     Index(Box<Expression>, Box<Expression>, Type, u32),
     Case(Pattern, Vec<Expression>),

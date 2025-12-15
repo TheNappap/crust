@@ -131,9 +131,6 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::Return(expr) => {
                 self.create_return(expr, returned)?
             }
-            ExpressionKind::Forward(expr) => {
-                self.create_expression(expr, returned)?
-            }
             ExpressionKind::Let(symbol, expr) => {
                 self.create_local_variable(symbol, expr)?
             }
@@ -551,8 +548,8 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.create_variable(var_symbol, transformed_values)?;
 
         for statement in for_body {
-            if let Some((_, acc_symbol)) = accumulator && let ExpressionKind::Forward(forward) = &statement.kind {
-                self.create_variable_mutation(&acc_symbol.name, None, &forward)?;
+            if let Some((_, acc_symbol)) = accumulator && statement.forward {
+                self.create_variable_mutation(&acc_symbol.name, None, &statement)?;
             } else {
                 self.create_expression(statement, &mut false)?;
             }

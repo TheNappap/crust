@@ -17,14 +17,8 @@ impl BlockDefinition for Return {
         "return"
     }
 
-    fn parse(&self, _: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let span = if let Some(token) = body.first() {
-            body.iter().map(|t|&t.span).fold(token.span.clone(), |acc,s| acc.union(&s))
-        } else {
-            header.last().unwrap().span.clone()
-        };
-        let body_token = Token::new(TokenKind::Group(Delimeter::Braces, body), span);
-        header.push(body_token);
+    fn parse(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        header.push(Token::new(TokenKind::Group(Delimeter::Braces, body), span.clone()));
         let expr = parser.parse_expression(header)?;
         Ok(ExpressionKind::Return(Box::new(expr)))
     }
@@ -42,20 +36,14 @@ impl BlockDefinition for Forward {
         "forward"
     }
 
-    fn parse(&self, _: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        let span = if let Some(token) = body.first() {
-            body.iter().map(|t|&t.span).fold(token.span.clone(), |acc,s| acc.union(&s))
-        } else {
-            header.last().unwrap().span.clone()
-        };
-        let body_token = Token::new(TokenKind::Group(Delimeter::Braces, body), span);
-        header.push(body_token);
-        
+    fn parse(&self, span: &Span, _header: Vec<Token>, _body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "This block should not be parsed through `parse_expression()`".to_string()))
+    }
+
+    fn parse_expression(&self, span: Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+        header.push(Token::new(TokenKind::Group(Delimeter::Braces, body), span));
         let expr = parser.parse_expression(header)?;
-        if let ExpressionKind::Return(_) | ExpressionKind::Forward(_) = expr.kind {
-            return Ok(expr.kind);
-        }
-        Ok(ExpressionKind::Forward(Box::new(expr)))
+        Ok(expr.forward())
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {

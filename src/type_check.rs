@@ -140,9 +140,6 @@ impl<'f> TypeCheck<'f> {
             ExpressionKind::Return(expr) => {
                 self.check_expression(expr)?
             },
-            ExpressionKind::Forward(expr) => {
-                self.check_expression(expr)?
-            },
             ExpressionKind::Signature(_) => {
                 todo!()
             }

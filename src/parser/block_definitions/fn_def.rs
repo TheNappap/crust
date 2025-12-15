@@ -60,12 +60,7 @@ impl BlockDefinition for FnDef {
             Ok(ExpressionKind::Signature(signature))
         } else {
             let body = parser.iter_statement(body)
-                                    .map_ok(|mut statement| {
-                                        if let ExpressionKind::Forward(expression) = statement.kind {
-                                            statement.kind = ExpressionKind::Return(expression)
-                                        }
-                                        statement
-                                    })
+                                    .map_ok(Expression::return_if_forward)
                                     .try_collect()?;
             let fun = Fn::new(signature, param_names, body);
             Ok(ExpressionKind::Fn(fun))
