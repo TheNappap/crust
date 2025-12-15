@@ -156,8 +156,21 @@ impl Parser {
     }
 
     fn iter_statement(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
+        BlockStream::new(tokens).forward_last()
+                .map(|b|{
+                    let block = b?;
+                    if block.forwarding {
+                        self.blockdefs.get("forward", &block.span)?
+                            .parse_expression(block.span, block.header, block.body, self)
+                    } else {
+                        self.parse_block_expression(block)
+                    }
+                })
+    }
+    
+    fn iter_block(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
         BlockStream::new(tokens)
-                .map(|b|self.parse_block_expression(b?))
+                .map(|b| self.parse_block_expression(b?))
     }
     
     fn parse_parameter(&self, mut tokens: Vec<Token>) -> Result<(String, Vec<Token>)> {
@@ -181,21 +194,27 @@ impl Parser {
 
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {
         if block.is_anonymous() {
-            if block.header.len() > 1 {
-                return block.span.syntax("Can't parse anonymous block.".into());
+            assert!(block.body.is_empty());
+
+            let mut tokens = block.header;
+            if tokens.len() > 1 {
+                return self.parse_expression(tokens);
             }
 
-            assert!(block.body.is_empty());
-            let token = block.header.first().unwrap();
-            let block = match &token.kind {
-                TokenKind::Ident(name) => return Ok(Expression::new(ExpressionKind::Symbol(Symbol{name:name.clone(), ty:Type::Inferred}), token.span.clone())),
-                TokenKind::Literal(literal) => return Ok(Expression::new(ExpressionKind::Literal(literal.clone()), token.span.clone())),
-                TokenKind::Group(Delimeter::Parens, tokens) => return self.parse_expression(tokens.clone()),
-                TokenKind::Group(Delimeter::Brackets, _) => Block { tag: "array".into(), span: block.span, header: block.header, body: vec![], chain: None },
-                TokenKind::Group(Delimeter::Braces, body) => Block { tag: "group".into(), span: block.span, header: vec![], body: body.clone(), chain: None },
-                _ => return token.span.syntax("Can't parse anonymous block.".into()),
+            return match tokens.remove(0).kind {
+                TokenKind::Ident(name) => Ok(Expression::new(ExpressionKind::Symbol(Symbol{name, ty:Type::Inferred}), block.span)),
+                TokenKind::Literal(literal) => Ok(Expression::new(ExpressionKind::Literal(literal), block.span)),
+                TokenKind::Group(Delimeter::Parens, tokens) => self.parse_expression(tokens),
+                TokenKind::Group(Delimeter::Brackets, body) => {
+                    self.blockdefs.get("array", &block.span)?
+                            .parse_expression(block.span, body, vec![], self)
+                }
+                TokenKind::Group(Delimeter::Braces, body) => {
+                    self.blockdefs.get("group", &block.span)?
+                            .parse_expression(block.span, vec![], body, self)
+                }
+                _ => return block.span.syntax("Can't parse anonymous block.".into()),
             };
-            return self.parse_block_expression(block);
         }
 
         let expr = self.blockdefs.get(&block.tag, &block.span)?
@@ -210,8 +229,7 @@ impl Parser {
     
     fn parse_chained_block_expression(&self, block: Block, input: Expression) -> Result<Expression> {
         let expr = self.blockdefs.get(&block.tag, &block.span)?
-            .parse_chained(&block.span, block.header, block.body, input, self)
-            .map(|kind| Expression::new(kind, block.span));
+            .parse_chained_expression(block.span, block.header, block.body, input, self);
         match block.chain {
             Some(chain) => self.parse_chained_block_expression(*chain, expr?),
             None => expr,
@@ -292,7 +310,7 @@ mod tests {
                         vec![
                             print_call("one liner".to_string(), Span::new(Position::new(7, 12), Position::new(7, 30)), Position::new(7, 18)),
                         ],
-                    )), Span::new(Position::new(7, 0), Position::new(7, 30))),
+                    )), Span::new(Position::new(7, 0), Position::new(7, 31))),
                     Expression::new(ExpressionKind::Call(Signature::new(None, "f2", vec![], Type::Inferred), vec![]), Span::new(Position::new(9, 0), Position::new(9, 13))),
                     Expression::new(ExpressionKind::Call(Signature::new(None, "function", vec![], Type::Inferred), vec![]), Span::new(Position::new(10, 0), Position::new(10, 19))),
                 ],

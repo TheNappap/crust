@@ -90,7 +90,7 @@ impl<'f> TypeCheck<'f> {
         if *fun.signature().returns() == Type::Inferred {
             let return_type = fun.body_mut().fold(Ok(Type::Void), |acc, expr| {
                 match &mut expr.kind {
-                    ExpressionKind::Forward(expr) => self.check_expression(expr),
+                    ExpressionKind::Return(expr) => self.check_expression(expr),
                     _ => acc,
                 }
             })?;

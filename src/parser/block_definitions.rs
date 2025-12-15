@@ -31,6 +31,15 @@ pub trait BlockDefinition {
     fn id(&self) -> &str;
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind>;
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind>;
+
+    fn parse_expression(&self, span: Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
+        self.parse(&span, header, body, parser)
+            .map(|kind| Expression::new(kind, span))
+    }
+    fn parse_chained_expression(&self, span: Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<Expression> {
+        self.parse_chained(&span, header, body, input, parser)
+            .map(|kind| Expression::new(kind, span))
+    }
 }
 
 pub struct BlockDefinitions {

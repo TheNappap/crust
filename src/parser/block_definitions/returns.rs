@@ -50,7 +50,11 @@ impl BlockDefinition for Forward {
         };
         let body_token = Token::new(TokenKind::Group(Delimeter::Braces, body), span);
         header.push(body_token);
+        
         let expr = parser.parse_expression(header)?;
+        if let ExpressionKind::Return(_) | ExpressionKind::Forward(_) = expr.kind {
+            return Ok(expr.kind);
+        }
         Ok(ExpressionKind::Forward(Box::new(expr)))
     }
     

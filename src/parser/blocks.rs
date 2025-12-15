@@ -1,6 +1,7 @@
 use crate::error::{Result, ThrowablePosition};
 use crate::lexer::{Delimeter, Token, TokenStream, Operator, Span, TokenKind};
 use itertools::{Itertools, PeekingNext};
+use std::iter::once;
 use std::{fmt::Debug, iter::Peekable, vec::IntoIter};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -9,7 +10,8 @@ pub struct Block {
     pub span: Span,
     pub header: Vec<Token>,
     pub body: Vec<Token>,
-    pub chain: Option<Box<Block>>
+    pub chain: Option<Box<Block>>,
+    pub forwarding: bool,
 }
 
 impl Block {
@@ -17,13 +19,18 @@ impl Block {
         self.tag == ""
     }
     
-    pub fn anonymous_block(header: Vec<Token>) -> Block {
+    pub fn anonymous_block(header: Vec<Token>) -> Self {
         let span = header.iter().fold(None, |acc: Option<Span>, t| 
             match acc {
                 Some(acc) => Some(acc.union(&t.span)),
                 None => Some(t.span.clone()),
             }).expect("Can't make anonymous block from empty token list");
-        Block { tag: "".into(), span, header, body: vec![], chain: None }
+        Self { tag: "".into(), span, header, body: vec![], chain: None, forwarding: false }
+    }
+
+    fn forward(mut self) -> Self {
+        self.forwarding = true;
+        self
     }
 }
 
@@ -76,6 +83,7 @@ impl<'str> Peeking for TokenStream2<'str> {
 pub struct BlockStream<'str> {
     stream: TokenStream2<'str>,
     peeked: Option<Result<Block>>,
+    forward_last: bool,
 }
 
 impl<'str> Iterator for BlockStream<'str> {
@@ -83,7 +91,7 @@ impl<'str> Iterator for BlockStream<'str> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.peeked.take() {
             next @ Some(_) => next,
-            None => BlockStream::take_block(&mut self.stream),
+            None => BlockStream::take_block(&mut self.stream, self.forward_last).transpose(),
         }
     }
 }
@@ -107,6 +115,7 @@ impl<'str> BlockStream<'str> {
         BlockStream {
             stream: TokenStream2::Stream(TokenStream::from(source)),
             peeked: None,
+            forward_last: false,
         }
     }
 
@@ -117,7 +126,13 @@ impl<'str> BlockStream<'str> {
         BlockStream {
             stream: TokenStream2::Vec(tokens.into_iter().peekable()),
             peeked: None,
+            forward_last: false,
         }
+    }
+
+    pub fn forward_last(mut self) -> BlockStream<'str> {
+        self.forward_last = true;
+        self
     }
 
     pub fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
@@ -127,23 +142,31 @@ impl<'str> BlockStream<'str> {
         self.peeked.as_ref()
     }
 
-    fn take_block<S>(stream: &mut S) -> Option<Result<Block>> where S: Peeking<Item=Result<Token>> {
-        loop {
-            let token = match stream.next()? {
-                Ok(token) => token,
-                Err(e) => break Some(Err(e)),
-            };
-
-            break match token.kind {
-                TokenKind::NewLine | TokenKind::Operator(Operator::Arrow2) => continue,
-                TokenKind::Ident(id) => Some(BlockStream::collect_block(stream, id.to_owned(), token.span)),
-                TokenKind::Literal(_) => Some(Ok(Block::anonymous_block(vec![token]))),
-                TokenKind::Group(_, _) => Some(Ok(Block::anonymous_block(vec![token]))),
-                token_kind => Some(token.span.syntax(
-                    format!("Expected identifier: found {:?}", token_kind),
-                )),
-            };
+    fn take_block<S>(stream: &mut S, forward_last: bool) -> Result<Option<Block>> where S: Peeking<Item=Result<Token>> {
+        BlockStream::trim_new_lines(stream);
+        let tokens = BlockStream::collect_block_tokens(stream)?;
+        if tokens.is_empty() {
+            return Ok(None);
         }
+        let is_last_block = stream.peek().is_none();
+        if forward_last && is_last_block {
+            let last_token = tokens.last().expect("`tokens` is already checked to be none empty");
+            if !matches!(last_token.kind, TokenKind::Operator(Operator::Semicolon) | TokenKind::Group(Delimeter::Braces, _)) {
+                return Ok(Some(Block::anonymous_block(tokens).forward()));
+            }
+        }
+
+        let mut stream = tokens.into_iter().map(Result::Ok).peekable();
+        let token = stream.next().expect("`tokens` is already checked to be none empty")?;
+
+        let block = match token.kind {
+            TokenKind::Ident(id) => BlockStream::collect_block(&mut stream, id.to_owned(), token.span)?,
+            TokenKind::Literal(_) => Block::anonymous_block(vec![token]),
+            TokenKind::Group(Delimeter::Parens, tokens) => Block::anonymous_block(tokens),
+            TokenKind::Group(_, _) => Block::anonymous_block(vec![token]),
+            token_kind => return token.span.syntax(format!("Expected identifier: found {:?}", token_kind)),
+        };
+        return Ok(Some(block))
     }
 
     fn collect_block<S>(stream: &mut S, tag: String, tag_span: Span) -> Result<Block> where S: Peeking<Item=Result<Token>> {
@@ -152,24 +175,29 @@ impl<'str> BlockStream<'str> {
         }
 
         let (header, header_token) = BlockStream::collect_block_header(stream)?;
-        let (body, chain) = if let Some(Token{ kind:TokenKind::Operator(Operator::Eq), .. }) = header_token {
+        let (mut body, chain) = if let Some(Token{ kind:TokenKind::Operator(Operator::Eq), .. }) = header_token {
             (BlockStream::collect_block_tokens(stream)?, None)
         } else {
             let (body, chain) = BlockStream::collect_body_and_chain(stream, header_token)?;
-            let chain = chain.map(|tokens| {
-                let mut peekable = tokens.into_iter().map(Result::Ok).peekable();
-                let block = BlockStream::take_block(&mut peekable)?;
-                Some(block.map(Box::new))
-            }).flatten().transpose()?;
+            let chain = chain.map(|tokens| -> Result<_> {
+                let mut chain_stream = tokens.into_iter().map(Result::Ok).peekable();
+                let block = BlockStream::take_block(&mut chain_stream, false)?;
+                Ok(block.map(Box::new))
+            }).transpose()?.flatten();
             (body, chain)
         };
+
+        if body.len() == 1 && let Some(Token { kind: TokenKind::Operator(Operator::Semicolon), .. }) = body.last() {
+            body.clear();
+        }
         
         let span = match (&header[..], &body[..]) {
             ([..], [.., last]) => tag_span.union(&last.span),
             ([.., last], []) => tag_span.union(&last.span),
             ([], []) => tag_span,
         };
-        Ok(Block { tag, span, header, body, chain })
+        assert!(stream.next().is_none());
+        Ok(Block { tag, span, header, body, chain, forwarding: false })
     }
 
     fn collect_block_header<S>(stream: &mut S) -> Result<(Vec<Token>, Option<Token>)> where S: Peeking<Item=Result<Token>> {
@@ -212,6 +240,7 @@ impl<'str> BlockStream<'str> {
                 tokens.extend(extra_tokens);
             }
         }
+        BlockStream::trim_new_lines(stream);
         Ok(tokens)
     }
 
@@ -233,12 +262,12 @@ impl<'str> BlockStream<'str> {
         };
 
         let tokens = match &end_token.kind {
-            TokenKind::Operator(Operator::Semicolon) => return Ok((tokens, None)),
+            TokenKind::Operator(Operator::Semicolon) => return Ok((tokens.into_iter().chain(once(end_token)).collect(), None)),
             TokenKind::NewLine | TokenKind::Operator(Operator::Arrow2) => {
                 tokens
             }
             TokenKind::Group(Delimeter::Braces, group_tokens) => {
-                if header_token.is_some() {
+                if header_token.is_some() && !tokens.is_empty() {
                     let mut tokens = tokens;
                     tokens.push(end_token);
                     tokens
@@ -250,6 +279,7 @@ impl<'str> BlockStream<'str> {
             _ => return end_token.span.syntax("Unexpected end of block".to_owned()),
         };
 
+        // check for chaining
         match stream.peek() {
             None | Some(Ok(Token{kind:TokenKind::NewLine, ..})) => return Ok((tokens, None)),
             Some(Err(e)) => return Err(e.clone()),
@@ -259,6 +289,12 @@ impl<'str> BlockStream<'str> {
         Ok((tokens, Some(BlockStream::collect_block_tokens(stream)?)))
     }
 
+    fn trim_new_lines<S>(stream: &mut S) where S: Peeking<Item=Result<Token>> {
+        stream.peeking_take_while(|token| {
+                matches!(token, Ok(Token { kind: TokenKind::NewLine, .. }))
+            })
+            .for_each(drop);
+    }
 }
 
 #[cfg(test)]
@@ -300,10 +336,11 @@ mod tests {
                         Token{kind: TokenKind::Literal(Literal::String("Line3".to_string())), span: Span::new(Position::new(4, 17), Position::new(4, 25))},
                     ],
                     chain: None,
+                    forwarding: false,
                 },
                 Block {
                     tag: "fn".to_string(),
-                    span: Span::new(Position::new(6, 0), Position::new(6, 34)),
+                    span: Span::new(Position::new(6, 0), Position::new(6, 35)),
                     header: vec![
                         Token{kind: TokenKind::Ident("f2".to_string()), span: Span::new(Position::new(6, 10), Position::new(6, 13))},
                         Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(6, 13), Position::new(6, 15))},
@@ -311,8 +348,10 @@ mod tests {
                     body: vec![
                         Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(6, 16), Position::new(6, 22))},
                         Token{kind: TokenKind::Literal(Literal::String("one liner".to_string())), span: Span::new(Position::new(6, 22), Position::new(6, 34))},
+                        Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(6, 34), Position::new(6, 35))},
                     ],
                     chain: None,
+                    forwarding: false,
                 },
                 Block {
                     tag: "call".to_string(),
@@ -323,6 +362,7 @@ mod tests {
                     ],
                     body: vec![],
                     chain: None,
+                    forwarding: false,
                 },
                 Block {
                     tag: "call".to_string(),
@@ -333,6 +373,7 @@ mod tests {
                     ],
                     body: vec![],
                     chain: None,
+                    forwarding: false,
                 },
                 Block {
                     tag: "print".to_string(),
@@ -340,6 +381,7 @@ mod tests {
                     header: vec![Token{kind: TokenKind::Literal(Literal::String("print statement".to_string())), span: Span::new(Position::new(10, 13), Position::new(10, 31))}],
                     body: vec![],
                     chain: None,
+                    forwarding: false,
                 },
             ];
         for (block, test_block) in blocks.into_iter().zip(test_blocks.into_iter()) {
@@ -376,14 +418,17 @@ mod tests {
                     ],
                     chain: Some(Box::new(Block {
                         tag: "else".to_string(),
-                        span: Span::new(Position::new(2, 0), Position::new(2, 29)),
+                        span: Span::new(Position::new(2, 0), Position::new(2, 30)),
                         header: vec![],
                         body: vec![
                             Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(2, 13), Position::new(2, 19))},
                             Token{kind: TokenKind::Literal(Literal::String("Line1.1".to_string())), span: Span::new(Position::new(2, 19), Position::new(2, 29))},
+                            Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(2, 29), Position::new(2, 30))},
                         ],
                         chain: None,
+                        forwarding: false,
                     })),
+                    forwarding: false,
                 },
                 Block {
                     tag: "if".to_string(),
@@ -402,7 +447,9 @@ mod tests {
                             Token{kind: TokenKind::Literal(Literal::String("Line2.1".to_string())), span: Span::new(Position::new(7, 17), Position::new(7, 27))},
                         ],
                         chain: None,
+                        forwarding: false,
                     })),
+                    forwarding: false,
                 },
                 Block {
                     tag: "iter".to_string(),
@@ -433,7 +480,7 @@ mod tests {
                             ],
                             chain: Some( Box::new(Block { 
                                 tag: "for".into(), 
-                                span: Span::new(Position::new(12, 0), Position::new(12, 47)), 
+                                span: Span::new(Position::new(12, 0), Position::new(12, 48)), 
                                 header: vec![Token { kind: TokenKind::Ident("z".into()), span: Span::new(Position::new(12, 23), Position::new(12, 25)) }], 
                                 body: vec![
                                     Token { kind: TokenKind::Ident("call".into()), span: Span::new(Position::new(12, 26), Position::new(12, 31)) }, 
@@ -441,11 +488,17 @@ mod tests {
                                     Token { 
                                         kind: TokenKind::Group(Delimeter::Parens, vec![Token { kind: TokenKind::Ident("z".into()), span: Span::new(Position::new(12, 45), Position::new(12, 46)) }]),
                                         span: Span::new(Position::new(12, 44), Position::new(12, 47)) 
-                                    }], 
-                                chain: None
-                            }))
-                        }))
-                    }))
+                                    },
+                                    Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(12, 47), Position::new(12, 48))},
+                                ],
+                                chain: None,
+                                forwarding: false,
+                            })),
+                            forwarding: false,
+                        })),
+                        forwarding: false,
+                    })),
+                    forwarding: false,
                 },
             ];
         for (block, test_block) in blocks.into_iter().zip(test_blocks.into_iter()) {

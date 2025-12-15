@@ -129,10 +129,10 @@ impl<'codegen> FunctionCodegen<'codegen> {
                 self.create_fn_call(signature, &param_values)?
             }
             ExpressionKind::Return(expr) => {
-                self.create_return(returned, expr)?
+                self.create_return(expr, returned)?
             }
             ExpressionKind::Forward(expr) => {
-                self.create_return(returned, expr)?
+                self.create_expression(expr, returned)?
             }
             ExpressionKind::Let(symbol, expr) => {
                 self.create_local_variable(symbol, expr)?
@@ -270,8 +270,9 @@ impl<'codegen> FunctionCodegen<'codegen> {
     }
 
     fn create_return(
-        &mut self, returned: &mut bool,
-        expr: &Expression
+        &mut self,
+        expr: &Expression,
+        returned: &mut bool,
     ) -> Result<Vec<Value>> {
         let values = self.create_expression(expr, returned)?;
         self.builder.ins().return_(&values);
@@ -550,7 +551,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.create_variable(var_symbol, transformed_values)?;
 
         for statement in for_body {
-            if let Some((_, acc_symbol)) = accumulator && let Expression{kind:ExpressionKind::Forward(forward), ..} = statement {
+            if let Some((_, acc_symbol)) = accumulator && let ExpressionKind::Forward(forward) = &statement.kind {
                 self.create_variable_mutation(&acc_symbol.name, None, &forward)?;
             } else {
                 self.create_expression(statement, &mut false)?;

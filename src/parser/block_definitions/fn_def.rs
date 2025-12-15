@@ -59,7 +59,14 @@ impl BlockDefinition for FnDef {
         if body.is_empty() {
             Ok(ExpressionKind::Signature(signature))
         } else {
-            let body = parser.iter_statement(body).try_collect()?;
+            let body = parser.iter_statement(body)
+                                    .map_ok(|mut statement| {
+                                        if let ExpressionKind::Forward(expression) = statement.kind {
+                                            statement.kind = ExpressionKind::Return(expression)
+                                        }
+                                        statement
+                                    })
+                                    .try_collect()?;
             let fun = Fn::new(signature, param_names, body);
             Ok(ExpressionKind::Fn(fun))
         }
@@ -88,14 +95,14 @@ impl BlockDefinition for Impl {
             _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name or trait".to_string())),
         };
 
-        let fns = parser.iter_statement(body)
-            .map_ok(|exp| 
+        let fns = parser.iter_block(body)
+            .map_ok(|exp| {
                 if let ExpressionKind::Fn(mut fun) = exp.kind.clone() {
                     fun.set_self_type(&type_name);
                     Ok(fun) 
                 }
-                else { return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string())); } 
-            )
+                else { return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string())); }
+            })
             .flatten()
             .try_collect()?;
         Ok(ExpressionKind::Impl(type_name.to_owned(), fns, trait_name))

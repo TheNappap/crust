@@ -39,10 +39,11 @@ impl Option {
 }
 
 fn print_bool(bool: Bool) -> String {
+    // TODO implicit return at end of function for braced expressions
     if bool {
-        return "true"
+        return "true";
     } else {
-        return "false"
+        return "false";
     }
 }
 
@@ -122,19 +123,19 @@ fn loops_and_arrays() {
     println "array[2][1]: %i", arr[2][1];
 
     // TODO <, <=, >, >= operators
-    iter(0..3) => for i: if i == 1 {
+    iter(0..3) => for i: if (i == 1) {
         iter arr => for i {
             println "iter array %i %i", i;
         }
     }
 
     let folded_range = iter(3..7)
-                map x: forward (x+2)
-                map y: forward (y*2)
-                filter z: forward (z==14)
+                map x: (x+2)
+                map y: (y*2)
+                filter z: (z==14)
                 fold 0, acc, w {
                     println "transformed range %i", w;
-                    forward (acc+w);
+                    (acc+w)
                 }
     println "folded range %i", folded_range;
 
@@ -149,6 +150,7 @@ fn basics() {
     // TODO dot syntax for function calls
     call! f2();
 
+    // TODO fix parser clash between ! after block tags and ! operator
     if true!: println "if one liner"
     else: println "else one liner";
     if true! {
@@ -172,5 +174,6 @@ fn basics() {
 }
 
 fn plus_one(a: Int, b: Int) -> Int {
-    return a + b + 1;
+    // TODO implement operators as chains
+    (a + b + 1)
 }

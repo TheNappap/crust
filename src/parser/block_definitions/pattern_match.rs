@@ -15,7 +15,7 @@ impl BlockDefinition for Match {
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let match_value = parser.parse_expression(header)?;
-        let cases = parser.iter_statement(body)
+        let cases = parser.iter_block(body)
             .map_ok(|expr| match expr.kind {
                 ExpressionKind::Case(pattern, exprs) => Ok((pattern.clone(), exprs.clone())),
                 _ => Err(span.error(ErrorKind::Syntax, "Expected case expression in match expression".to_string()))

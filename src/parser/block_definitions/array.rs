@@ -16,13 +16,10 @@ impl BlockDefinition for Array {
         "array"
     }
 
-    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        if let Some(TokenKind::Group(Delimeter::Brackets, tokens)) = header.first().map(|t|&t.kind) {
-            let list = parser.iter_expression(tokens.clone()).try_collect()?;
-            Ok(ExpressionKind::Array(list))
-        } else {
-            Err(span.error(ErrorKind::Syntax, "Expected array in brackets".to_string()))
-        }
+    fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        assert!(body.is_empty());
+        let list = parser.iter_expression(header).try_collect()?;
+        Ok(ExpressionKind::Array(list))
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
