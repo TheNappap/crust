@@ -11,3 +11,9 @@ impl<I: Iterator> Peeking for Peekable<I> {
         self.peek()
     }
 }
+
+impl<I: Iterator> Peeking for &mut Peekable<I> {
+    fn peek(&mut self) -> Option<&Self::Item> {
+        (*self).peek()
+    }
+}

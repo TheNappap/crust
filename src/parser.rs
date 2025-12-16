@@ -8,8 +8,7 @@ use itertools::Itertools;
 pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
-    utils::{Result, ThrowablePosition},
-    lexer::{Delimeter, Operator, Token, TokenKind},
+    lexer::{Delimeter, Operator, Token, TokenKind}, utils::{Result, ThrowablePosition}
 };
 
 use self::{block_definitions::*, blocks::{BlockStream, Block}};
@@ -144,7 +143,7 @@ impl Parser {
 
         parse_ops::parse_operators(&mut tokens);
         let span = tokens[0].span.clone();
-        match BlockStream::from_vec(tokens).next().transpose()? {
+        match BlockStream::from(tokens).next().transpose()? {
             Some(block) => self.parse_block_expression(block),
             None => return span.syntax("Can't make block from these tokens.".into()),
         }
@@ -155,7 +154,7 @@ impl Parser {
     }
 
     fn iter_statement(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
-        BlockStream::forward_last(tokens)
+        BlockStream::from(tokens).forward_last()
                 .map(|x|{
                     let (block, forwarding) = x?;
                     if forwarding {
@@ -168,7 +167,7 @@ impl Parser {
     }
     
     fn iter_block(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
-        BlockStream::from_vec(tokens)
+        BlockStream::from(tokens)
                 .map(|b| self.parse_block_expression(b?))
     }
     

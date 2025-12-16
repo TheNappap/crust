@@ -100,6 +100,7 @@ fn custom_data(data: Data) {
 fn groups() {
     println "Groups:";
     {
+        // TODO should be void with semicolon at the end
         let group = {
             let a = 8;
             let b = a + 5;
