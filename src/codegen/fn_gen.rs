@@ -565,17 +565,17 @@ impl<'codegen> FunctionCodegen<'codegen> {
                 match transform.kind {
                     TransformKind::Map => self.create_fn_call(transform.fun.signature(), &values?),
                     TransformKind::Filter => {
-                        let if_block = self.builder.create_block();
-                        let after_block = self.builder.create_block();
+                        let filter_in_block = self.builder.create_block();
+                        let filter_out_block = self.builder.create_block();
                         let cond = self.create_fn_call(transform.fun.signature(), &values.clone()?)?[0];
-                        self.builder.ins().brif(cond, if_block, &[], after_block, &[]);
-                        //if block
-                        self.builder.switch_to_block(if_block);
-                        self.builder.seal_block(if_block);
+                        self.builder.ins().brif(cond,filter_in_block, &[], filter_out_block, &[]);
+                        //filter out block
+                        self.builder.switch_to_block(filter_out_block);
+                        self.builder.seal_block(filter_out_block);
                         self.builder.ins().jump(add_block, &[]);
-                        //after block
-                        self.builder.switch_to_block(after_block);
-                        self.builder.seal_block(after_block);
+                        //filter in block
+                        self.builder.switch_to_block(filter_in_block);
+                        self.builder.seal_block(filter_in_block);
                         values
                     },
                 }
