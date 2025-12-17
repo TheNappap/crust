@@ -18,7 +18,9 @@ impl BlockDefinition for Return {
     }
 
     fn parse(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        header.push(Token::new(TokenKind::Group(Delimeter::Braces, body), span.clone()));
+        if !body.is_empty() {
+            header.push(Token::new(TokenKind::Group(Delimeter::Braces, body), span.clone()));
+        }
         let expr = parser.parse_expression(header)?;
         Ok(ExpressionKind::Return(Box::new(expr)))
     }
@@ -41,7 +43,9 @@ impl BlockDefinition for Forward {
     }
 
     fn parse_expression(&self, span: Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
-        header.push(Token::new(TokenKind::Group(Delimeter::Braces, body), span));
+        if !body.is_empty() {
+            header.push(Token::new(TokenKind::Group(Delimeter::Braces, body), span));
+        }
         let expr = parser.parse_expression(header)?;
         Ok(expr.forward())
     }

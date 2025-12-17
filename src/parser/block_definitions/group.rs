@@ -2,7 +2,7 @@
 
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser}};
+use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, Type}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -18,7 +18,7 @@ impl BlockDefinition for Group {
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.is_empty());
         let exprs = parser.iter_statement(body).try_collect()?;
-        Ok(ExpressionKind::Group(exprs))
+        Ok(ExpressionKind::Group(exprs, Type::Inferred))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {

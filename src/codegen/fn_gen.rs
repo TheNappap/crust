@@ -5,7 +5,7 @@ use std::ops::{RangeFrom, Range};
 
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::types::I64;
-use cranelift_codegen::ir::{self, Block, FuncRef, Function, InstBuilder, MemFlags, StackSlot, StackSlotData, StackSlotKind, UserFuncName, Value};
+use cranelift_codegen::ir::{Block, FuncRef, Function, InstBuilder, MemFlags, StackSlot, StackSlotData, StackSlotKind, UserFuncName, Value};
 
 use cranelift_codegen::verifier::verify_function;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable, Switch};
@@ -152,8 +152,8 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::Index(collection, index, ty, coll_length) => {
                 self.create_index(collection, index, &GenType::from_type(ty, self.ctx.module)?, *coll_length)?
             }
-            ExpressionKind::Group(body) => {
-                self.create_group(body, returned)?
+            ExpressionKind::Group(body, ty) => {
+                self.create_group(body, &GenType::from_type(ty, self.ctx.module)?, returned)?
             }
             ExpressionKind::Literal(literal) => vec![match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
@@ -302,10 +302,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
         values: Vec<Value>,
     ) -> Result<Vec<Value>> {
         let ty = &GenType::from_type(&symbol.ty, self.ctx.module)?;
-        let stack_slot = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size(), 0));
-        for (i, &value) in values.iter().enumerate() {
-            self.stack_store(value, stack_slot, 8*i as i32);
-        }
+        let stack_slot = self.create_stack_slot(&values, ty.size());
         self.ctx.variables.insert(symbol.name.clone(), stack_slot);
         Ok(values)
     }
@@ -321,13 +318,11 @@ impl<'codegen> FunctionCodegen<'codegen> {
         let field_offset = if let Some((_,offset)) = field {
             offset
         } else { 0 };
-        for (i, &value) in values.iter().enumerate() {
-            self.stack_store(value, ss, field_offset + 8*i as i32);
-        }
+        self.stack_store(&values, ss, field_offset);
         Ok(values)
     }
 
-    fn create_group(&mut self, body: &[Expression], returned: &mut bool) -> Result<Vec<Value>> { 
+    fn create_group(&mut self, body: &[Expression], ty: &GenType, returned: &mut bool) -> Result<Vec<Value>> { 
         let group_block = self.builder.create_block();
         let after_block = self.builder.create_block();
 
@@ -336,22 +331,32 @@ impl<'codegen> FunctionCodegen<'codegen> {
         //group block
         self.builder.switch_to_block(group_block);
 
-        for statement in body.iter().take(body.len()-1) {
-            self.create_expression(statement, returned)?;
-        }
+        let stack_slot = if ty.size() > 0 {
+            Some(self.create_stack_slot(&[], ty.size()))
+        } else { None };
 
-        let result = match body.last() {
-            Some(last) => self.create_expression(last, returned)?,
-            None => vec![],
-        };
+        for statement in body {
+            let values = self.create_expression(statement, returned)?;
+            if statement.forward {
+                self.stack_store(&values, stack_slot.unwrap(), 0);
+                self.builder.ins().jump(after_block, &[]);
+            };
+        }
         
-        self.builder.ins().jump(after_block, &[]);
-        
+        if stack_slot.is_none() {
+            self.builder.ins().jump(after_block, &[]);
+        }
+         
         //after block
         self.builder.switch_to_block(after_block);
         self.builder.seal_block(after_block);
         self.builder.seal_block(group_block);
-        Ok(result)
+
+        if let Some(stack_slot) = stack_slot {
+            Ok(self.stack_load(ty, stack_slot, 0))
+        } else {
+            Ok(vec![])
+        }
     }
 
     fn create_if(&mut self, condition: &Expression, if_body: &[Expression], else_body: &Option<Vec<Expression>>) -> Result<Vec<Value>> {
@@ -432,11 +437,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::Symbol(symbol) => *self.ctx.variables.get(&symbol.name).unwrap(),
             _ => {
                 let values = self.create_expression(collection, &mut false)?;
-                let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, ty.size()*coll_length, 0));
-                for (i, &value) in values.iter().enumerate() {
-                    self.stack_store(value, ss, 8*i as i32);
-                }
-                ss
+                self.create_stack_slot(&values, ty.size()*coll_length)
             }
         };
 
@@ -467,12 +468,8 @@ impl<'codegen> FunctionCodegen<'codegen> {
         let ss = match &coll.kind {
             ExpressionKind::Symbol(symbol) => *self.ctx.variables.get(&symbol.name).unwrap(),
             ExpressionKind::Array(_) | ExpressionKind::Range(_, _) => {
-                let ss = self.builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, var_type.size()**len, 0));
                 let values = self.create_expression(coll, &mut false)?;
-                for (i, &value) in values.iter().enumerate() {
-                    self.stack_store(value, ss, 8*i as i32);
-                }
-                ss
+                self.create_stack_slot(&values, var_type.size()**len)
             },
             _ => return coll.span.codegen("Expected array or range in iter of loop".to_string()),
         };
@@ -570,21 +567,9 @@ impl<'codegen> FunctionCodegen<'codegen> {
             Ok(vec![])
         }
     }
-    
-    fn stack_store(&mut self, value: Value, stack_slot: StackSlot, offset: i32) {
-        self.builder.ins().stack_store(value, stack_slot, offset);
-    }
-
-    fn stack_load(&mut self, ty: ir::Type, stack_slot: StackSlot, offset: i32) -> Value {
-        self.builder.ins().stack_load(ty, stack_slot, offset)
-    }
 
     fn create_pointer_to_stack_slot(&mut self, values: &[Value]) -> Result<Vec<Value>> {
-        let slot_data = StackSlotData::new(StackSlotKind::ExplicitSlot, 8*values.len() as u32, 0);
-        let stack_slot = self.builder.create_sized_stack_slot(slot_data);
-        for (i, &value) in values.iter().enumerate() {
-            self.stack_store(value, stack_slot, 8*i as i32);
-        }
+        let stack_slot = self.create_stack_slot(values, 8*values.len() as u32);
         Ok(vec![self.builder.ins().stack_addr(I64, stack_slot, 0)])
     }
 
@@ -725,9 +710,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
         assert!(field_offset >= 0);
         let ss = *self.ctx.variables.get(&symbol.name).unwrap();
         let ty = GenType::from_type(&symbol.ty, self.ctx.module)?;
-        let values = ty.types().into_iter().zip(ty.offsets()).map(|(ty, offset)|{
-            self.stack_load(*ty, ss, offset + field_offset)
-        }).collect();
+        let values = self.stack_load(&ty, ss, field_offset);
         Ok(values)
     }
     
@@ -779,5 +762,24 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.builder.switch_to_block(next_block);
         self.builder.seal_block(next_block);
         Ok(vec![])
+    }
+
+    fn create_stack_slot(&mut self, values: &[Value], size: u32) -> StackSlot {
+        let data = StackSlotData::new(StackSlotKind::ExplicitSlot, size, 0);
+        let stack_slot = self.builder.create_sized_stack_slot(data);
+        self.stack_store(values, stack_slot, 0);
+        return stack_slot;
+    }
+    
+    fn stack_store(&mut self, values: &[Value], stack_slot: StackSlot, offset: i32) {
+        for (i, &value) in values.iter().enumerate() {
+            self.builder.ins().stack_store(value, stack_slot, offset + 8*i as i32);
+        }
+    }
+    
+    fn stack_load(&mut self, ty: &GenType, stack_slot: StackSlot, offset: i32) -> Vec<Value> {
+        ty.types().into_iter().zip(ty.offsets()).map(|(ty, value_offset)|{
+            self.builder.ins().stack_load(*ty, stack_slot, offset + value_offset)
+        }).collect()
     }
 }

@@ -77,7 +77,7 @@ pub enum ExpressionKind {
     Fold(Box<Expression>, Symbol, Option<(Box<Expression>, Symbol)>, Vec<Expression>),
     Iter(Box<Expression>, Vec<IterTransform>, u32),
     Range(i64, i64),
-    Group(Vec<Expression>),
+    Group(Vec<Expression>, Type),
     Literal(Literal),
     AddrOf(Vec<Expression>),
     Symbol(Symbol),

@@ -105,8 +105,8 @@ impl<'f> TypeCheck<'f> {
             self.check_expression(expr)?;
         }
         match exprs.last_mut() {
-            None => Ok(Type::Void),
-            Some(expr) => self.check_expression(expr),
+            Some(expr) if expr.forward => self.check_expression(expr),
+            _ => Ok(Type::Void),
         }
     }
 
@@ -333,7 +333,16 @@ impl<'f> TypeCheck<'f> {
                 Type::Iter(Box::new(ty))
             },
             ExpressionKind::Range(start, end) => Type::Range((*end-*start) as u32),
-            ExpressionKind::Group(body) => self.check_group(body)?,
+            ExpressionKind::Group(body, ty) => {
+                let group_type = self.check_group(body)?;
+                if *ty == Type::Inferred {
+                    *ty = group_type.clone();
+                }
+                if *ty != group_type {
+                    expr.span.error(ErrorKind::Type, format!("Mismatch types for for group forward, expected: {:?}", ty));
+                }
+                ty.clone()
+            },
             ExpressionKind::Literal(Literal::Int(_)) => Type::Int,
             ExpressionKind::Literal(Literal::Float(_)) => Type::Float,
             ExpressionKind::Literal(Literal::Bool(_)) => Type::Bool,
