@@ -70,11 +70,11 @@ fn pattern_matching() {
 fn impl_blocks() {
     println "Impl blocks:";
     println "full fn method a(): %i", call Data::a(call Data::new());
-    println "method call a(): %i", call Data::new().a();
-    println "static fn data member b: %i", call Data::new().b;
-    println "What is this? %s", new Option::Some.some_func();
-    println "trait method call num(): %i", call Data::new().num();
-    println "trait method call double_num(): %i", call Data::new().double_num();
+    println "method call a(): %i", (call Data::new()).a();
+    println "static fn data member b: %i", (call Data::new()).b;
+    println "What is this? %s", (new Option::Some).some_func();
+    println "trait method call num(): %i", (call Data::new()).num();
+    println "trait method call double_num(): %i", (call Data::new()).double_num();
     println;
 }
 
@@ -124,19 +124,19 @@ fn loops_and_arrays() {
     println "array[2][1]: %i", arr[2][1];
 
     // TODO <, <=, >, >= operators
-    iter(0..3) => for i: if (i == 1) {
+    iter 0..3 => for i: if i == 1 {
         iter arr => for i {
             println "iter array %i %i", i;
         }
     }
 
-    let folded_range = iter(3..7)
-                map x: (x+2)
-                map y: (y*2)
-                filter z: (z==14)
+    let folded_range = iter 3..7
+                map x: x+2
+                map y: y*2
+                filter z: z==14
                 fold 0, acc, w {
                     println "transformed range %i", w;
-                    (acc+w)
+                    acc+w
                 }
     println "folded range %i", folded_range;
 
@@ -175,6 +175,6 @@ fn basics() {
 }
 
 fn plus_one(a: Int, b: Int) -> Int {
-    // TODO implement operators as chains
-    (a + b + 1)
+    // TODO implement operators as chains?
+    a + b + 1
 }

@@ -80,6 +80,9 @@ pub fn parse_operators(tokens: &mut Vec<Token>)  {
     if tokens.is_empty() {
         return;
     }
+    if !matches!(tokens[0].kind, TokenKind::Operator(_)) && !matches!(tokens[1].kind, TokenKind::Operator(_) | TokenKind::Group(Delimeter::Brackets, _)) {
+        return;
+    }
 
     if let Some((index, kind, op)) = next_operator_index(&tokens) {
         let span = tokens.iter().map(|t|t.span.clone()).fold(tokens.first().unwrap().span.clone(), |acc, s| acc.union(&s));
