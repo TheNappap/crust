@@ -40,6 +40,10 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<binary_ops::Divide>();
     blockdefs.add::<binary_ops::Equals>();
     blockdefs.add::<binary_ops::NotEquals>();
+    blockdefs.add::<binary_ops::LessThan>();
+    blockdefs.add::<binary_ops::LessEquals>();
+    blockdefs.add::<binary_ops::GreatThan>();
+    blockdefs.add::<binary_ops::GreatEquals>();
     blockdefs.add::<unary_ops::Negate>();
     blockdefs.add::<bools::True>();
     blockdefs.add::<bools::False>();

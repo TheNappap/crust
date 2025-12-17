@@ -370,7 +370,7 @@ impl<'f> TypeCheck<'f> {
                 }
 
                 let out_ty = match kind {
-                    BinOpKind::Eq | BinOpKind::Neq => Type::Bool,
+                    BinOpKind::Eq | BinOpKind::Neq | BinOpKind::Less | BinOpKind::LessEq | BinOpKind::Great | BinOpKind::GreatEq => Type::Bool,
                     _ => ty.clone()
                 };
 

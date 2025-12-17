@@ -138,3 +138,91 @@ impl BlockDefinition for NotEquals {
         Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
     }
 }
+
+#[derive(Default)]
+pub struct LessThan;
+
+impl BlockDefinition for LessThan {
+    fn id(&self) -> &str {
+        "less"
+    }
+
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
+            return Err(span.error(ErrorKind::Syntax, "LessThan operator expects exactly 2 operands".to_string()));
+        }
+
+        Ok(ExpressionKind::BinOp(BinOpKind::Less, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
+    }
+    
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+    }
+}
+
+#[derive(Default)]
+pub struct LessEquals;
+
+impl BlockDefinition for LessEquals {
+    fn id(&self) -> &str {
+        "less_eq"
+    }
+
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
+            return Err(span.error(ErrorKind::Syntax, "LessEquals operator expects exactly 2 operands".to_string()));
+        }
+
+        Ok(ExpressionKind::BinOp(BinOpKind::LessEq, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
+    }
+    
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+    }
+}
+
+#[derive(Default)]
+pub struct GreatThan;
+
+impl BlockDefinition for GreatThan {
+    fn id(&self) -> &str {
+        "great"
+    }
+
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
+            return Err(span.error(ErrorKind::Syntax, "GreatThan operator expects exactly 2 operands".to_string()));
+        }
+
+        Ok(ExpressionKind::BinOp(BinOpKind::Great, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
+    }
+    
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+    }
+}
+
+#[derive(Default)]
+pub struct GreatEquals;
+
+impl BlockDefinition for GreatEquals {
+    fn id(&self) -> &str {
+        "great_eq"
+    }
+
+    fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        if operands.len() != 2 {
+            return Err(span.error(ErrorKind::Syntax, "GreatEquals operator expects exactly 2 operands".to_string()));
+        }
+
+        Ok(ExpressionKind::BinOp(BinOpKind::GreatEq, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
+    }
+    
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+    }
+}

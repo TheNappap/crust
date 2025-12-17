@@ -197,6 +197,10 @@ impl<'codegen> FunctionCodegen<'codegen> {
                     BinOpKind::Div => self.create_division(param1, param2, ty)?,
                     BinOpKind::Eq => self.create_compare(CompKind::Equal, param1, param2, ty)?,
                     BinOpKind::Neq => self.create_compare(CompKind::NotEqual, param1, param2, ty)?,
+                    BinOpKind::Less => self.create_compare(CompKind::LessThan, param1, param2, ty)?,
+                    BinOpKind::LessEq => self.create_compare(CompKind::LessEquals, param1, param2, ty)?,
+                    BinOpKind::Great => self.create_compare(CompKind::GreatThan, param1, param2, ty)?,
+                    BinOpKind::GreatEq => self.create_compare(CompKind::GreatEquals, param1, param2, ty)?,
                 }
             }
             ExpressionKind::UnOp(kind, param, ty) => {
@@ -735,7 +739,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
             _ => param.span.codegen("Division for this type is not supported".to_string())
         }
     }
-
+    
     fn create_compare(&mut self, kind: CompKind, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Vec<Value>> {
         match ty {
             Type::Int | Type::Enum(_, _) => {

@@ -1,7 +1,7 @@
 
 use std::convert::identity;
 
-use crate::{lexer::{Delimeter, Operator, Token, TokenKind}, parser::block_definitions::{binary_ops::{Add, Divide, Equals, Multiply, NotEquals, Subtract}, dot, range, unary_ops::Negate, BlockDefinition}};
+use crate::{lexer::{Delimeter, Operator, Token, TokenKind}, parser::block_definitions::{BlockDefinition, binary_ops::{Add, Divide, Equals, GreatEquals, GreatThan, LessEquals, LessThan, Multiply, NotEquals, Subtract}, dot, range, unary_ops::Negate}};
 
 #[derive(Debug, PartialEq, Clone)]
 enum OpKind {
@@ -18,7 +18,7 @@ fn precedence( kind: OpKind, op: &Operator) -> Option<u8> {
         (Prefix, Dash | Not) => Some(1),
         (Binary, Star | Slash) => Some(2),
         (Binary, Plus | Dash) => Some(3),
-        (Binary, EqEq | Neq) => Some(4),
+        (Binary, EqEq | Neq | Less | LessEq | Great | GreatEq) => Some(4),
         (Binary, Range) => Some(5),
         _ => None,
     }
@@ -37,6 +37,10 @@ fn id_of_operator(kind:OpKind, op: &Operator) -> Option<String> {
         (Binary, Dash) => Subtract.id(),
         (Binary, EqEq) => Equals.id(),
         (Binary, Neq) => NotEquals.id(),
+        (Binary, Less) => LessThan.id(),
+        (Binary, LessEq) => LessEquals.id(),
+        (Binary, Great) => GreatThan.id(),
+        (Binary, GreatEq) => GreatEquals.id(),
         (Binary, Range) => range::Range.id(),
         _ => return None,
     }.to_string();

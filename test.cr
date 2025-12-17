@@ -113,7 +113,7 @@ fn loops_and_arrays() {
     println "Loops and arrays:";
 
     let add = 0;
-    while add != 100 {
+    while add < 100 {
         println "%i %s", add, call print_bool(add == 50);
         mut add = 25 + add;
     }
@@ -122,7 +122,6 @@ fn loops_and_arrays() {
     //mut index arr[1] = 12; //TODO
     println "array[2][1]: %i", arr[2][1];
 
-    // TODO <, <=, >, >= operators
     iter 0..3 => for i: if i == 1 {
         iter arr => for i {
             println "iter array %i %i", i;
@@ -132,7 +131,7 @@ fn loops_and_arrays() {
     let folded_range = iter 3..7
                 map x: x+2
                 map y: y*2
-                filter z: z==14
+                filter z: z<14
                 fold 0, acc, w {
                     println "transformed range %i", w;
                     acc+w

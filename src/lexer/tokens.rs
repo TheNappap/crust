@@ -73,6 +73,10 @@ pub enum Operator {
     EqEq,
     Neq,
     Not,
+    Less,
+    LessEq,
+    Great,
+    GreatEq,
     Range,
 }
 
@@ -309,6 +313,20 @@ impl<'str> TokenStream<'str> {
                     TokenKind::Operator(Operator::Arrow2)
                 }
                 _ => TokenKind::Operator(Operator::Eq)
+            }
+            '<' => match self.stream.peek() {
+                Some(Ok('=')) => {
+                    self.stream.next();
+                    TokenKind::Operator(Operator::LessEq)
+                }
+                _ => TokenKind::Operator(Operator::Less)
+            }          
+            '>' => match self.stream.peek() {
+                Some(Ok('=')) => {
+                    self.stream.next();
+                    TokenKind::Operator(Operator::GreatEq)
+                }
+                _ => TokenKind::Operator(Operator::Great)
             }
             '!' => match self.stream.peek() {
                 Some(Ok('=')) => {

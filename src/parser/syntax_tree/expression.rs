@@ -5,7 +5,7 @@ use super::{patterns::Pattern, ordered_map::OrderedMap, fn_expr::Trait};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinOpKind {
-    Add, Sub, Mul, Div, Eq, Neq
+    Add, Sub, Mul, Div, Eq, Neq, Less, LessEq, Great, GreatEq
 }
 
 #[derive(Debug, PartialEq, Clone)]
