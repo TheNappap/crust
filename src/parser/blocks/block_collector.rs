@@ -30,7 +30,8 @@ impl BlockCollector {
         let token = token.unwrap();
 
         let block = match token.kind {
-            TokenKind::Ident(id) => self.collect_tagged_block(id.to_owned(), token.span)?,
+            TokenKind::Tag(tag) => self.collect_tagged_block(tag.to_owned(), token.span)?,
+            TokenKind::Ident(tag) => self.collect_tagged_block(tag.to_owned(), token.span)?,
             TokenKind::Literal(_) => Block::anonymous_block(vec![token]),
             TokenKind::Group(Delimeter::Parens, tokens) => Block::anonymous_block(tokens),
             TokenKind::Group(_, _) => Block::anonymous_block(vec![token]),
@@ -40,10 +41,6 @@ impl BlockCollector {
     }
 
     fn collect_tagged_block(&mut self, tag: String, tag_span: Span) -> Result<Block> {
-        if let Some(Ok(Token{kind: TokenKind::Operator(Operator::Not), ..})) = self.stream.peek() {
-            self.stream.next();
-        }
-
         let (header, header_token) = self.collect_block_header()?;
         let (mut body, chain) = if let Some(Token{ kind:TokenKind::Operator(Operator::Eq), .. }) = header_token {
             let tokens = self.as_block_token_stream().collect_block_tokens()?.unwrap_or(vec![]);

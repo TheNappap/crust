@@ -200,6 +200,10 @@ impl Parser {
             }
 
             return match tokens.remove(0).kind {
+                TokenKind::Tag(tag) => {
+                    self.blockdefs.get(&tag, &block.span)?
+                            .parse_expression(block.span, vec![], vec![], self)
+                }
                 TokenKind::Ident(name) => Ok(Expression::new(ExpressionKind::Symbol(Symbol{name, ty:Type::Inferred}), block.span)),
                 TokenKind::Literal(literal) => Ok(Expression::new(ExpressionKind::Literal(literal), block.span)),
                 TokenKind::Group(Delimeter::Parens, tokens) => self.parse_expression(tokens),

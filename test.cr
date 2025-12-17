@@ -151,7 +151,6 @@ fn basics() {
     // TODO dot syntax for function calls
     call! f2();
 
-    // TODO fix parser clash between ! after block tags and ! operator
     if true!: println "if one liner"
     else: println "else one liner";
     if true! {

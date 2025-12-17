@@ -97,6 +97,7 @@ impl fmt::Debug for Token {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenKind {
     Underscore,
+    Tag(String),
     Ident(String),
     Literal(Literal),
     Operator(Operator),
@@ -176,12 +177,17 @@ impl<'str> TokenStream<'str> {
             return Ok(TokenKind::Underscore);
         }
         if !string.chars().all(|c| c.is_ascii_digit() || c == '_') {
-            return Ok(TokenKind::Ident(string));
+            if matches!(self.stream.peek(), Some(Ok('!'))) {
+                self.stream.next();
+                return Ok(TokenKind::Tag(string));
+            } else {
+                return Ok(TokenKind::Ident(string));
+            }
         }
 
-        let is_dot = if let Some(Ok('.')) = self.stream.peek() { true } else { false };
-        let is_second_dot = if let Some(Ok('.')) = self.stream.peek_second() { true } else { false };
-        if is_dot && !is_second_dot {
+        let is_dot = matches!(self.stream.peek(), Some(Ok('.')));
+        let is_second_dot = matches!(self.stream.peek_second(), Some(Ok('.')));
+        let literal =if is_dot && !is_second_dot {
             self.stream.next().transpose()?;
             let after_point = self.take_alphanumeric_string()?;
             if !after_point.chars().all(|c| c.is_ascii_digit() || c == '_') {
@@ -196,7 +202,7 @@ impl<'str> TokenStream<'str> {
                 .collect::<String>()
                 .parse::<f64>()
                 .unwrap();
-            Ok(TokenKind::Literal(Literal::Float(num)))
+            Literal::Float(num)
         } else {
             let num = string
                 .chars()
@@ -204,8 +210,9 @@ impl<'str> TokenStream<'str> {
                 .collect::<String>()
                 .parse::<i64>()
                 .unwrap();
-            Ok(TokenKind::Literal(Literal::Int(num)))
-        }
+            Literal::Int(num)
+        };
+        Ok(TokenKind::Literal(literal))
     }
 
     fn take_string_token(&mut self) -> Result<TokenKind> {

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::ops::{RangeFrom, Range};
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::types::I64;
+use cranelift_codegen::ir::types::{I8, I64};
 use cranelift_codegen::ir::{Block, FuncRef, Function, InstBuilder, MemFlags, StackSlot, StackSlotData, StackSlotKind, UserFuncName, Value};
 
 use cranelift_codegen::verifier::verify_function;
@@ -158,7 +158,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::Literal(literal) => vec![match literal {
                 Literal::Int(i) => self.builder.ins().iconst(I64, *i),
                 Literal::Float(f) => self.builder.ins().f64const(*f),
-                Literal::Bool(b) => self.builder.ins().iconst(I64, *b as i64),
+                Literal::Bool(b) => self.builder.ins().iconst(I8, *b as i64),
                 Literal::String(s) => self.create_literal_string(s.clone())?
             }],
             ExpressionKind::AddrOf(expressions) => {
@@ -677,7 +677,8 @@ impl<'codegen> FunctionCodegen<'codegen> {
             },
             Type::Bool => {
                 let v = self.create_expression(param, &mut false)?[0];
-                Ok(vec![self.builder.ins().bnot(v)])
+                let zero = self.builder.ins().iconst(I8, 0);
+                Ok(vec![self.builder.ins().icmp(CompKind::Equal.to_intcc(), v, zero)])
             },
             _ => param.span.codegen("Division for this type is not supported".to_string())
         }
