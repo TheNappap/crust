@@ -60,6 +60,10 @@ impl Span {
         Span { start, end }
     }
 
+    pub fn zero() -> Self {
+        Span { start: Position::zero(), end: Position::zero() }
+    }
+
     pub fn union(&self, span: &Span) -> Self {
         let start = self.start.clone().min(span.start.clone());
         let end = self.end.clone().max(span.end.clone());

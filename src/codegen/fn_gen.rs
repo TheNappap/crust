@@ -13,7 +13,7 @@ use cranelift_module::{DataDescription, Linkage, Module};
 use cranelift_object::ObjectModule;
 use itertools::Itertools;
 
-use crate::utils::{Result, ThrowablePosition};
+use crate::utils::{Result, ThrowablePosition, try_option};
 use crate::lexer::Literal;
 use crate::parser::{BinOpKind, Expression, ExpressionKind, Symbol, Fn, OrderedMap, Pattern, Signature, TransformKind, Type, UnOpKind};
 
@@ -108,64 +108,71 @@ impl<'codegen> FunctionCodegen<'codegen> {
         }
 
         for statement in fun.body() {
-            self.create_expression(statement, &mut false)?;
+            self.create_expression(statement)?;
         }
 
-        if *fun.signature().returns() == Type::Void {
-            self.builder.ins().return_(&[]);
-        }
         self.builder.finalize();
         Ok(())
     }
 
-    fn create_expression(&mut self, expression: &Expression, returned: &mut bool) -> Result<Vec<Value>> {
+    fn create_expression_list(&mut self, expressions: &Vec<Expression>) -> Result<Option<Vec<Value>>> {
+        let mut list = vec![];
+        for expression in expressions {
+            match self.create_expression(expression)? {
+                None => return Ok(None),
+                Some(value) => list.extend(value),
+            }
+        }
+        Ok(Some(list))
+    }
+
+    fn create_expression_value(&mut self, expression: &Expression) -> Result<Vec<Value>> {
+        if let Some(values) = self.create_expression(expression)? {
+            Ok(values)
+        } else {
+            expression.span.codegen("Expected value for expression, but found never type".into())
+        }
+    }
+
+    fn create_expression(&mut self, expression: &Expression) -> Result<Option<Vec<Value>>> {
         let value = match &expression.kind {
+            ExpressionKind::Void => vec![],
             ExpressionKind::Call(signature, params) => {
-                let param_values: Vec<Value> = params.iter().map(|param|{
-                        self.create_expression(param, &mut false)
-                    })
-                    .flatten_ok()
-                    .try_collect()?;
+                let param_values = try_option!(self.create_expression_list(params));
                 self.create_fn_call(signature, &param_values)?
             }
             ExpressionKind::Return(expr) => {
-                self.create_return(expr, returned)?
+                try_option!(self.create_return(expr))
             }
             ExpressionKind::Let(symbol, expr) => {
-                self.create_local_variable(symbol, expr)?
+                try_option!(self.create_local_variable(symbol, expr))
             }
             ExpressionKind::Mut(symbol, field, expr) => {
-                self.create_variable_mutation(&symbol.name, field.clone(), expr)?
+                try_option!(self.create_variable_mutation(&symbol.name, field.clone(), expr))
             }
-            ExpressionKind::If(condition, if_body, else_body) => {
-                self.create_if(condition, if_body, else_body)?
+            ExpressionKind::If(condition, if_body, else_body, ty) => {
+                try_option!(self.create_if(condition, if_body, else_body, &GenType::from_type(ty, self.ctx.module)?))
             }
             ExpressionKind::While(condition, while_body) => {
-                self.create_while(condition, while_body)?
+                try_option!(self.create_while(condition, while_body))
             }
             ExpressionKind::Fold(iter, var_symbol, accumulator, for_body) => {
-                self.create_fold(iter, var_symbol, for_body, accumulator)?
+                try_option!(self.create_fold(iter, var_symbol, for_body, accumulator))
             }
             ExpressionKind::Iter(iter, _, _) => {
-                self.create_expression(iter, returned)?
+                try_option!(self.create_expression(iter))
             }
             ExpressionKind::Index(collection, index, ty, coll_length) => {
                 self.create_index(collection, index, &GenType::from_type(ty, self.ctx.module)?, *coll_length)?
             }
             ExpressionKind::Group(body, ty) => {
-                self.create_group(body, &GenType::from_type(ty, self.ctx.module)?, returned)?
+                try_option!(self.create_group(body, &GenType::from_type(ty, self.ctx.module)?))
             }
-            ExpressionKind::Literal(literal) => vec![match literal {
-                Literal::Int(i) => self.builder.ins().iconst(I64, *i),
-                Literal::Float(f) => self.builder.ins().f64const(*f),
-                Literal::Bool(b) => self.builder.ins().iconst(I8, *b as i64),
-                Literal::String(s) => self.create_literal_string(s.clone())?
-            }],
+            ExpressionKind::Literal(literal) => {
+                vec![self.create_literal(literal)?]
+            },
             ExpressionKind::AddrOf(expressions) => {
-                let values: Vec<_> = expressions.iter()
-                        .map(|expr|self.create_expression(expr, returned))
-                        .flatten_ok()
-                        .try_collect()?;
+                let values = try_option!(self.create_expression_list(expressions));
                 self.create_pointer_to_stack_slot(&values)?
             }
             ExpressionKind::Symbol(symbol) => {
@@ -221,7 +228,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
                 }
             }
             ExpressionKind::Match(expr, ty, cases) => {
-                self.create_match(expr, ty, cases)?
+                try_option!(self.create_match(expr, ty, cases))
             },
             ExpressionKind::Signature(_) => vec![], //ignore, handled before function codegen
             ExpressionKind::Fn(_) => vec![], //ignore, handled before function codegen
@@ -230,7 +237,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::Data(_) => vec![], //ignore, handled before function codegen
             ExpressionKind::Case(..) => unreachable!(),
         };
-        Ok(value)
+        Ok(Some(value))
     }
 
     fn create_fn_call(
@@ -269,12 +276,11 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_return(
         &mut self,
         expr: &Expression,
-        returned: &mut bool,
-    ) -> Result<Vec<Value>> {
-        let values = self.create_expression(expr, returned)?;
-        self.builder.ins().return_(&values);
-        *returned = true;
-        Ok(values)
+    ) -> Result<Option<Vec<Value>>> {
+        if let Some(values) = self.create_expression(expr)? {
+            self.builder.ins().return_(&values);
+        }
+        Ok(None)
     }
 
     fn create_parameter(
@@ -291,9 +297,11 @@ impl<'codegen> FunctionCodegen<'codegen> {
         &mut self,
         symbol: &Symbol,
         expr: &Expression,
-    ) -> Result<Vec<Value>> {
-        let value = self.create_expression(expr, &mut false)?;
-        self.create_variable(symbol, value)
+    ) -> Result<Option<Vec<Value>>> {
+        if let Some(value) = self.create_expression(expr)? {
+            return Ok(Some(self.create_variable(symbol, value)?));
+        }
+        Ok(None)
     }
 
     fn create_variable(
@@ -312,17 +320,19 @@ impl<'codegen> FunctionCodegen<'codegen> {
         name: &str,
         field: Option<(Symbol, i32)>,
         expr: &Expression
-    ) -> Result<Vec<Value>> {
-        let values = self.create_expression(expr, &mut false)?;
-        let ss = *self.ctx.variables.get(name).unwrap();
-        let field_offset = if let Some((_,offset)) = field {
-            offset
-        } else { 0 };
-        self.stack_store(&values, ss, field_offset);
-        Ok(values)
+    ) -> Result<Option<Vec<Value>>> {
+        if let Some(values) = self.create_expression(expr)? {
+            let ss = *self.ctx.variables.get(name).unwrap();
+            let field_offset = if let Some((_,offset)) = field {
+                offset
+            } else { 0 };
+            self.stack_store(&values, ss, field_offset);
+            return Ok(Some(values));
+        }
+        Ok(None)
     }
 
-    fn create_group(&mut self, body: &[Expression], ty: &GenType, returned: &mut bool) -> Result<Vec<Value>> { 
+    fn create_group(&mut self, body: &[Expression], ty: &GenType) -> Result<Option<Vec<Value>>> { 
         let group_block = self.builder.create_block();
         let after_block = self.builder.create_block();
 
@@ -331,19 +341,21 @@ impl<'codegen> FunctionCodegen<'codegen> {
         //group block
         self.builder.switch_to_block(group_block);
 
-        let stack_slot = if ty.size() > 0 {
-            Some(self.create_stack_slot(&[], ty.size()))
-        } else { None };
+        let stack_slot = self.create_stack_slot(&[], ty.size());
 
+        let mut never = false;
         for statement in body {
-            let values = self.create_expression(statement, returned)?;
-            if statement.forward {
-                self.stack_store(&values, stack_slot.unwrap(), 0);
-                self.builder.ins().jump(after_block, &[]);
+            if let Some(values) = self.create_expression(statement)? {
+                if statement.forward {
+                    self.stack_store(&values, stack_slot, 0);
+                }
+            } else {
+                never = true;
+                break;
             };
         }
         
-        if stack_slot.is_none() {
+        if !never {
             self.builder.ins().jump(after_block, &[]);
         }
          
@@ -352,43 +364,59 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.builder.seal_block(after_block);
         self.builder.seal_block(group_block);
 
-        if let Some(stack_slot) = stack_slot {
-            Ok(self.stack_load(ty, stack_slot, 0))
+        if never {
+            Ok(None)
         } else {
-            Ok(vec![])
+            Ok(Some(self.stack_load(ty, stack_slot, 0)))
         }
     }
 
-    fn create_if(&mut self, condition: &Expression, if_body: &[Expression], else_body: &Option<Vec<Expression>>) -> Result<Vec<Value>> {
+    fn create_if(&mut self, condition: &Expression, if_body: &[Expression], else_body: &Option<Vec<Expression>>, ty: &GenType) -> Result<Option<Vec<Value>>> {
         let if_block = self.builder.create_block();
         let else_block = self.builder.create_block();
         let after_block = self.builder.create_block();
 
-        let cond = self.create_expression(condition, &mut false)?[0];
+        let stack_slot = self.create_stack_slot(&[], ty.size());
+
+        let cond = self.create_expression_value(condition)?[0];
         self.builder.ins().brif(cond, if_block, &[],
                                         else_block, &[]);
 
         //if block
         self.builder.switch_to_block(if_block);
         self.builder.seal_block(if_block);
-        let mut returned = false;
+        let mut never_if = false;
         for statement in if_body {
-            self.create_expression(statement, &mut returned)?;
+            if let Some(values) = self.create_expression(statement)? {
+                if statement.forward {
+                    self.stack_store(&values, stack_slot, 0);
+                }
+            } else {
+                never_if = true;
+                break;
+            }
         }
-        if !returned {
+        if !never_if {
             self.builder.ins().jump(after_block, &[]);
         }
 
         //else block
         self.builder.switch_to_block(else_block);
         self.builder.seal_block(else_block);
-        let mut returned = false;
+        let mut never_else = false;
         if let Some(else_body) = else_body {
             for statement in else_body {
-                self.create_expression(statement, &mut returned)?;
+                if let Some(values) = self.create_expression(statement)? {
+                    if statement.forward {
+                        self.stack_store(&values, stack_slot, 0);
+                    }
+                } else {
+                    never_else = true;
+                    break;
+                }
             }
         }
-        if !returned {
+        if !never_else {
             self.builder.ins().jump(after_block, &[]);
         }
         
@@ -396,10 +424,14 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.builder.switch_to_block(after_block);
         self.builder.seal_block(after_block);
         
-        Ok(vec![])
+        if never_if && never_else {
+            Ok(None)
+        } else {
+            Ok(Some(self.stack_load(ty, stack_slot, 0)))
+        }
     }
 
-    fn create_while(&mut self, condition: &Expression, while_body: &[Expression]) -> Result<Vec<Value>> {  
+    fn create_while(&mut self, condition: &Expression, while_body: &[Expression]) -> Result<Option<Vec<Value>>> {  
         let check_block = self.builder.create_block();
         let while_block = self.builder.create_block();
         let after_block = self.builder.create_block();
@@ -409,7 +441,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
         //check block
         self.builder.switch_to_block(check_block);
 
-        let cond = self.create_expression(condition, &mut false)?[0];
+        let cond = self.create_expression_value(condition)?[0];
         self.builder.ins().brif(cond, while_block, &[],
                                         after_block, &[]);
 
@@ -417,7 +449,9 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.builder.switch_to_block(while_block);
 
         for statement in while_body {
-            self.create_expression(statement,&mut false)?;
+            if let None = self.create_expression(statement)? {
+                break;
+            }
         }
         
         self.builder.ins().jump(check_block, &[]);
@@ -427,16 +461,16 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.builder.seal_block(after_block);
         self.builder.seal_block(check_block);
         self.builder.seal_block(while_block);
-        Ok(vec![])
+        Ok(None)
     }
 
     fn create_index(&mut self, collection: &Expression, index: &Expression, ty: &GenType, coll_length: u32) -> Result<Vec<Value>> {
-        let index = self.create_expression(index, &mut false)?[0];
+        let index = self.create_expression_value(index)?[0];
 
         let ss = match &collection.kind {
             ExpressionKind::Symbol(symbol) => *self.ctx.variables.get(&symbol.name).unwrap(),
             _ => {
-                let values = self.create_expression(collection, &mut false)?;
+                let values = self.create_expression_value(collection)?;
                 self.create_stack_slot(&values, ty.size()*coll_length)
             }
         };
@@ -456,19 +490,19 @@ impl<'codegen> FunctionCodegen<'codegen> {
             .collect()
     }
 
-    fn create_fold(&mut self, iter: &Expression, var_symbol: &Symbol, for_body: &[Expression], accumulator: &Option<(Box<Expression>, Symbol)>) -> Result<Vec<Value>> {
+    fn create_fold(&mut self, iter: &Expression, var_symbol: &Symbol, for_body: &[Expression], accumulator: &Option<(Box<Expression>, Symbol)>) -> Result<Option<Vec<Value>>> {
         let ExpressionKind::Iter(coll, iter_transforms, len) = &iter.kind else {
             return iter.span.codegen("Expected iter".to_string())
         };
 
-        if *len == 0 { return Ok(vec![]); }
+        if *len == 0 { return Ok(Some(vec![])); }
 
         let var_type = &GenType::from_type(&var_symbol.ty, self.ctx.module)?;
 
         let ss = match &coll.kind {
             ExpressionKind::Symbol(symbol) => *self.ctx.variables.get(&symbol.name).unwrap(),
             ExpressionKind::Array(_) | ExpressionKind::Range(_, _) => {
-                let values = self.create_expression(coll, &mut false)?;
+                let values = self.create_expression_value(coll)?;
                 self.create_stack_slot(&values, var_type.size()**len)
             },
             _ => return coll.span.codegen("Expected array or range in iter of loop".to_string()),
@@ -544,11 +578,16 @@ impl<'codegen> FunctionCodegen<'codegen> {
             })?;
         self.create_variable(var_symbol, transformed_values)?;
 
+        let mut never = false;
         for statement in for_body {
-            if let Some((_, acc_symbol)) = accumulator && statement.forward {
-                self.create_variable_mutation(&acc_symbol.name, None, &statement)?;
+            let value = if let Some((_, acc_symbol)) = accumulator && statement.forward {
+                self.create_variable_mutation(&acc_symbol.name, None, &statement)?
             } else {
-                self.create_expression(statement, &mut false)?;
+                self.create_expression(statement)?
+            };
+            if value.is_none() {
+                never = true;
+                break;
             }
         }
         
@@ -561,16 +600,29 @@ impl<'codegen> FunctionCodegen<'codegen> {
         self.builder.seal_block(check_block);
         self.builder.seal_block(for_block);
         self.builder.seal_block(after_block);
-        if let Some((_, acc_symbol)) = accumulator {
-            self.create_symbol_expr(acc_symbol, 0)
+
+        if never {
+            Ok(None)
+        } else if let Some((_, acc_symbol)) = accumulator {
+            Some(self.create_symbol_expr(acc_symbol, 0)).transpose()
         } else {
-            Ok(vec![])
+            Ok(Some(vec![]))
         }
     }
 
     fn create_pointer_to_stack_slot(&mut self, values: &[Value]) -> Result<Vec<Value>> {
         let stack_slot = self.create_stack_slot(values, 8*values.len() as u32);
         Ok(vec![self.builder.ins().stack_addr(I64, stack_slot, 0)])
+    }
+
+    fn create_literal(&mut self, literal: &Literal) -> Result<Value> {
+        let literal = match literal {
+            Literal::Int(i) => self.builder.ins().iconst(I64, *i),
+            Literal::Float(f) => self.builder.ins().f64const(*f),
+            Literal::Bool(b) => self.builder.ins().iconst(I8, *b as i64),
+            Literal::String(s) => self.create_literal_string(s.clone())?
+        };
+        Ok(literal)
     }
 
     fn create_literal_string(&mut self, mut str: String) -> Result<Value> {
@@ -599,18 +651,18 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_addition(&mut self, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Vec<Value>> {
         match ty {
             Type::Int => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().iadd(v1, v2)])
             },
             Type::Float => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().fadd(v1, v2)])
             },
             Type::String => {
-                let mut param_values= self.create_expression(param1, &mut false)?;
-                param_values.extend(self.create_expression(param2, &mut false)?);
+                let mut param_values= self.create_expression_value(param1)?;
+                param_values.extend(self.create_expression_value(param2)?);
                 self.create_fn_call(&Signature::new(None, "strcat",vec![Type::Int,Type::Int],Type::Int), &param_values)
             }
             _ => param1.span.codegen("Addition for this type is not supported".to_string())
@@ -620,13 +672,13 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_subtraction(&mut self, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Vec<Value>> {
         match ty {
             Type::Int => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().isub(v1, v2)])
             },
             Type::Float => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().fsub(v1, v2)])
             },
             _ => param1.span.codegen("Subtration for this type is not supported".to_string())
@@ -636,13 +688,13 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_multiplication(&mut self, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Vec<Value>> {
         match ty {
             Type::Int => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().imul(v1, v2)])
             },
             Type::Float => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().fmul(v1, v2)])
             },
             _ => param1.span.codegen("Multiplication for this type is not supported".to_string())
@@ -652,13 +704,13 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_division(&mut self, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Vec<Value>> {
         match ty {
             Type::Int => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().sdiv(v1, v2)])
             },
             Type::Float => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().fdiv(v1, v2)])
             },
             _ => param1.span.codegen("Division for this type is not supported".to_string())
@@ -668,15 +720,15 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_negation(&mut self, param: &Expression, ty: &Type) -> Result<Vec<Value>> {
         match ty {
             Type::Int => {
-                let v = self.create_expression(param, &mut false)?[0];
+                let v = self.create_expression_value(param)?[0];
                 Ok(vec![self.builder.ins().ineg(v)])
             },
             Type::Float => {
-                let v = self.create_expression(param, &mut false)?[0];
+                let v = self.create_expression_value(param)?[0];
                 Ok(vec![self.builder.ins().fneg(v)])
             },
             Type::Bool => {
-                let v = self.create_expression(param, &mut false)?[0];
+                let v = self.create_expression_value(param)?[0];
                 let zero = self.builder.ins().iconst(I8, 0);
                 Ok(vec![self.builder.ins().icmp(CompKind::Equal.to_intcc(), v, zero)])
             },
@@ -687,13 +739,13 @@ impl<'codegen> FunctionCodegen<'codegen> {
     fn create_compare(&mut self, kind: CompKind, param1: &Expression, param2: &Expression, ty: &Type) -> Result<Vec<Value>> {
         match ty {
             Type::Int | Type::Enum(_, _) => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().icmp(kind.to_intcc(), v1, v2)])
             },
             Type::Float => {
-                let v1 = self.create_expression(param1, &mut false)?[0];
-                let v2 = self.create_expression(param2, &mut false)?[0];
+                let v1 = self.create_expression_value(param1)?[0];
+                let v2 = self.create_expression_value(param2)?[0];
                 Ok(vec![self.builder.ins().fcmp(kind.to_floatcc(), v1, v2)])
             },
             _ => param1.span.codegen("Compare for this type is not supported".to_string())
@@ -702,7 +754,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
 
     fn create_record(&mut self, exprs: &Vec<Expression>) -> Result<Vec<Value>> {
         exprs.iter()
-            .map(|e| self.create_expression(e, &mut false))
+            .map(|e| self.create_expression_value(e))
             .flatten_ok()
             .collect()
     }
@@ -715,12 +767,12 @@ impl<'codegen> FunctionCodegen<'codegen> {
         Ok(values)
     }
     
-    fn create_match(&mut self, expr: &Expression, ty: &Type, cases: &OrderedMap<Pattern, Vec<Expression>>) -> Result<Vec<Value>> {
+    fn create_match(&mut self, expr: &Expression, ty: &Type, cases: &OrderedMap<Pattern, Vec<Expression>>) -> Result<Option<Vec<Value>>> {
         let Type::Enum(_, variants) = ty else {
             return expr.span.codegen("Only enum patterns in match".into());
         };
 
-        let vals = self.create_expression(expr, &mut false)?;
+        let values = self.create_expression_value(expr)?;
 
         let mut switch = Switch::new();
         let (cases, default) = cases.iter()
@@ -749,20 +801,30 @@ impl<'codegen> FunctionCodegen<'codegen> {
         };
         let default = default.into_iter().map(|(_,exprs)| (fallback, exprs));
 
-        switch.emit(&mut self.builder, vals[0], fallback);
+        switch.emit(&mut self.builder, values[0], fallback);
 
+        let mut never = false;
         for (block, exprs) in blocks.into_iter().chain(default) {
             self.builder.switch_to_block(block);
+            let mut never_block = false;
             for expr in exprs {
-                self.create_expression(expr, &mut false)?;
+                if let None = self.create_expression(expr)? {
+                    never_block = true;
+                    break;
+                }
             }
+            never = never && never_block;
             self.builder.ins().jump(next_block, &[]);
             self.builder.seal_block(block);
         }
         
         self.builder.switch_to_block(next_block);
         self.builder.seal_block(next_block);
-        Ok(vec![])
+        if never {
+            return Ok(None)
+        } else {
+            Ok(Some(vec![]))
+        }
     }
 
     fn create_stack_slot(&mut self, values: &[Value], size: u32) -> StackSlot {

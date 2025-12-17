@@ -39,11 +39,10 @@ impl Option {
 }
 
 fn print_bool(bool: Bool) -> String {
-    // TODO implicit return at end of function for braced expressions
     if bool {
-        return "true";
+        "true"
     } else {
-        return "false";
+        "false"
     }
 }
 
@@ -166,7 +165,7 @@ fn basics() {
         println "concat string: %s", concat;
         println "bool: %s", call print_bool(!false);
     } else {
-        println "else was activated";
+        return;
     }
     println "%s %i %i %i %i %i", "Operations:", 6/3, 5*6, 4+4, 34-35, 5*-4 - --9/3;
 

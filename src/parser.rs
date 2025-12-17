@@ -8,7 +8,7 @@ use itertools::Itertools;
 pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
-    lexer::{Delimeter, Operator, Token, TokenKind}, utils::{Result, ThrowablePosition}
+    lexer::{Delimeter, Operator, Span, Token, TokenKind}, utils::{Result, ThrowablePosition}
 };
 
 use self::{block_definitions::*, blocks::{BlockStream, Block}};
@@ -133,7 +133,7 @@ impl Parser {
 
     fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
         if tokens.is_empty() {
-            panic!("Can't make block from an empty list of tokens.");
+            return Ok(Expression::new(ExpressionKind::Void, Span::zero()));
         }
 
         if tokens.len() == 1 {
@@ -220,8 +220,7 @@ impl Parser {
         }
 
         let expr = self.blockdefs.get(&block.tag, &block.span)?
-            .parse(&block.span, block.header, block.body, self)
-            .map(|kind| Expression::new(kind, block.span));
+            .parse_expression(block.span, block.header, block.body, self);
         
         match block.chain {
             Some(chain) => self.parse_chained_block_expression(*chain, expr?),

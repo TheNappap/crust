@@ -113,6 +113,7 @@ impl<'f> TypeCheck<'f> {
     fn check_expression(&mut self, expr: &mut Expression) -> Result<Type> {
         let span = expr.span.clone();
         let mut ty = match &mut expr.kind {
+            ExpressionKind::Void => Type::Void,
             ExpressionKind::Call(signature, params) => {
                 if let Some(Type::Inferred) = signature.self_ty() {
                     assert!(params.len() > 0);
@@ -138,7 +139,8 @@ impl<'f> TypeCheck<'f> {
                 signature.returns().clone()
             },
             ExpressionKind::Return(expr) => {
-                self.check_expression(expr)?
+                self.check_expression(expr)?;
+                Type::Never
             },
             ExpressionKind::Signature(_) => {
                 todo!()
@@ -243,20 +245,28 @@ impl<'f> TypeCheck<'f> {
                     return Err(expr.span.error(ErrorKind::Type, format!("No variable found with this name: {:?}", symbol.name)));
                 }
             },
-            ExpressionKind::If(condition, if_body, else_body) => {
-                let ty = self.check_expression(condition)?;
-                if ty != Type::Bool {
+            ExpressionKind::If(condition, if_body, else_body, ty) => {
+                let cond_ty = self.check_expression(condition)?;
+                if cond_ty != Type::Bool {
                     return Err(expr.span.error(ErrorKind::Type, "Expected a boolean type as condition".to_string()));
                 }
-                for expr in if_body {
-                    self.check_expression(expr)?;
-                }
+                let if_type = self.check_group(if_body)?;
                 if let Some(else_body) = else_body {
-                    for expr in else_body {
-                        self.check_expression(expr)?;
+                    let else_type = self.check_group(else_body)?;
+                    if if_type != else_type {
+                        return Err(expr.span.error(ErrorKind::Type, "Type of if block and else block should be the same".to_string()));
                     }
+                    if *ty == Type::Inferred {
+                        *ty = else_type;
+                    }
+                    if if_type != *ty {
+                        return Err(expr.span.error(ErrorKind::Type, "Types of blocks do not match with expression".to_string()));
+                    }
+                    if_type
+                } else {
+                    *ty = Type::Void;
+                    Type::Void
                 }
-                Type::Void
             },
             ExpressionKind::While(condition, while_body) => {
                 let ty = self.check_expression(condition)?;
@@ -341,7 +351,7 @@ impl<'f> TypeCheck<'f> {
                 if *ty != group_type {
                     expr.span.error(ErrorKind::Type, format!("Mismatch types for for group forward, expected: {:?}", ty));
                 }
-                ty.clone()
+                group_type
             },
             ExpressionKind::Literal(Literal::Int(_)) => Type::Int,
             ExpressionKind::Literal(Literal::Float(_)) => Type::Float,

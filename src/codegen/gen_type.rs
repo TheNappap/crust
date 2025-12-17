@@ -30,7 +30,7 @@ impl GenType {
             Type::Enum(_, _) => GenTypeKind::Type(I64),
             Type::Iter(_) => GenTypeKind::Type(module.target_config().pointer_type()),
             Type::Void => GenTypeKind::Vec(vec![]),
-            Type::Inferred | Type::Named(_) => unreachable!(),
+            Type::Never | Type::Inferred | Type::Named(_) => unreachable!(),
         };
         Ok(GenType{ kind, size: ty.size() })
     }

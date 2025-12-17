@@ -1,5 +1,17 @@
 use crate::lexer::Position;
 
+macro_rules! try_option {
+    ($x:expr) => {
+        match $x {
+            Ok(Some(value)) => value,
+            Ok(None) => return Ok(None),
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
+pub(crate) use try_option;
+
 #[derive(Debug, Clone)]
 pub enum ErrorKind {
     Lexer,

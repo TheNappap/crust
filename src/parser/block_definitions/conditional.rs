@@ -3,7 +3,7 @@
 
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser}};
+use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, Type}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -18,7 +18,7 @@ impl BlockDefinition for If {
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let condition = parser.parse_expression(header)?;
         let body = parser.iter_statement(body).try_collect()?;
-        Ok(ExpressionKind::If(Box::new(condition), body, None))
+        Ok(ExpressionKind::If(Box::new(condition), body, None, Type::Inferred))
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
@@ -43,7 +43,7 @@ impl BlockDefinition for Else {
         let else_body = parser.iter_statement(body).try_collect()?;
 
         let if_else_expr = match input.kind {
-            ExpressionKind::If(condition, if_body, None) => ExpressionKind::If(condition.clone(), if_body.clone(), Some(else_body)),
+            ExpressionKind::If(condition, if_body, None, ty) => ExpressionKind::If(condition.clone(), if_body.clone(), Some(else_body), ty),
             _ => return Err(span.error(ErrorKind::Syntax, "Expected if expression before else".to_string()))
         };
         Ok(if_else_expr)

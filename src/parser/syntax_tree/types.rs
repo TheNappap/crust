@@ -12,6 +12,7 @@ pub enum Type {
     Bool,
     String,
     Void,
+    Never,
     Inferred,
     Named(String),
     Array(Box<Type>, usize),
@@ -30,7 +31,7 @@ impl Type {
             Type::Struct(_, types) => types.values().map(|(t,_)| t.size()).sum(),
             Type::Enum(_, _) => Int.size(),
             Void => 0,
-            Inferred | Named(_) => unreachable!(),
+            Never | Inferred | Named(_) => unreachable!(),
         }
     }
 
@@ -42,6 +43,7 @@ impl Type {
             Type::String => "String",
             Type::Range(_) => "Range",
             Type::Void => "Void",
+            Type::Never => "Never",
             Type::Inferred => "Inferred",
             Type::Named(name) => name,
             Type::Array(_, _) => todo!(),

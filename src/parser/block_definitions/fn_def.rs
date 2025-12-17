@@ -59,9 +59,12 @@ impl BlockDefinition for FnDef {
         if body.is_empty() {
             Ok(ExpressionKind::Signature(signature))
         } else {
-            let body = parser.iter_statement(body)
+            let mut body: Vec<_> = parser.iter_statement(body)
                                     .map_ok(Expression::return_if_forward)
                                     .try_collect()?;
+            if let Some(Expression { kind, span, .. }) = body.last() && !matches!(kind, ExpressionKind::Return(_)) {
+                body.push(Expression::new(ExpressionKind::Return(Box::new(Expression::new(ExpressionKind::Void, span.clone()))), span.clone()));
+            }
             let fun = Fn::new(signature, param_names, body);
             Ok(ExpressionKind::Fn(fun))
         }
