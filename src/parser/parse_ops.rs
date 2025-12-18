@@ -3,6 +3,20 @@ use std::convert::identity;
 
 use crate::{lexer::{Delimeter, Token, TokenKind}, parser::block_definitions::{BlockDefinition, binary_ops::{Add, Divide, Equals, GreatEquals, GreatThan, LessEquals, LessThan, Multiply, NotEquals, Subtract}, dot, range, unary_ops::Negate}};
 
+impl TokenKind {
+    fn is_operator(&self) -> bool {
+        use TokenKind::*;
+        match self {
+            Dot | Not => true,
+            Star | Slash => true,
+            Plus | Dash => true,
+            EqEq | Neq | Less | LessEq | Great | GreatEq => true,
+            Range => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 enum OpKind {
     Prefix,
@@ -10,80 +24,96 @@ enum OpKind {
     Binary
 }
 
-fn is_operator(token: &TokenKind) -> bool {
-    use TokenKind::*;
-    match token {
-        Dot | Not => true,
-        Star | Slash => true,
-        Plus | Dash => true,
-        EqEq | Neq | Less | LessEq | Great | GreatEq => true,
-        Range => true,
-        _ => false,
+struct Operator {
+    index: usize,
+    token: TokenKind,
+    kind: OpKind,
+}
+
+impl Operator {
+    fn new(index: usize, token: TokenKind) -> Option<Self> {
+        if token.is_operator() {
+            Some(Operator { index, token, kind: OpKind::Binary })
+        } else {
+            None
+        }
+    }
+
+    fn as_unary(mut self) -> Self {
+        self.kind = OpKind::Prefix;
+        self
+    }
+
+    fn as_binary(mut self) -> Self {
+        self.kind = OpKind::Binary;
+        self
+    }
+
+    fn precedence(&self) -> Option<u8> {
+        use TokenKind::*;
+        use OpKind::*;
+        match (&self.kind, &self.token) {
+            (Binary, Dot) => Some(0),
+            (Prefix, Dash | Not) => Some(1),
+            (Binary, Star | Slash) => Some(2),
+            (Binary, Plus | Dash) => Some(3),
+            (Binary, EqEq | Neq | Less | LessEq | Great | GreatEq) => Some(4),
+            (Binary, Range) => Some(5),
+            _ => None,
+        }
+    }
+
+    fn id_of_operator(&self) -> String {
+        use TokenKind::*;
+        use OpKind::*;
+        let id = match (&self.kind, &self.token) {
+            (Prefix, Not) => Negate.id(),
+            (Prefix, Dash) => Negate.id(),
+            (Binary, Dot) => dot::Dot.id(),
+            (Binary, Star) => Multiply.id(),
+            (Binary, Slash) => Divide.id(),
+            (Binary, Plus) => Add.id(),
+            (Binary, Dash) => Subtract.id(),
+            (Binary, EqEq) => Equals.id(),
+            (Binary, Neq) => NotEquals.id(),
+            (Binary, Less) => LessThan.id(),
+            (Binary, LessEq) => LessEquals.id(),
+            (Binary, Great) => GreatThan.id(),
+            (Binary, GreatEq) => GreatEquals.id(),
+            (Binary, Range) => range::Range.id(),
+            _ => unreachable!(),
+        }.to_string();
+        id
     }
 }
 
-fn precedence( kind: &OpKind, op: &TokenKind) -> Option<u8> {
-    use TokenKind::*;
-    use OpKind::*;
-    match (kind, op) {
-        (Binary, Dot) => Some(0),
-        (Prefix, Dash | Not) => Some(1),
-        (Binary, Star | Slash) => Some(2),
-        (Binary, Plus | Dash) => Some(3),
-        (Binary, EqEq | Neq | Less | LessEq | Great | GreatEq) => Some(4),
-        (Binary, Range) => Some(5),
-        _ => None,
-    }
-}
-
-fn id_of_operator(kind: &OpKind, op: &TokenKind) -> Option<String> {
-    use TokenKind::*;
-    use OpKind::*;
-    let id = match (kind, op) {
-        (Prefix, Not) => Negate.id(),
-        (Prefix, Dash) => Negate.id(),
-        (Binary, Dot) => dot::Dot.id(),
-        (Binary, Star) => Multiply.id(),
-        (Binary, Slash) => Divide.id(),
-        (Binary, Plus) => Add.id(),
-        (Binary, Dash) => Subtract.id(),
-        (Binary, EqEq) => Equals.id(),
-        (Binary, Neq) => NotEquals.id(),
-        (Binary, Less) => LessThan.id(),
-        (Binary, LessEq) => LessEquals.id(),
-        (Binary, Great) => GreatThan.id(),
-        (Binary, GreatEq) => GreatEquals.id(),
-        (Binary, Range) => range::Range.id(),
-        _ => return None,
-    }.to_string();
-    Some(id)
-}
-
-fn next_operator_index(tokens: &Vec<Token>) -> Option<(usize, String)> {
+fn next_operator_index(tokens: &Vec<Token>) -> Option<Operator> {
     let op = tokens.iter()
         .enumerate()
-        .scan(None::<Token>, |last_token,(i,token)| {
-            let out = match (&last_token, &token.kind) {
-                (_, token) if !is_operator(token) => Some(None),
-                (Some(Token{kind: token, ..}), _) if is_operator(token) => Some(None),
-                (None, op) => Some(Some((i,OpKind::Prefix,op))),
-                (_, op) => Some(Some((i,OpKind::Binary,op))),
+        .scan(None::<TokenKind>, |last_token,(index,token)| {
+            let previous_token = last_token.clone();
+            let current_token = token.kind.clone();
+            *last_token = Some(current_token.clone());
+            let Some(operator) = Operator::new(index, current_token) else {
+                return Some(None);
             };
-            *last_token = Some(token.clone());
-            out
+            match (previous_token, operator) {
+                (Some(token), _) if token.is_operator() => Some(None),
+                (None, op) => Some(Some(op.as_unary())),
+                (_, op) => Some(Some(op.as_binary())),
+            }
         })  
         .filter_map(identity)
-        .fold(None, |acc: Option<(u8, usize, String)>, (i, kind, op)| {
-            let precedence = precedence(&kind, &op);
-            let precedence = match (acc, precedence) {
+        .fold(None, |acc: Option<(u8, Operator)>, op| {
+            let precedence = match (acc, op.precedence()) {
                 (None, Some(pr)) => pr,
-                (Some((acc, _, _)), Some(pr)) if pr > acc => pr,
+                (Some((acc, _)), Some(pr)) if pr > acc => pr,
                 (acc, _) => return acc,
             };
-            Some((precedence, i, id_of_operator(&kind, op)?))
+            Some((precedence, op))
         });
 
-    op.and_then(|(_, index, id)| Some((index, id)) )
+    op.map(|(_, op)| op )
 }
 
 fn parse_indexing(tokens: &mut Vec<Token>) {
@@ -98,18 +128,18 @@ pub fn parse_operators(tokens: &mut Vec<Token>)  {
     if tokens.is_empty() {
         return;
     }
-    if !is_operator(&tokens[0].kind) && !is_operator(&tokens[1].kind) && !matches!(tokens[1].kind, TokenKind::Group(Delimeter::Brackets, _)) {
+    if !&tokens[0].kind.is_operator() && !&tokens[1].kind.is_operator() && !matches!(tokens[1].kind, TokenKind::Group(Delimeter::Brackets, _)) {
         return;
     }
 
-    if let Some((index, tag)) = next_operator_index(&tokens) {
+    if let Some(operator) = next_operator_index(&tokens) {
         let span = tokens.iter().map(|t|t.span.clone()).fold(tokens.first().unwrap().span.clone(), |acc, s| acc.union(&s));
-        if index == 0 {
+        if operator.index == 0 {
             tokens.remove(0);
         } else {
-            tokens[index] = Token::new(TokenKind::Comma, tokens[index].span.clone());
+            tokens[operator.index] = Token::new(TokenKind::Comma, tokens[operator.index].span.clone());
         }
-        tokens.insert(0, Token::new(TokenKind::Ident(tag), span));
+        tokens.insert(0, Token::new(TokenKind::Ident(operator.id_of_operator()), span));
         return;
     }
 
