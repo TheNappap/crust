@@ -210,7 +210,7 @@ mod tests {
                             header: vec![Token { kind: TokenKind::Ident("y".into()), span: Span::new(Position::new(11, 26), Position::new(11, 28)) }], 
                             body: vec![
                                 Token { kind: TokenKind::Ident("y".into()), span: Span::new(Position::new(11, 29), Position::new(11, 31)) }, 
-                                Token { kind: TokenKind::Symbol('<'), span: Span::new(Position::new(11, 31), Position::new(11, 33)) }, 
+                                Token { kind: TokenKind::Less, span: Span::new(Position::new(11, 31), Position::new(11, 33)) }, 
                                 Token { kind: TokenKind::Literal(Literal::Int(3)), span: Span::new(Position::new(11, 33), Position::new(11, 35)) }
                             ],
                             chain: Some( Box::new(Block { 

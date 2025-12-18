@@ -70,7 +70,7 @@ impl Token {
 
 impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Token({:#?}){{ {:?} }}", self.span.start(), self.kind)
+        write!(f, "Token({:?}:{:?}){{ {:?} }}", self.span.start(), self.span.end(), self.kind)
     }
 }
 
@@ -456,8 +456,7 @@ mod tests {
                         Token{ kind: Ident("let".into()), span: Span::new(Position::new(2, 0),Position::new(2, 6)) },
                         Token{ kind: Ident("strings".into()), span: Span::new(Position::new(2, 6),Position::new(2, 14)) },
                         Token{ kind: Eq, span: Span::new(Position::new(2, 14),Position::new(2, 16)) },
-                        Token{ kind: Ident("vec".into()), span: Span::new(Position::new(2, 16),Position::new(2, 20)) },
-                        Token{ kind: Not, span: Span::new(Position::new(2, 20),Position::new(2, 21)) },
+                        Token{ kind: Tag("vec".into()), span: Span::new(Position::new(2, 16),Position::new(2, 21)) },
                         Token{ kind: Group(Brackets, vec![
                             Token{ kind: Literal(String("A String".into())), span: Span::new(Position::new(2, 22),Position::new(2, 32)) }
                         ]), span: Span::new(Position::new(2, 21),Position::new(2, 33)) },

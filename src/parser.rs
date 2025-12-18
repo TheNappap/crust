@@ -307,6 +307,7 @@ mod tests {
                             print_call("Line1".to_string(), Span::new(Position::new(3, 0), Position::new(3, 18)), Position::new(3, 10)),
                             print_call("Line2".to_string(), Span::new(Position::new(4, 0), Position::new(4, 18)), Position::new(4, 10)),
                             print_call("Line3".to_string(), Span::new(Position::new(5, 0), Position::new(5, 18)), Position::new(5, 10)),
+                            Expression::new(ExpressionKind::Return(Box::new(Expression::new(ExpressionKind::Void, Span::new(Position::new(5, 0), Position::new(5, 18))))), Span::new(Position::new(5, 0), Position::new(5, 18))),
                         ],
                     )), Span::new(Position::new(2, 0), Position::new(5, 19))),
                     Expression::new(ExpressionKind::Fn(Fn::new(
@@ -314,10 +315,12 @@ mod tests {
                         vec![],
                         vec![
                             print_call("one liner".to_string(), Span::new(Position::new(7, 12), Position::new(7, 30)), Position::new(7, 18)),
+                            Expression::new(ExpressionKind::Return(Box::new(Expression::new(ExpressionKind::Void, Span::new(Position::new(7, 12), Position::new(7, 30))))), Span::new(Position::new(7, 12), Position::new(7, 30))),
                         ],
                     )), Span::new(Position::new(7, 0), Position::new(7, 31))),
                     Expression::new(ExpressionKind::Call(Signature::new(None, "f2", vec![], Type::Inferred), vec![]), Span::new(Position::new(9, 0), Position::new(9, 13))),
                     Expression::new(ExpressionKind::Call(Signature::new(None, "function", vec![], Type::Inferred), vec![]), Span::new(Position::new(10, 0), Position::new(10, 19))),
+                    Expression::new(ExpressionKind::Return(Box::new(Expression::new(ExpressionKind::Void, Span::new(Position::new(10, 0), Position::new(10, 19))))), Span::new(Position::new(10, 0), Position::new(10, 19))),
                 ],
             )
         ], 
