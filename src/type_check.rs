@@ -118,7 +118,7 @@ impl<'f> TypeCheck<'f> {
                 if let Some(Type::Inferred) = signature.self_ty() {
                     assert!(params.len() > 0);
                     let ty = self.check_expression(&mut params[0])?;
-                    signature.set_self_type(ty.name());
+                    signature.set_self_type(&ty.name());
                 }
                 *signature = self.functions.get(signature.name()).expect("Function not found").clone();
 
@@ -142,9 +142,6 @@ impl<'f> TypeCheck<'f> {
                 self.check_expression(expr)?;
                 Type::Never
             },
-            ExpressionKind::Signature(_) => {
-                todo!()
-            }
             ExpressionKind::Fn(fun) => {
                 self.check_fun(fun)?;
                 self.hidden_fns.push(fun.clone());
@@ -155,14 +152,11 @@ impl<'f> TypeCheck<'f> {
                 fns.iter_mut().try_for_each(|fun| self.check_fun(fun))?;
                 Type::Inferred
             }
-            ExpressionKind::Trait(_) => {
-                todo!()
-            }
             ExpressionKind::Data(_) => {
                 Type::Inferred
             }
             ExpressionKind::New(ty, exprs) => {
-                *ty = self.data_types.check_type_name(ty.name())?;
+                *ty = self.data_types.check_type_name(&ty.name())?;
 
                 match ty {
                     Type::Struct(_, fields) => {
@@ -185,7 +179,7 @@ impl<'f> TypeCheck<'f> {
                         let ExpressionKind::Data(data) = &exprs[0].kind else {
                             return Err(expr.span.error(ErrorKind::Type, "Enum variant parsing failed".to_string()));
                         };
-                        let Some(_) = variants.get(data.name()) else {
+                        let Some(_) = variants.get(&data.name()) else {
                             return Err(expr.span.error(ErrorKind::Type, "Enum variant not found".to_string()));
                         };
                     }
@@ -461,6 +455,8 @@ impl<'f> TypeCheck<'f> {
                 ty
             },
             ExpressionKind::Case(..) => unreachable!(),
+            ExpressionKind::Signature(_) => unreachable!(),
+            ExpressionKind::Trait(_) => unreachable!(),
         };
         self.data_types.check_named_type(&mut ty)?;
         Ok(ty)

@@ -223,7 +223,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
                         let ExpressionKind::Data(data) = &exprs[0].kind else {
                             return expression.span.codegen("Enum variant parsing failed".to_string());
                         };
-                        let Some(variant) = variants.get(data.name()) else {
+                        let Some(variant) = variants.get(&data.name()) else {
                             return expression.span.codegen("Enum variant not found".to_string());
                         };
                         vec![self.builder.ins().iconst(I64, *variant as i64)]

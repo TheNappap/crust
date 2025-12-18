@@ -11,7 +11,7 @@ impl Pattern {
     pub fn matches_on(&self, ty: &Type) -> bool {
         match self {
             Pattern::Ident(_) => true,
-            Pattern::EnumVariant(ty_name, _) => ty_name == ty.name(),
+            Pattern::EnumVariant(ty_name, _) => *ty_name == ty.name(),
         }
     }
 }

@@ -35,21 +35,21 @@ impl Type {
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> String {
         match self {
-            Type::Int => "Int",
-            Type::Float => "Float",
-            Type::Bool => "Bool",
-            Type::String => "String",
-            Type::Range(_) => "Range",
-            Type::Void => "Void",
-            Type::Never => "Never",
-            Type::Inferred => "Inferred",
-            Type::Named(name) => name,
-            Type::Array(_, _) => todo!(),
-            Type::Struct(name, _) => name,
-            Type::Enum(name, _) => name,
-            Type::Iter(_) => todo!(),
+            Type::Int => "Int".into(),
+            Type::Float => "Float".into(),
+            Type::Bool => "Bool".into(),
+            Type::String => "String".into(),
+            Type::Range(_) => "Range".into(),
+            Type::Void => "Void".into(),
+            Type::Never => "Never".into(),
+            Type::Inferred => "Inferred".into(),
+            Type::Named(name) => name.into(),
+            Type::Array(ty, size) => format!("[{}; {size}]", ty.name()),
+            Type::Struct(name, _) => name.into(),
+            Type::Enum(name, _) => name.into(),
+            Type::Iter(ty) => format!("Iter[{}]", ty.name()),
         }
     }
 
