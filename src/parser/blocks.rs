@@ -44,7 +44,7 @@ mod tests {
     use itertools::Itertools;
 
     use super::*;
-    use crate::{lexer::{Delimeter, Literal, Operator, Position, TokenKind}, utils::Result};
+    use crate::{lexer::{Delimeter, Literal, Position, TokenKind}, utils::Result};
 
     #[test]
     fn blocks_test() -> Result<()> {
@@ -91,7 +91,7 @@ mod tests {
                     body: vec![
                         Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(6, 16), Position::new(6, 22))},
                         Token{kind: TokenKind::Literal(Literal::String("one liner".to_string())), span: Span::new(Position::new(6, 22), Position::new(6, 34))},
-                        Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(6, 34), Position::new(6, 35))},
+                        Token{kind: TokenKind::Semicolon, span: Span::new(Position::new(6, 34), Position::new(6, 35))},
                     ],
                     chain: None,
                 },
@@ -162,7 +162,7 @@ mod tests {
                         body: vec![
                             Token{kind: TokenKind::Ident("print".to_string()), span: Span::new(Position::new(2, 13), Position::new(2, 19))},
                             Token{kind: TokenKind::Literal(Literal::String("Line1.1".to_string())), span: Span::new(Position::new(2, 19), Position::new(2, 29))},
-                            Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(2, 29), Position::new(2, 30))},
+                            Token{kind: TokenKind::Semicolon, span: Span::new(Position::new(2, 29), Position::new(2, 30))},
                         ],
                         chain: None,
                     })),
@@ -191,7 +191,7 @@ mod tests {
                     span: Span::new(Position::new(10, 0), Position::new(10, 17)),
                     header: vec![
                         Token { kind: TokenKind::Literal(Literal::Int(0)), span: Span::new(Position::new(10, 12), Position::new(10, 14)) },
-                        Token { kind: TokenKind::Operator(Operator::Range), span: Span::new(Position::new(10, 14), Position::new(10, 16)) }, 
+                        Token { kind: TokenKind::Range, span: Span::new(Position::new(10, 14), Position::new(10, 16)) }, 
                         Token { kind: TokenKind::Literal(Literal::Int(2)), span: Span::new(Position::new(10, 16), Position::new(10, 17)) },
                     ],
                     body: vec![],
@@ -201,7 +201,7 @@ mod tests {
                         header: vec![Token { kind: TokenKind::Ident("x".into()), span: Span::new(Position::new(10, 24), Position::new(10, 26)) }],
                         body: vec![
                             Token { kind: TokenKind::Ident("x".into()), span: Span::new(Position::new(10, 27), Position::new(10, 29)) }, 
-                            Token { kind: TokenKind::Operator(Operator::Plus), span: Span::new(Position::new(10, 29), Position::new(10, 30)) }, 
+                            Token { kind: TokenKind::Plus, span: Span::new(Position::new(10, 29), Position::new(10, 30)) }, 
                             Token { kind: TokenKind::Literal(Literal::Int(1)), span: Span::new(Position::new(10, 30), Position::new(10, 31)) }
                         ],
                         chain: Some( Box::new(Block { 
@@ -224,7 +224,7 @@ mod tests {
                                         kind: TokenKind::Group(Delimeter::Parens, vec![Token { kind: TokenKind::Ident("z".into()), span: Span::new(Position::new(12, 45), Position::new(12, 46)) }]),
                                         span: Span::new(Position::new(12, 44), Position::new(12, 47)) 
                                     },
-                                    Token{kind: TokenKind::Operator(Operator::Semicolon), span: Span::new(Position::new(12, 47), Position::new(12, 48))},
+                                    Token{kind: TokenKind::Semicolon, span: Span::new(Position::new(12, 47), Position::new(12, 48))},
                                 ],
                                 chain: None,
                             })),

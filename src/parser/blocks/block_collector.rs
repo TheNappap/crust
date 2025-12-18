@@ -2,7 +2,7 @@ use std::iter::once;
 
 use itertools::Itertools;
 
-use crate::{lexer::{Delimeter, Operator, Span, Token, TokenKind}, parser::blocks::{Block, FromVecStream, block_stream::BlockStream, block_tokens::BlockTokenStream, from_vec_stream}, utils::{Result, ThrowablePosition}};
+use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::blocks::{Block, FromVecStream, block_stream::BlockStream, block_tokens::BlockTokenStream, from_vec_stream}, utils::{Result, ThrowablePosition}};
 
 
 pub struct BlockCollector {
@@ -32,7 +32,7 @@ impl BlockCollector {
         let block = match token.kind {
             TokenKind::Tag(tag) => self.collect_tagged_block(tag.to_owned(), token.span)?,
             TokenKind::Ident(tag) => self.collect_tagged_block(tag.to_owned(), token.span)?,
-            TokenKind::Operator(Operator::Dot) => self.collect_tagged_block("dot".into(), token.span)?,
+            TokenKind::Dot => self.collect_tagged_block("dot".into(), token.span)?,
             TokenKind::Literal(_) => Block::anonymous_block(vec![token]),
             TokenKind::Group(Delimeter::Parens, tokens) => Block::anonymous_block(tokens),
             TokenKind::Group(_, _) => Block::anonymous_block(vec![token]),
@@ -43,7 +43,7 @@ impl BlockCollector {
 
     fn collect_tagged_block(&mut self, tag: String, tag_span: Span) -> Result<Block> {
         let (header, header_token) = self.collect_block_header()?;
-        let (mut body, chain) = if let Some(Token{ kind:TokenKind::Operator(Operator::Eq), .. }) = header_token {
+        let (mut body, chain) = if let Some(Token{ kind:TokenKind::Eq, .. }) = header_token {
             let tokens = self.as_block_token_stream().collect_block_tokens()?.unwrap_or(vec![]);
             (tokens, None)
         } else {
@@ -55,7 +55,7 @@ impl BlockCollector {
             (body, chain)
         };
 
-        if body.len() == 1 && let Some(Token { kind: TokenKind::Operator(Operator::Semicolon), .. }) = body.last() {
+        if body.len() == 1 && let Some(Token { kind: TokenKind::Semicolon, .. }) = body.last() {
             body.clear();
         }
         
@@ -73,13 +73,13 @@ impl BlockCollector {
             .peeking_take_while(|token| match token {
                 Ok(Token{kind, ..}) => !matches!(
                     kind,
-                    TokenKind::Operator(Operator::Colon | Operator::Eq | Operator::Arrow2 | Operator::Semicolon) | TokenKind::Group(Delimeter::Braces, _) | TokenKind::NewLine
+                    TokenKind::Colon | TokenKind::Eq | TokenKind::Arrow2 | TokenKind::Semicolon | TokenKind::Group(Delimeter::Braces, _) | TokenKind::NewLine
                 ),
                 Err(_) => true,
             })
             .try_collect()?;
 
-        if let Some(Ok(Token{kind:TokenKind::Operator(Operator::Colon | Operator::Eq), ..})) = self.stream.peek() {
+        if let Some(Ok(Token{kind:TokenKind::Colon | TokenKind::Eq, ..})) = self.stream.peek() {
             Ok((tokens, self.stream.next().transpose()?))
         } else {
             Ok((tokens, None))
@@ -91,7 +91,7 @@ impl BlockCollector {
             .peeking_take_while(|token| match token {
                 Ok(Token{kind, ..}) => !matches!(
                     kind,
-                    TokenKind::Operator(Operator::Semicolon | Operator::Arrow2) | TokenKind::Group(Delimeter::Braces, _) | TokenKind::NewLine
+                    TokenKind::Semicolon | TokenKind::Arrow2 | TokenKind::Group(Delimeter::Braces, _) | TokenKind::NewLine
                 ),
                 Err(_) => false,
             })
@@ -104,8 +104,8 @@ impl BlockCollector {
         };
 
         let tokens = match &end_token.kind {
-            TokenKind::Operator(Operator::Semicolon) => return Ok((tokens.into_iter().chain(once(end_token)).collect(), None)),
-            TokenKind::NewLine | TokenKind::Operator(Operator::Arrow2) => {
+            TokenKind::Semicolon => return Ok((tokens.into_iter().chain(once(end_token)).collect(), None)),
+            TokenKind::NewLine | TokenKind::Arrow2 => {
                 tokens
             }
             TokenKind::Group(Delimeter::Braces, group_tokens) => {

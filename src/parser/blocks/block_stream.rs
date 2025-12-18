@@ -1,6 +1,6 @@
 use itertools::PeekingNext;
 
-use crate::{lexer::{Operator, Token, TokenKind, TokenStream}, parser::blocks::{Block, FromVecStream, block_collector::BlockCollector}, utils::{Peeking, Result}};
+use crate::{lexer::{Token, TokenKind, TokenStream}, parser::blocks::{Block, FromVecStream, block_collector::BlockCollector}, utils::{Peeking, Result}};
 
 use super::block_tokens::BlockTokenStream;
 
@@ -138,7 +138,7 @@ impl<Stream> ForwardBlockStream<Stream> where Stream: Peeking<Item=Result<Token>
         let is_last_block = self.stream.peek().is_none();
         if is_last_block {
             let last_token = tokens.last().expect("`tokens` is already checked to be none empty");
-            if !matches!(last_token.kind, TokenKind::Operator(Operator::Semicolon)) {
+            if !matches!(last_token.kind, TokenKind::Semicolon) {
                 return Ok(Some( (Block::anonymous_block(tokens), true) ));
             }
         }

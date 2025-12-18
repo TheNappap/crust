@@ -20,12 +20,11 @@ impl BlockDefinition for Call {
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        use crate::lexer::Operator::*;
         use TokenKind::*;
         use Delimeter::*;
         let (ty, name, tokens) = match header.as_slice() {
             [Token{kind: Ident(name), ..}, Token{kind: Group(Parens, tokens), ..}] => (None, name.to_owned(), tokens),
-            [Token{kind: Ident(type_name), ..}, Token{kind: Operator(ColonColon), ..}, Token{kind: Ident(name), ..}, Token{kind: Group(Parens, tokens), ..}] => 
+            [Token{kind: Ident(type_name), ..}, Token{kind: ColonColon, ..}, Token{kind: Ident(name), ..}, Token{kind: Group(Parens, tokens), ..}] => 
                 if type_name == "_" {
                     (Some(Type::Inferred), name.to_owned(), tokens)
                 } else {

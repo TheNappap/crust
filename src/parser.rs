@@ -8,7 +8,7 @@ use itertools::Itertools;
 pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
-    lexer::{Delimeter, Operator, Span, Token, TokenKind}, utils::{Result, ThrowablePosition}
+    lexer::{Delimeter, Span, Token, TokenKind}, utils::{Result, ThrowablePosition}
 };
 
 use self::{block_definitions::*, blocks::{BlockStream, Block}};
@@ -249,7 +249,7 @@ impl Parser {
         let mut tokens = tokens.into_iter().filter(|t| !matches!(t.kind, TokenKind::NewLine));
         (0..).map(move |_| {
                 (&mut tokens).take_while(|token| { 
-                        !matches!(token.kind, TokenKind::Operator(Operator::Comma))
+                        !matches!(token.kind, TokenKind::Comma)
                     })
                     .collect::<Vec<_>>()
             })

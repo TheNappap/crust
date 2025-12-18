@@ -56,30 +56,6 @@ pub enum Literal {
     String(String),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Operator {
-    Dot,
-    Comma,
-    Colon,
-    ColonColon,
-    Semicolon,
-    Arrow,
-    Arrow2,
-    Plus,
-    Dash,
-    Star,
-    Slash,
-    Eq,
-    EqEq,
-    Neq,
-    Not,
-    Less,
-    LessEq,
-    Great,
-    GreatEq,
-    Range,
-}
-
 #[derive(PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
@@ -100,13 +76,34 @@ impl fmt::Debug for Token {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenKind {
-    Underscore,
+    Group(Delimeter, Vec<Token>),
     Tag(String),
     Ident(String),
     Literal(Literal),
-    Operator(Operator),
     Symbol(char),
-    Group(Delimeter, Vec<Token>),
+    // Operators
+    Dot,
+    Plus,
+    Dash,
+    Star,
+    Slash,
+    EqEq,
+    Neq,
+    Not,
+    Less,
+    LessEq,
+    Great,
+    GreatEq,
+    Range,
+    // Special symbols
+    Underscore,
+    Eq,
+    Arrow,
+    Arrow2,
+    Comma,
+    Colon,
+    ColonColon,
+    Semicolon,
     NewLine,
 }
 
@@ -280,60 +277,60 @@ impl<'str> TokenStream<'str> {
             '.' => match self.stream.peek() {
                 Some(Ok('.')) => {
                     self.stream.next();
-                    TokenKind::Operator(Operator::Range)
+                    TokenKind::Range
                 }
-                _ => TokenKind::Operator(Operator::Dot),
+                _ => TokenKind::Dot,
             }
-            ',' => TokenKind::Operator(Operator::Comma),
+            ',' => TokenKind::Comma,
             ':' => match self.stream.peek() {
                 Some(Ok(':')) => {
                     self.stream.next();
-                    TokenKind::Operator(Operator::ColonColon)
+                    TokenKind::ColonColon
                 }
-                _ => TokenKind::Operator(Operator::Colon),
+                _ => TokenKind::Colon,
             },
-            ';' => TokenKind::Operator(Operator::Semicolon),
-            '+' => TokenKind::Operator(Operator::Plus),
+            ';' => TokenKind::Semicolon,
+            '+' => TokenKind::Plus,
             '-' => match self.stream.peek() {
                 Some(Ok('>')) => {
                     self.stream.next();
-                    TokenKind::Operator(Operator::Arrow)
+                    TokenKind::Arrow
                 }
-                _ => TokenKind::Operator(Operator::Dash),
+                _ => TokenKind::Dash,
             }
-            '*' => TokenKind::Operator(Operator::Star),
-            '/' => TokenKind::Operator(Operator::Slash),
+            '*' => TokenKind::Star,
+            '/' => TokenKind::Slash,
             '=' => match self.stream.peek() {
                 Some(Ok('=')) => {
                     self.stream.next();
-                    TokenKind::Operator(Operator::EqEq)
+                    TokenKind::EqEq
                 }
                 Some(Ok('>')) => {
                     self.stream.next();
-                    TokenKind::Operator(Operator::Arrow2)
+                    TokenKind::Arrow2
                 }
-                _ => TokenKind::Operator(Operator::Eq)
+                _ => TokenKind::Eq
             }
             '<' => match self.stream.peek() {
                 Some(Ok('=')) => {
                     self.stream.next();
-                    TokenKind::Operator(Operator::LessEq)
+                    TokenKind::LessEq
                 }
-                _ => TokenKind::Operator(Operator::Less)
+                _ => TokenKind::Less
             }          
             '>' => match self.stream.peek() {
                 Some(Ok('=')) => {
                     self.stream.next();
-                    TokenKind::Operator(Operator::GreatEq)
+                    TokenKind::GreatEq
                 }
-                _ => TokenKind::Operator(Operator::Great)
+                _ => TokenKind::Great
             }
             '!' => match self.stream.peek() {
                 Some(Ok('=')) => {
                     self.stream.next();
-                    TokenKind::Operator(Operator::Neq)
+                    TokenKind::Neq
                 }
-                _ => TokenKind::Operator(Operator::Not)
+                _ => TokenKind::Not
             }
             _ => TokenKind::Symbol(c)
         };
@@ -387,7 +384,6 @@ mod tests {
     use super::Delimeter::*;
     use super::TokenKind::*;
     use super::Literal::*;
-    use super::Operator::*;
     use super::*;
 
     #[test]
@@ -400,15 +396,15 @@ mod tests {
             vec![
                 Token{ kind: Ident("let".into()), span: Span::new(Position::new(0,0),Position::new(0,3)) },
                 Token{ kind: Ident("v_a_r".into()), span: Span::new(Position::new(0,3),Position::new(0,9)) },
-                Token{ kind: Operator(Colon), span: Span::new(Position::new(0,9),Position::new(0,10)) },
+                Token{ kind: Colon, span: Span::new(Position::new(0,9),Position::new(0,10)) },
                 Token{ kind: Ident("u32".into()), span: Span::new(Position::new(0,10),Position::new(0,14)) },
-                Token{ kind: Operator(Eq), span: Span::new(Position::new(0,14),Position::new(0,16)) },
+                Token{ kind: Eq, span: Span::new(Position::new(0,14),Position::new(0,16)) },
                 Token{ kind: Literal(Int(30)), span: Span::new(Position::new(0,16),Position::new(0,20)) },
-                Token{ kind: Operator(Plus), span: Span::new(Position::new(0,20),Position::new(0,21)) },
+                Token{ kind: Plus, span: Span::new(Position::new(0,20),Position::new(0,21)) },
                 Token{ kind: Literal(Float(50.)), span: Span::new(Position::new(0,21),Position::new(0,26)) },
-                Token{ kind: Operator(Plus), span: Span::new(Position::new(0,26),Position::new(0,28)) },
+                Token{ kind: Plus, span: Span::new(Position::new(0,26),Position::new(0,28)) },
                 Token{ kind: Literal(Float(8.9)), span: Span::new(Position::new(0,28),Position::new(0,32)) },
-                Token{ kind: Operator(Semicolon), span: Span::new(Position::new(0,32),Position::new(0,33)) },
+                Token{ kind: Semicolon, span: Span::new(Position::new(0,32),Position::new(0,33)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(0,33),Position::new(1,0)) },
             ]
         );
@@ -423,7 +419,7 @@ mod tests {
             tokens,
             vec![
                 Token{ kind: Literal(Int(0)), span: Span::new(Position::new(0,0),Position::new(0,1)) },
-                Token{ kind: Operator(Range), span: Span::new(Position::new(0,1),Position::new(0,3)) },
+                Token{ kind: Range, span: Span::new(Position::new(0,1),Position::new(0,3)) },
                 Token{ kind: Literal(Int(10)), span: Span::new(Position::new(0,3),Position::new(0,10)) },
             ]
         );
@@ -448,24 +444,24 @@ mod tests {
                     Parens,
                     vec![
                         Token{ kind: Ident("c".into()), span: Span::new(Position::new(1,14),Position::new(1,15)) },
-                        Token{ kind: Operator(Colon), span: Span::new(Position::new(1,15),Position::new(1,16)) },
+                        Token{ kind: Colon, span: Span::new(Position::new(1,15),Position::new(1,16)) },
                         Token{ kind: Ident("char".into()), span: Span::new(Position::new(1, 16),Position::new(1, 21)) },
                     ]
                 ), span: Span::new(Position::new(1, 13),Position::new(1, 22)) },
-                Token{ kind: Operator(Arrow), span: Span::new(Position::new(1, 22),Position::new(1, 25)) },
+                Token{ kind: Arrow, span: Span::new(Position::new(1, 22),Position::new(1, 25)) },
                 Token{ kind: Ident("return".into()), span: Span::new(Position::new(1, 25),Position::new(1, 32)) },
                 Token{ kind: Group(
                     Braces,
                     vec![
                         Token{ kind: Ident("let".into()), span: Span::new(Position::new(2, 0),Position::new(2, 6)) },
                         Token{ kind: Ident("strings".into()), span: Span::new(Position::new(2, 6),Position::new(2, 14)) },
-                        Token{ kind: Operator(Eq), span: Span::new(Position::new(2, 14),Position::new(2, 16)) },
+                        Token{ kind: Eq, span: Span::new(Position::new(2, 14),Position::new(2, 16)) },
                         Token{ kind: Ident("vec".into()), span: Span::new(Position::new(2, 16),Position::new(2, 20)) },
-                        Token{ kind: Operator(Not), span: Span::new(Position::new(2, 20),Position::new(2, 21)) },
+                        Token{ kind: Not, span: Span::new(Position::new(2, 20),Position::new(2, 21)) },
                         Token{ kind: Group(Brackets, vec![
                             Token{ kind: Literal(String("A String".into())), span: Span::new(Position::new(2, 22),Position::new(2, 32)) }
                         ]), span: Span::new(Position::new(2, 21),Position::new(2, 33)) },
-                        Token{ kind: Operator(Semicolon), span: Span::new(Position::new(2, 33),Position::new(2, 34)) },
+                        Token{ kind: Semicolon, span: Span::new(Position::new(2, 33),Position::new(2, 34)) },
                     ]
                 ), span: Span::new(Position::new(1, 32),Position::new(3, 3)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(3, 3),Position::new(4, 0)) },
@@ -506,9 +502,9 @@ mod tests {
                     Braces,
                     vec![
                         Token{ kind: Literal(Int(2)), span: Span::new(Position::new(5, 0),Position::new(5, 4)) },
-                        Token{ kind: Operator(Star), span: Span::new(Position::new(5, 4),Position::new(5, 5)) },
+                        Token{ kind: Star, span: Span::new(Position::new(5, 4),Position::new(5, 5)) },
                         Token{ kind: Literal(Int(2)), span: Span::new(Position::new(5, 5),Position::new(5, 6)) },
-                        Token{ kind: Operator(Semicolon), span: Span::new(Position::new(5, 6),Position::new(5, 7)) },
+                        Token{ kind: Semicolon, span: Span::new(Position::new(5, 6),Position::new(5, 7)) },
                         Token{ kind: NewLine, span: Span::new(Position::new(5, 7),Position::new(6, 0)) },
                         Token{ kind: Ident("while".into()), span: Span::new(Position::new(6, 0),Position::new(6, 8)) },
                         Token{ kind: Group(
@@ -516,39 +512,39 @@ mod tests {
                             vec![
                                 Token{ kind: Ident("let".into()), span: Span::new(Position::new(7, 0),Position::new(7, 7)) },
                                 Token{ kind: Ident("x".into()), span: Span::new(Position::new(7, 7),Position::new(7, 9)) },
-                                Token{ kind: Operator(Eq), span: Span::new(Position::new(7, 9),Position::new(7, 11)) },
+                                Token{ kind: Eq, span: Span::new(Position::new(7, 9),Position::new(7, 11)) },
                                 Token{ kind: Literal(Float(5.)), span: Span::new(Position::new(7, 11),Position::new(7, 14)) },
-                                Token{ kind: Operator(Plus), span: Span::new(Position::new(7, 14),Position::new(7, 16)) },
+                                Token{ kind: Plus, span: Span::new(Position::new(7, 14),Position::new(7, 16)) },
                                 Token{ kind: Literal(Float(5.6)), span: Span::new(Position::new(7, 16),Position::new(7, 22)) },
-                                Token{ kind: Operator(Semicolon), span: Span::new(Position::new(7, 22),Position::new(7, 23)) },
+                                Token{ kind: Semicolon, span: Span::new(Position::new(7, 22),Position::new(7, 23)) },
                             ]
                         ), span: Span::new(Position::new(6, 8),Position::new(8, 4)) },
                         Token{ kind: NewLine, span: Span::new(Position::new(8, 4),Position::new(9, 0)) },
                         Token{ kind: Ident("function_call".into()), span: Span::new(Position::new(9, 0),Position::new(9, 16)) },
                         Token{ kind: Group(Parens, vec![]), span: Span::new(Position::new(9, 16),Position::new(9, 18)) },
-                        Token{ kind: Operator(Semicolon), span: Span::new(Position::new(9, 18),Position::new(9, 19)) },
+                        Token{ kind: Semicolon, span: Span::new(Position::new(9, 18),Position::new(9, 19)) },
                     ]
                 ), span: Span::new(Position::new(4, 0),Position::new(10, 4)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(10, 4),Position::new(11, 0)) },
                 Token{ kind: Literal(String("String}(]".into())), span: Span::new(Position::new(11, 0),Position::new(11, 14)) },
-                Token{ kind: Operator(Dot), span: Span::new(Position::new(11, 14),Position::new(11, 15)) },
+                Token{ kind: Dot, span: Span::new(Position::new(11, 14),Position::new(11, 15)) },
                 Token{ kind: Ident("into".into()), span: Span::new(Position::new(11, 15),Position::new(11, 19)) },
                 Token{ kind: Group(Parens, vec![]), span: Span::new(Position::new(11, 19),Position::new(11, 21)) },
                 Token{ kind: Group(Brackets, vec![
                     Token{ kind: Literal(Int(0)), span: Span::new(Position::new(11, 22),Position::new(11, 23)) },
                 ]), span: Span::new(Position::new(11, 21),Position::new(11, 24)) },
-                Token{ kind: Operator(Semicolon), span: Span::new(Position::new(11, 24),Position::new(11, 25)) },
+                Token{ kind: Semicolon, span: Span::new(Position::new(11, 24),Position::new(11, 25)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(11, 25),Position::new(12, 0)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(12, 0),Position::new(17, 0)) },
                 Token{ kind: Literal(Int(10)), span: Span::new(Position::new(17, 0),Position::new(17, 6)) },
-                Token{ kind: Operator(Dash), span: Span::new(Position::new(17, 6),Position::new(17, 8)) },
+                Token{ kind: Dash, span: Span::new(Position::new(17, 6),Position::new(17, 8)) },
                 Token{ kind: Literal(Int(1)), span: Span::new(Position::new(17, 8),Position::new(17, 10)) },
-                Token{ kind: Operator(Semicolon), span: Span::new(Position::new(17, 10),Position::new(17, 11)) },
+                Token{ kind: Semicolon, span: Span::new(Position::new(17, 10),Position::new(17, 11)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(17, 11),Position::new(18, 0)) },
                 Token{ kind: Literal(Float(2.)), span: Span::new(Position::new(18, 0),Position::new(18, 6)) },
-                Token{ kind: Operator(Slash), span: Span::new(Position::new(18, 6),Position::new(18, 8)) },
+                Token{ kind: Slash, span: Span::new(Position::new(18, 6),Position::new(18, 8)) },
                 Token{ kind: Literal(Float(10.1)), span: Span::new(Position::new(18, 8),Position::new(18, 14)) },
-                Token{ kind: Operator(Semicolon), span: Span::new(Position::new(18, 14),Position::new(18, 15)) },
+                Token{ kind: Semicolon, span: Span::new(Position::new(18, 14),Position::new(18, 15)) },
                 Token{ kind: NewLine, span: Span::new(Position::new(18, 15),Position::new(19, 0)) },
             ]
         );

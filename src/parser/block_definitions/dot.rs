@@ -1,7 +1,7 @@
 
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Delimeter, Operator, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, block_definitions::call::Call}};
+use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, block_definitions::call::Call}};
 
 use super::{BlockDefinition, data::Field};
 
@@ -24,7 +24,7 @@ impl BlockDefinition for Dot {
                     [TokenKind::Ident(name), TokenKind::Group(Delimeter::Parens, tokens)] => {
                         let mut params = token_list[0].clone();
                         params.extend(tokens.clone());
-                        let header = vec![TokenKind::Ident("_".to_owned()), TokenKind::Operator(Operator::ColonColon), TokenKind::Ident(name.to_owned()), TokenKind::Group(Delimeter::Parens, params)];
+                        let header = vec![TokenKind::Ident("_".to_owned()), TokenKind::ColonColon, TokenKind::Ident(name.to_owned()), TokenKind::Group(Delimeter::Parens, params)];
                         Call.parse(span, header.into_iter().map(|t|Token::new(t, span.clone())).collect(), vec![], parser)
                     }
                     _ => Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string())),

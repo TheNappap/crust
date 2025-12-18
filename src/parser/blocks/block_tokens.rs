@@ -1,7 +1,7 @@
 
 use itertools::{Itertools, PeekingNext};
 
-use crate::lexer::{Delimeter, Operator, Token, TokenKind, TokenStream};
+use crate::lexer::{Delimeter, Token, TokenKind, TokenStream};
 use crate::parser::blocks::{FromVecStream, from_vec_stream};
 use crate::utils::{Peeking, Result};
 
@@ -43,7 +43,7 @@ impl<Stream> BlockTokenStream<Stream> where Stream: Peeking<Item=Result<Token>> 
         let mut ends_on_braces = false;
         let mut tokens: Vec<_> = (&mut self.stream)
             .take_while_inclusive(|token| match token {
-                Ok(Token{kind:TokenKind::Operator(Operator::Semicolon), ..}) => false,
+                Ok(Token{kind:TokenKind::Semicolon, ..}) => false,
                 Ok(Token{kind:TokenKind::Group(Delimeter::Braces, _), ..}) => {
                     ends_on_braces = true;
                     false

@@ -54,7 +54,6 @@ impl Type {
     }
 
     pub fn from(token: Token) -> Result<Self> {
-        use crate::lexer::Operator::*;
         use crate::lexer::Literal::*;
         use TokenKind::*;
         let ty = match token.kind {
@@ -67,7 +66,7 @@ impl Type {
             }
             Group(Delimeter::Brackets, tokens) => {
                 match tokens.as_slice() {
-                    [token @ Token{kind: Ident(_), ..}, Token{kind: Operator(Semicolon), ..}, Token{kind: Literal(Int(n)), ..}] =>
+                    [token @ Token{kind: Ident(_), ..}, Token{kind: Semicolon, ..}, Token{kind: Literal(Int(n)), ..}] =>
                         Type::Array(Box::new(Type::from(token.clone())?), *n as usize),
                     _ => return token.span.syntax("Unknown type".into())
                 }

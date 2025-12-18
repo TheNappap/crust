@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     utils::{ErrorKind, Result, ThrowablePosition},
-    lexer::{Operator, Span, Token, TokenKind},
+    lexer::{Span, Token, TokenKind},
     parser::{
         ExpressionKind, OrderedMap, Parser, Type, syntax_tree::Expression
     },
@@ -95,7 +95,7 @@ impl BlockDefinition for New {
         let names: Vec<_> = header.iter().filter_map(|token|
             match &token.kind {
                 TokenKind::Ident(name) => Some(Ok(name)),
-                TokenKind::Operator(Operator::ColonColon) => None,
+                TokenKind::ColonColon => None,
                 _ => Some(Err(span.error(ErrorKind::Syntax, "Failed to parse data structure name".to_string()))),
             })
             .try_collect()?;

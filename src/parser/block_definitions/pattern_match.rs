@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Operator, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, Type, syntax_tree::patterns::Pattern}};
+use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, Type, syntax_tree::patterns::Pattern}};
 
 use super::BlockDefinition;
 
@@ -43,7 +43,7 @@ impl BlockDefinition for Case {
         let pattern = match header.iter().map(|t|&t.kind).collect_vec().as_slice() {
             [TokenKind::Underscore] => Pattern::Ident("_".to_owned()),
             [TokenKind::Ident(name)] => Pattern::Ident(name.to_owned()),
-            [TokenKind::Ident(ty), TokenKind::Operator(Operator::ColonColon), TokenKind::Ident(name)] => Pattern::EnumVariant(ty.to_owned(), name.to_owned()),
+            [TokenKind::Ident(ty), TokenKind::ColonColon, TokenKind::Ident(name)] => Pattern::EnumVariant(ty.to_owned(), name.to_owned()),
             _ => return Err(span.error(ErrorKind::Syntax, "Failed to parse pattern in match expression".to_string())),
         };
 

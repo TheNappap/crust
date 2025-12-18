@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     utils::{ErrorKind, Result, ThrowablePosition},
-    lexer::{Delimeter, Operator, Span, Token, TokenKind},
+    lexer::{Delimeter, Span, Token, TokenKind},
     parser::{Expression, ExpressionKind, Fn, Parser, Type, syntax_tree::fn_expr::Signature},
 };
 
@@ -45,7 +45,7 @@ impl BlockDefinition for FnDef {
 
         let returns = match (tokens.next().map(|t|t.kind.clone()), tokens.next()) {
             (None, None) => Type::Void,
-            (Some(TokenKind::Operator(Operator::Arrow)), Some(token)) => Type::from(token)?,
+            (Some(TokenKind::Arrow), Some(token)) => Type::from(token)?,
             _ => return Err(span.error(ErrorKind::Syntax, "Unexpected symbols after function header".to_string())),
         };
 
