@@ -60,6 +60,7 @@ pub struct IterTransform {
     pub span: Span,
 }
 
+// TODO remove type from ExpressionKind and add it to Expression
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExpressionKind {
     Fn(Fn),

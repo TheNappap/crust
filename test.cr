@@ -47,12 +47,12 @@ fn print_bool(bool: Bool) -> String {
 }
 
 fn main() {
-    call basics(); 
-    call loops_and_arrays();
-    call groups();
-    call custom_data(new Data{a: 15, b: 41, arr: [2,3]});
-    call impl_blocks();
-    call pattern_matching();
+    .basics(); 
+    .loops_and_arrays();
+    .groups();
+    .custom_data(new Data{a: 15, b: 41, arr: [2,3]});
+    .impl_blocks();
+    .pattern_matching();
 }
 
 fn pattern_matching() {
@@ -68,12 +68,16 @@ fn pattern_matching() {
 
 fn impl_blocks() {
     println "Impl blocks:";
-    println "full fn method a(): %i", call Data::a(call Data::new());
-    println "method call a(): %i", (call Data::new()).a();
-    println "static fn data member b: %i", (call Data::new()).b;
-    println "What is this? %s", (new Option::Some).some_func();
-    println "trait method call num(): %i", (call Data::new()).num();
-    println "trait method call double_num(): %i", (call Data::new()).double_num();
+    println "full fn method a(): %i", .Data::a(.Data::new());
+    println "method call a(): %i", .Data::new().a();
+    println "static fn data member b: %i", .Data::new().b;
+
+    let option = new Option::Some;
+    println "What is this? %s", option.some_func();
+
+    let data = .Data::new();
+    println "trait method call num(): %i", data.num();
+    println "trait method call double_num(): %i", data.double_num();
     println;
 }
 
@@ -114,7 +118,7 @@ fn loops_and_arrays() {
 
     let add = 0;
     while add < 100 {
-        println "%i %s", add, call print_bool(add == 50);
+        println "%i %s", add, .print_bool(add == 50);
         mut add = 25 + add;
     }
 
@@ -146,7 +150,6 @@ fn basics() {
 
     fn f2(): println "one liner";
     
-    // TODO dot syntax for function calls
     call! f2();
 
     if true!: println "if one liner"
@@ -158,11 +161,11 @@ fn basics() {
         let false = false!;
 
         print var;
-        print "%i", call plus_one(2,3);
+        print "%i", .plus_one(2,3);
         println "%.2f", var2;
         println "one word %s", "second word";
         println "concat string: %s", concat;
-        println "bool: %s", call print_bool(!false);
+        println "bool: %s", .print_bool(!false);
     } else {
         return;
     }

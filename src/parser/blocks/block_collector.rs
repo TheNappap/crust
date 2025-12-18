@@ -32,6 +32,7 @@ impl BlockCollector {
         let block = match token.kind {
             TokenKind::Tag(tag) => self.collect_tagged_block(tag.to_owned(), token.span)?,
             TokenKind::Ident(tag) => self.collect_tagged_block(tag.to_owned(), token.span)?,
+            TokenKind::Operator(Operator::Dot) => self.collect_tagged_block("dot".into(), token.span)?,
             TokenKind::Literal(_) => Block::anonymous_block(vec![token]),
             TokenKind::Group(Delimeter::Parens, tokens) => Block::anonymous_block(tokens),
             TokenKind::Group(_, _) => Block::anonymous_block(vec![token]),
