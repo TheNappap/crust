@@ -2,7 +2,8 @@ mod block_collector;
 mod block_tokens;
 mod block_stream;
 
-use crate::{lexer::{Span, Token}, utils::Result};
+use crate::{lexer::{Span, Token, TokenKind}, parser::parse_ops::OperatorKind, utils::Result};
+use core::fmt;
 use std::{iter::{Map, Peekable}, vec::IntoIter};
 use std::fmt::Debug;
 
@@ -15,9 +16,42 @@ fn from_vec_stream(tokens: Vec<Token>) -> FromVecStream {
     tokens.into_iter().map(Result::Ok as MapTokenResult).peekable()
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub enum BlockTag {
+    Anonymous,
+    Ident(String),
+    Operator(OperatorKind),
+}
+
+impl fmt::Display for BlockTag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BlockTag::Anonymous => Ok(()),
+            BlockTag::Ident(tag) => write!(f, "{}", tag),
+            BlockTag::Operator(operator) => write!(f, "{}", operator),
+        }
+    }
+}
+
+impl From<&str> for BlockTag {
+    fn from(value: &str) -> Self {
+        Self::Ident(value.into())
+    }
+}
+
+impl BlockTag {
+    pub fn new(token: TokenKind) -> Option<Self> {
+        match token {
+            TokenKind::Ident(name) => Some(Self::Ident(name)),
+            TokenKind::Tag(name) => Some(Self::Ident(name)),
+            _ => OperatorKind::from(&token).map(|op| Self::Operator(op)),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
-    pub tag: String,
+    pub tag: BlockTag,
     pub span: Span,
     pub header: Vec<Token>,
     pub body: Vec<Token>,
@@ -26,7 +60,7 @@ pub struct Block {
 
 impl Block {
     pub fn is_anonymous(&self) -> bool {
-        self.tag == ""
+        matches!(self.tag, BlockTag::Anonymous)
     }
     
     pub fn anonymous_block(header: Vec<Token>) -> Self {
@@ -35,7 +69,7 @@ impl Block {
                 Some(acc) => Some(acc.union(&t.span)),
                 None => Some(t.span.clone()),
             }).expect("Can't make anonymous block from empty token list");
-        Self { tag: "".into(), span, header, body: vec![], chain: None }
+        Self { tag: BlockTag::Anonymous, span, header, body: vec![], chain: None }
     }
 }
 
@@ -56,14 +90,14 @@ mod tests {
         }
         fn f2(): print "one liner";
     
-        call f2();
-        call function();
+        .f2();
+        .function();
         print "print statement"
 		"#;
         let blocks: Vec<Block> = BlockStream::from(s).try_collect()?;
         let test_blocks = vec![
                 Block {
-                    tag: "fn".to_string(),
+                    tag: BlockTag::from("fn"),
                     span: Span::new(Position::new(1, 0), Position::new(4, 25)),
                     header: vec![
                         Token{kind: TokenKind::Ident("function".to_string()), span: Span::new(Position::new(1, 10), Position::new(1, 19))},
@@ -82,7 +116,7 @@ mod tests {
                     chain: None,
                 },
                 Block {
-                    tag: "fn".to_string(),
+                    tag: BlockTag::from("fn"),
                     span: Span::new(Position::new(6, 0), Position::new(6, 35)),
                     header: vec![
                         Token{kind: TokenKind::Ident("f2".to_string()), span: Span::new(Position::new(6, 10), Position::new(6, 13))},
@@ -96,27 +130,27 @@ mod tests {
                     chain: None,
                 },
                 Block {
-                    tag: "call".to_string(),
-                    span: Span::new(Position::new(8, 0), Position::new(8, 17)),
+                    tag: BlockTag::Operator(OperatorKind::Dot),
+                    span: Span::new(Position::new(8, 0), Position::new(8, 13)),
                     header: vec![
-                        Token{kind: TokenKind::Ident("f2".to_string()), span: Span::new(Position::new(8, 12), Position::new(8, 15))},
-                        Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(8, 15), Position::new(8, 17))},
+                        Token{kind: TokenKind::Ident("f2".to_string()), span: Span::new(Position::new(8, 9), Position::new(8, 11))},
+                        Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(8, 11), Position::new(8, 13))},
                     ],
                     body: vec![],
                     chain: None,
                 },
                 Block {
-                    tag: "call".to_string(),
-                    span: Span::new(Position::new(9, 0), Position::new(9, 23)),
+                    tag: BlockTag::Operator(OperatorKind::Dot),
+                    span: Span::new(Position::new(9, 0), Position::new(9, 19)),
                     header: vec![
-                        Token{kind: TokenKind::Ident("function".to_string()), span: Span::new(Position::new(9, 12), Position::new(9, 21))},
-                        Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(9, 21), Position::new(9, 23))},
+                        Token{kind: TokenKind::Ident("function".to_string()), span: Span::new(Position::new(9, 9), Position::new(9, 17))},
+                        Token{kind: TokenKind::Group(Delimeter::Parens, vec![]), span: Span::new(Position::new(9, 17), Position::new(9, 19))},
                     ],
                     body: vec![],
                     chain: None,
                 },
                 Block {
-                    tag: "print".to_string(),
+                    tag: BlockTag::from("print"),
                     span: Span::new(Position::new(10, 0), Position::new(10, 31)),
                     header: vec![Token{kind: TokenKind::Literal(Literal::String("print statement".to_string())), span: Span::new(Position::new(10, 13), Position::new(10, 31))}],
                     body: vec![],
@@ -148,7 +182,7 @@ mod tests {
         let blocks: Vec<Block> = BlockStream::from(s).try_collect()?;
         let test_blocks = vec![
                 Block {
-                    tag: "if".to_string(),
+                    tag: BlockTag::from("if"),
                     span: Span::new(Position::new(1, 0), Position::new(1, 32)),
                     header: vec![Token{kind: TokenKind::Ident("true".to_string()), span: Span::new(Position::new(1, 10), Position::new(1, 15))}],
                     body: vec![
@@ -156,7 +190,7 @@ mod tests {
                         Token{kind: TokenKind::Literal(Literal::String("Line1.0".to_string())), span: Span::new(Position::new(1, 22), Position::new(1, 32))},
                     ],
                     chain: Some(Box::new(Block {
-                        tag: "else".to_string(),
+                        tag: BlockTag::from("else"),
                         span: Span::new(Position::new(2, 0), Position::new(2, 30)),
                         header: vec![],
                         body: vec![
@@ -168,7 +202,7 @@ mod tests {
                     })),
                 },
                 Block {
-                    tag: "if".to_string(),
+                    tag: BlockTag::from("if"),
                     span: Span::new(Position::new(4, 0), Position::new(5, 27)),
                     header: vec![Token{kind: TokenKind::Ident("false".to_string()), span: Span::new(Position::new(4, 10), Position::new(4, 16))}],
                     body: vec![
@@ -176,7 +210,7 @@ mod tests {
                         Token{kind: TokenKind::Literal(Literal::String("Line2.0".to_string())), span: Span::new(Position::new(5, 17), Position::new(5, 27))},
                     ],
                     chain: Some(Box::new(Block {
-                        tag: "else".to_string(),
+                        tag: BlockTag::from("else"),
                         span: Span::new(Position::new(6, 9), Position::new(7, 27)),
                         header: vec![],
                         body: vec![
@@ -187,7 +221,7 @@ mod tests {
                     })),
                 },
                 Block {
-                    tag: "iter".to_string(),
+                    tag: BlockTag::from("iter"),
                     span: Span::new(Position::new(10, 0), Position::new(10, 17)),
                     header: vec![
                         Token { kind: TokenKind::Literal(Literal::Int(0)), span: Span::new(Position::new(10, 12), Position::new(10, 14)) },
@@ -196,7 +230,7 @@ mod tests {
                     ],
                     body: vec![],
                     chain: Some( Box::new(Block {
-                        tag: "map".into(), 
+                        tag: BlockTag::from("map"),
                         span: Span::new(Position::new(10, 20), Position::new(10, 31)),
                         header: vec![Token { kind: TokenKind::Ident("x".into()), span: Span::new(Position::new(10, 24), Position::new(10, 26)) }],
                         body: vec![
@@ -205,7 +239,7 @@ mod tests {
                             Token { kind: TokenKind::Literal(Literal::Int(1)), span: Span::new(Position::new(10, 30), Position::new(10, 31)) }
                         ],
                         chain: Some( Box::new(Block { 
-                            tag: "filter".into(),
+                            tag: BlockTag::from("filter"),
                             span: Span::new(Position::new(11, 0), Position::new(11, 35)), 
                             header: vec![Token { kind: TokenKind::Ident("y".into()), span: Span::new(Position::new(11, 26), Position::new(11, 28)) }], 
                             body: vec![
@@ -214,7 +248,7 @@ mod tests {
                                 Token { kind: TokenKind::Literal(Literal::Int(3)), span: Span::new(Position::new(11, 33), Position::new(11, 35)) }
                             ],
                             chain: Some( Box::new(Block { 
-                                tag: "for".into(), 
+                                tag: BlockTag::from("for"),
                                 span: Span::new(Position::new(12, 0), Position::new(12, 48)), 
                                 header: vec![Token { kind: TokenKind::Ident("z".into()), span: Span::new(Position::new(12, 23), Position::new(12, 25)) }], 
                                 body: vec![

@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Literal, Span, Token}, parser::{Expression, ExpressionKind, Parser}};
+use crate::{lexer::{Literal, Span, Token}, parser::{Expression, ExpressionKind, Parser, blocks::BlockTag, parse_ops::OperatorKind}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -8,8 +8,8 @@ use super::BlockDefinition;
 pub struct Range;
 
 impl BlockDefinition for Range {
-    fn id(&self) -> &str {
-        "range"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Range)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

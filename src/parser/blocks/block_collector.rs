@@ -2,7 +2,7 @@ use std::iter::once;
 
 use itertools::Itertools;
 
-use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::blocks::{Block, FromVecStream, block_stream::BlockStream, block_tokens::BlockTokenStream, from_vec_stream}, utils::{Result, ThrowablePosition}};
+use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::blocks::{Block, BlockTag, FromVecStream, block_stream::BlockStream, block_tokens::BlockTokenStream, from_vec_stream}, utils::{Result, ThrowablePosition}};
 
 
 pub struct BlockCollector {
@@ -23,16 +23,13 @@ impl BlockCollector {
     }
 
     pub fn collect_block(&mut self) -> Result<Option<Block>> {
-        let token = self.stream.next().transpose()?;
-        if token.is_none() {
+        let Some(token) = self.stream.next().transpose()? else {
             return Ok(None);
-        }
-        let token = token.unwrap();
+        };
 
+        let tag = BlockTag::new(token.kind.clone());
         let block = match token.kind {
-            TokenKind::Tag(tag) => self.collect_tagged_block(tag.to_owned(), token.span)?,
-            TokenKind::Ident(tag) => self.collect_tagged_block(tag.to_owned(), token.span)?,
-            TokenKind::Dot => self.collect_tagged_block("dot".into(), token.span)?,
+            _ if tag.is_some() => self.collect_tagged_block(tag.unwrap(), token.span)?,
             TokenKind::Literal(_) => Block::anonymous_block(vec![token]),
             TokenKind::Group(Delimeter::Parens, tokens) => Block::anonymous_block(tokens),
             TokenKind::Group(_, _) => Block::anonymous_block(vec![token]),
@@ -41,7 +38,7 @@ impl BlockCollector {
         Ok(Some(block))
     }
 
-    fn collect_tagged_block(&mut self, tag: String, tag_span: Span) -> Result<Block> {
+    fn collect_tagged_block(&mut self, tag: BlockTag, tag_span: Span) -> Result<Block> {
         let (header, header_token) = self.collect_block_header()?;
         let (mut body, chain) = if let Some(Token{ kind:TokenKind::Eq, .. }) = header_token {
             let tokens = self.as_block_token_stream().collect_block_tokens()?.unwrap_or(vec![]);
@@ -62,7 +59,7 @@ impl BlockCollector {
         let span = match (&header[..], &body[..]) {
             ([..], [.., last]) => tag_span.union(&last.span),
             ([.., last], []) => tag_span.union(&last.span),
-            ([], []) => tag_span,
+            ([], []) => tag_span.clone(),
         };
         assert!(self.stream.next().is_none());
         Ok(Block { tag, span, header, body, chain })

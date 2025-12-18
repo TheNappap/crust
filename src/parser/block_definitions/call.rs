@@ -2,11 +2,9 @@
 use itertools::Itertools;
 
 use crate::{
-    utils::{ErrorKind, Result, ThrowablePosition},
-    lexer::{Delimeter, Span, Token, TokenKind},
-    parser::{
-        ExpressionKind, Parser, Signature, Type, syntax_tree::Expression
-    },
+    lexer::{Delimeter, Span, Token, TokenKind}, parser::{
+        ExpressionKind, Parser, Signature, Type, blocks::BlockTag, syntax_tree::Expression
+    }, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -15,8 +13,8 @@ use super::BlockDefinition;
 pub struct Call;
 
 impl BlockDefinition for Call {
-    fn id(&self) -> &str {
-        "call"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("call")
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

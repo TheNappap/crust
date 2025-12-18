@@ -3,7 +3,7 @@
 
 use itertools::Itertools;
 
-use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, Type}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, Type, blocks::BlockTag}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -11,8 +11,8 @@ use super::BlockDefinition;
 pub struct If;
 
 impl BlockDefinition for If {
-    fn id(&self) -> &str {
-        "if"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("if")
     }
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -30,8 +30,8 @@ impl BlockDefinition for If {
 pub struct Else;
 
 impl BlockDefinition for Else {
-    fn id(&self) -> &str {
-        "else"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("else")
     }
 
     fn parse(&self, span: &Span, _header: Vec<Token>, _body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {

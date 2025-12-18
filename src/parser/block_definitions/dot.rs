@@ -1,7 +1,7 @@
 
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, block_definitions::call::Call}};
+use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, block_definitions::call::Call, blocks::BlockTag, parse_ops::OperatorKind}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::{BlockDefinition, data::Field};
 
@@ -9,8 +9,8 @@ use super::{BlockDefinition, data::Field};
 pub struct Dot;
 
 impl BlockDefinition for Dot {
-    fn id(&self) -> &str {
-        "dot"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Dot)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

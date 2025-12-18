@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{Expression, ExpressionKind, Fn, Parser, Signature, Type, syntax_tree::expression::{IterTransform, TransformKind}}};
+use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Fn, Parser, Signature, Type, blocks::BlockTag, syntax_tree::expression::{IterTransform, TransformKind}}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -13,8 +13,8 @@ static TRANSFORM_FN_ID: AtomicU32 = AtomicU32::new(0);
 pub struct Map;
 
 impl BlockDefinition for Map {
-    fn id(&self) -> &str {
-        "map"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("map")
     }
 
     fn parse(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: &Parser) -> Result<ExpressionKind> {
@@ -54,8 +54,8 @@ impl BlockDefinition for Map {
 pub struct Filter;
 
 impl BlockDefinition for Filter {
-    fn id(&self) -> &str {
-        "filter"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("filter")
     }
 
     fn parse(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: &Parser) -> Result<ExpressionKind> {

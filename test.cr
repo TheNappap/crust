@@ -157,7 +157,7 @@ fn basics() {
     if true! {
         let var = "The number: ";
         let var2 = 2.+3.;
-        let concat = add "first", "second";
+        let concat = "first" + "second";
         let false = false!;
 
         print var;

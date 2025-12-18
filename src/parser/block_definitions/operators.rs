@@ -1,16 +1,33 @@
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Span, Token}, parser::{BinOpKind, Expression, ExpressionKind, Parser, Type}};
+use crate::{lexer::{Span, Token}, parser::{BinOpKind, Expression, ExpressionKind, Parser, Type, UnOpKind, blocks::BlockTag, parse_ops::OperatorKind}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
+#[derive(Default)]
+pub struct Not;
+
+impl BlockDefinition for Not {
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Not)
+    }
+
+    fn parse(&self, _span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        let operand = parser.parse_expression(header);
+        Ok(ExpressionKind::UnOp(UnOpKind::Neg, Box::new(operand?), Type::Inferred))
+    }
+    
+    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
+        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+    }
+}
 
 #[derive(Default)]
 pub struct Add;
 
 impl BlockDefinition for Add {
-    fn id(&self) -> &str {
-        "add"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Plus)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -29,20 +46,21 @@ impl BlockDefinition for Add {
 
 
 #[derive(Default)]
-pub struct Subtract;
+pub struct Dash;
 
-impl BlockDefinition for Subtract {
-    fn id(&self) -> &str {
-        "sub"
+impl BlockDefinition for Dash {
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Dash)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
-        if operands.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Subtract operator expects exactly 2 operands".to_string()));
-        }
 
-        Ok(ExpressionKind::BinOp(BinOpKind::Sub, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred))
+        match operands.len() {
+            1 => Ok(ExpressionKind::UnOp(UnOpKind::Neg, Box::new(operands.remove(0)), Type::Inferred)),
+            2 => Ok(ExpressionKind::BinOp(BinOpKind::Sub, Box::new(operands.remove(0)), Box::new(operands.remove(0)), Type::Inferred)),
+            _ => Err(span.error(ErrorKind::Syntax, "Dash operator expects 1 or 2 operands".to_string()))
+        }
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
@@ -55,8 +73,8 @@ impl BlockDefinition for Subtract {
 pub struct Multiply;
 
 impl BlockDefinition for Multiply {
-    fn id(&self) -> &str {
-        "mul"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Star)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -77,8 +95,8 @@ impl BlockDefinition for Multiply {
 pub struct Divide;
 
 impl BlockDefinition for Divide {
-    fn id(&self) -> &str {
-        "div"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Slash)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -99,8 +117,8 @@ impl BlockDefinition for Divide {
 pub struct Equals;
 
 impl BlockDefinition for Equals {
-    fn id(&self) -> &str {
-        "eq"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::EqEq)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -121,8 +139,8 @@ impl BlockDefinition for Equals {
 pub struct NotEquals;
 
 impl BlockDefinition for NotEquals {
-    fn id(&self) -> &str {
-        "neq"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Neq)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -143,8 +161,8 @@ impl BlockDefinition for NotEquals {
 pub struct LessThan;
 
 impl BlockDefinition for LessThan {
-    fn id(&self) -> &str {
-        "less"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Less)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -165,8 +183,8 @@ impl BlockDefinition for LessThan {
 pub struct LessEquals;
 
 impl BlockDefinition for LessEquals {
-    fn id(&self) -> &str {
-        "less_eq"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::LessEq)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -187,8 +205,8 @@ impl BlockDefinition for LessEquals {
 pub struct GreatThan;
 
 impl BlockDefinition for GreatThan {
-    fn id(&self) -> &str {
-        "great"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::Great)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -209,8 +227,8 @@ impl BlockDefinition for GreatThan {
 pub struct GreatEquals;
 
 impl BlockDefinition for GreatEquals {
-    fn id(&self) -> &str {
-        "great_eq"
+    fn id(&self) -> BlockTag {
+        BlockTag::Operator(OperatorKind::GreatEq)
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, _body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

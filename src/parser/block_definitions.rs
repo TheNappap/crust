@@ -1,8 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    utils::{Result, ThrowablePosition, ErrorKind},
-    lexer::{Token, Span},
+    lexer::{Span, Token}, parser::blocks::BlockTag, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
 use super::{syntax_tree::Expression, Parser, ExpressionKind};
@@ -12,8 +11,7 @@ pub mod call;
 pub mod fn_def;
 pub mod print;
 pub mod assign;
-pub mod binary_ops;
-pub mod unary_ops;
+pub mod operators;
 pub mod returns;
 pub mod bools;
 pub mod conditional;
@@ -28,7 +26,7 @@ pub mod traits;
 pub mod pattern_match;
 
 pub trait BlockDefinition {
-    fn id(&self) -> &str;
+    fn id(&self) -> BlockTag;
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind>;
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind>;
 
@@ -43,7 +41,7 @@ pub trait BlockDefinition {
 }
 
 pub struct BlockDefinitions {
-    definitions: HashMap<String, Rc<dyn BlockDefinition>>,
+    definitions: HashMap<BlockTag, Rc<dyn BlockDefinition>>,
 }
 
 impl BlockDefinitions {
@@ -53,7 +51,7 @@ impl BlockDefinitions {
         }
     }
 
-    pub fn get(&self, tag: &str, span: &Span) -> Result<Rc<dyn BlockDefinition>> {
+    pub fn get(&self, tag: &BlockTag, span: &Span) -> Result<Rc<dyn BlockDefinition>> {
         self.definitions
             .get(tag)
             .cloned()
@@ -62,11 +60,11 @@ impl BlockDefinitions {
 
     pub fn add<T: BlockDefinition + Default + 'static>(&mut self) {
         let definition: Rc<dyn BlockDefinition> = Rc::new(T::default());
-        let key = definition.id().to_string();
+        let key = definition.id();
         if self.definitions.contains_key(&key) {
             println!("Definition of block \"{}\" was overidden.", key);
         }
         self.definitions
-            .insert(definition.id().to_string(), definition);
+            .insert(definition.id(), definition);
     }
 }

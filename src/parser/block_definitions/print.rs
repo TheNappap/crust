@@ -2,11 +2,9 @@
 use itertools::Itertools;
 
 use crate::{
-    utils::{ErrorKind, Result, ThrowablePosition},
-    lexer::{Literal, Span, Token},
-    parser::{
-        BinOpKind, ExpressionKind, Parser, Signature, Type, syntax_tree::Expression
-    },
+    lexer::{Literal, Span, Token}, parser::{
+        BinOpKind, ExpressionKind, Parser, Signature, Type, blocks::BlockTag, syntax_tree::Expression
+    }, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -16,8 +14,8 @@ use super::BlockDefinition;
 pub struct Print;
 
 impl BlockDefinition for Print {
-    fn id(&self) -> &str {
-        "print"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("print")
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -34,8 +32,8 @@ impl BlockDefinition for Print {
 pub struct PrintLn;
 
 impl BlockDefinition for PrintLn {
-    fn id(&self) -> &str {
-        "println"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("println")
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

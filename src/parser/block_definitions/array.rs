@@ -1,9 +1,9 @@
 
 use itertools::Itertools;
 
-use crate::{utils::{ErrorKind, Result, ThrowablePosition}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{
-        ExpressionKind, Parser, Type, syntax_tree::Expression
-    }};
+use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::{
+        ExpressionKind, Parser, Type, blocks::BlockTag, syntax_tree::Expression
+    }, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -12,8 +12,8 @@ use super::BlockDefinition;
 pub struct Array;
 
 impl BlockDefinition for Array {
-    fn id(&self) -> &str {
-        "array"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("array")
     }
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -32,8 +32,8 @@ impl BlockDefinition for Array {
 pub struct Index;
 
 impl BlockDefinition for Index {
-    fn id(&self) -> &str {
-        "index"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("index")
     }
 
     fn parse(&self, _: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

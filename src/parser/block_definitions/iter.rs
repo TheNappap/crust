@@ -1,4 +1,4 @@
-use crate::{lexer::{Token, Span}, parser::{Parser, Expression, ExpressionKind}, utils::{Result, ThrowablePosition, ErrorKind}};
+use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, blocks::BlockTag}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -7,8 +7,8 @@ use super::BlockDefinition;
 pub struct Iter;
 
 impl BlockDefinition for Iter {
-    fn id(&self) -> &str {
-        "iter"
+    fn id(&self) -> BlockTag {
+        BlockTag::from("iter")
     }
 
     fn parse(&self, _: &Span, header: Vec<Token>, _: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

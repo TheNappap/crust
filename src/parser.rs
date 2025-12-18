@@ -8,7 +8,7 @@ use itertools::Itertools;
 pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
-    lexer::{Delimeter, Span, Token, TokenKind}, utils::{Result, ThrowablePosition}
+    lexer::{Delimeter, Span, Token, TokenKind}, parser::blocks::BlockTag, utils::{Result, ThrowablePosition}
 };
 
 use self::{block_definitions::*, blocks::{BlockStream, Block}};
@@ -34,17 +34,17 @@ fn block_definitions() -> BlockDefinitions {
     blockdefs.add::<print::PrintLn>();
     blockdefs.add::<assign::Let>();
     blockdefs.add::<assign::Mut>();
-    blockdefs.add::<binary_ops::Add>();
-    blockdefs.add::<binary_ops::Subtract>();
-    blockdefs.add::<binary_ops::Multiply>();
-    blockdefs.add::<binary_ops::Divide>();
-    blockdefs.add::<binary_ops::Equals>();
-    blockdefs.add::<binary_ops::NotEquals>();
-    blockdefs.add::<binary_ops::LessThan>();
-    blockdefs.add::<binary_ops::LessEquals>();
-    blockdefs.add::<binary_ops::GreatThan>();
-    blockdefs.add::<binary_ops::GreatEquals>();
-    blockdefs.add::<unary_ops::Negate>();
+    blockdefs.add::<operators::Not>();
+    blockdefs.add::<operators::Add>();
+    blockdefs.add::<operators::Dash>();
+    blockdefs.add::<operators::Multiply>();
+    blockdefs.add::<operators::Divide>();
+    blockdefs.add::<operators::Equals>();
+    blockdefs.add::<operators::NotEquals>();
+    blockdefs.add::<operators::LessThan>();
+    blockdefs.add::<operators::LessEquals>();
+    blockdefs.add::<operators::GreatThan>();
+    blockdefs.add::<operators::GreatEquals>();
     blockdefs.add::<bools::True>();
     blockdefs.add::<bools::False>();
     blockdefs.add::<conditional::If>();
@@ -162,7 +162,7 @@ impl Parser {
                 .map(|x|{
                     let (block, forwarding) = x?;
                     if forwarding {
-                        self.blockdefs.get("forward", &block.span)?
+                        self.blockdefs.get(&BlockTag::from("forward"), &block.span)?
                             .parse_expression(block.span, block.header, block.body, self)
                     } else {
                         self.parse_block_expression(block)
@@ -205,18 +205,18 @@ impl Parser {
 
             return match tokens.remove(0).kind {
                 TokenKind::Tag(tag) => {
-                    self.blockdefs.get(&tag, &block.span)?
+                    self.blockdefs.get(&BlockTag::from(tag.as_str()), &block.span)?
                             .parse_expression(block.span, vec![], vec![], self)
                 }
                 TokenKind::Ident(name) => Ok(Expression::new(ExpressionKind::Symbol(Symbol{name, ty:Type::Inferred}), block.span)),
                 TokenKind::Literal(literal) => Ok(Expression::new(ExpressionKind::Literal(literal), block.span)),
                 TokenKind::Group(Delimeter::Parens, tokens) => self.parse_expression(tokens),
                 TokenKind::Group(Delimeter::Brackets, body) => {
-                    self.blockdefs.get("array", &block.span)?
+                    self.blockdefs.get(&BlockTag::from("array"), &block.span)?
                             .parse_expression(block.span, body, vec![], self)
                 }
                 TokenKind::Group(Delimeter::Braces, body) => {
-                    self.blockdefs.get("group", &block.span)?
+                    self.blockdefs.get(&BlockTag::from("group"), &block.span)?
                             .parse_expression(block.span, vec![], body, self)
                 }
                 _ => return block.span.syntax("Can't parse anonymous block.".into()),
