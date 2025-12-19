@@ -17,6 +17,7 @@ impl BlockDefinition for Call {
         BlockTag::from("call")
     }
 
+    // TODO implement the ColonColon operator
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         use TokenKind::*;
         use Delimeter::*;

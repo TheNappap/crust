@@ -115,6 +115,7 @@ impl Operator {
     }
 }
 
+// TODO implement indexing for general scenario's
 pub fn parse_indexing(tokens: &mut Vec<Token>) {
     if tokens.len() < 2 || tokens.iter().any(|token| token.kind.is_operator()) {
         return;
@@ -136,6 +137,7 @@ pub fn parse_operators(block: Block, parser: &Parser) -> Result<Expression> {
     ops_tree.parse(parser)
 }
 
+// TODO refactor OpsTree
 #[derive(Debug, PartialEq, Clone)]
 enum OpsTree {
     Leaf(Vec<Token>),
