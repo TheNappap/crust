@@ -27,8 +27,8 @@ impl From<Vec<Token>> for BlockCollector {
 }
 
 impl BlockCollector {
-    pub fn collect_operators(mut self) -> Self {
-        self.collect_operators = true;
+    pub fn collect_operators(mut self, collect_operators: bool) -> Self {
+        self.collect_operators = collect_operators;
         self
     }
 
@@ -68,11 +68,7 @@ impl BlockCollector {
         }
         assert!(body.is_empty());
         let chain = chain.and_then(|tokens| {
-            let block = if self.collect_operators {
-                BlockStream::from(tokens).collect_operators().next()?
-            } else {
-                BlockStream::from(tokens).next()?
-            };
+            let block = BlockStream::from(tokens).collect_operators(self.collect_operators).next()?;
             Some(block.map(Box::new))
         }).transpose()?;
         assert!(self.stream.next().is_none());
@@ -90,11 +86,7 @@ impl BlockCollector {
         } else {
             let (body, chain) = self.collect_body_and_chain(header_token.clone())?;
             let chain = chain.and_then(|tokens| {
-                let block = if self.collect_operators {
-                    BlockStream::from(tokens).collect_operators().next()?
-                } else {
-                    BlockStream::from(tokens).next()?
-                };
+                let block = BlockStream::from(tokens).collect_operators(self.collect_operators).next()?;
                 Some(block.map(Box::new))
             }).transpose()?;
             (body, chain)

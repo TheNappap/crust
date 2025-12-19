@@ -142,7 +142,7 @@ impl Parser {
 
         parse_ops::parse_indexing(&mut tokens);
         let span = tokens[0].span.clone();
-        match BlockStream::from(tokens).collect_operators().next().transpose()? {
+        match BlockStream::from(tokens).collect_operators(true).next().transpose()? {
             Some(block) => parse_ops::parse_operators(block, &self),
             None => return span.syntax("Can't make block from these tokens.".into()),
         }
@@ -153,16 +153,8 @@ impl Parser {
     }
 
     fn iter_statement(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
-        BlockStream::from(tokens).forward_last()
-                .map(|x|{
-                    let (block, forwarding) = x?;
-                    if forwarding {
-                        self.blockdefs.get(&BlockTag::from("forward"), &block.span)?
-                            .parse_expression(block.span, block.header, block.body, self)
-                    } else {
-                        self.parse_block_expression(block)
-                    }
-                })
+        BlockStream::from(tokens).forward_last(BlockTag::Ident("forward".into()))
+                .map(|b| self.parse_block_expression(b?))
     }
     
     fn iter_block(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
