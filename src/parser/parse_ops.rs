@@ -1,8 +1,13 @@
 
 use core::fmt;
-use std::convert::identity;
 
-use crate::lexer::{Delimeter, Token, TokenKind};
+use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, Parser, blocks::{Block, BlockTag}}, utils::Result};
+
+impl TokenKind {
+    pub fn is_operator(&self) -> bool {
+        OperatorKind::from(self).is_some()
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum OperatorKind {
@@ -33,6 +38,24 @@ impl OperatorKind {
             TokenKind::GreatEq => Some(OperatorKind::GreatEq),
             TokenKind::Range => Some(OperatorKind::Range),
             _ => None,
+        }
+    }    
+    
+    fn as_token(&self) -> TokenKind {
+        match self {
+            OperatorKind::Dot => TokenKind::Dot,
+            OperatorKind::Plus => TokenKind::Plus,
+            OperatorKind::Dash => TokenKind::Dash,
+            OperatorKind::Star => TokenKind::Star,
+            OperatorKind::Slash => TokenKind::Slash,
+            OperatorKind::EqEq => TokenKind::EqEq,
+            OperatorKind::Neq => TokenKind::Neq,
+            OperatorKind::Not => TokenKind::Not,
+            OperatorKind::Less => TokenKind::Less,
+            OperatorKind::LessEq => TokenKind::LessEq,
+            OperatorKind::Great => TokenKind::Great,
+            OperatorKind::GreatEq => TokenKind::GreatEq,
+            OperatorKind::Range => TokenKind::Range,
         }
     }
 }
@@ -72,89 +95,30 @@ struct Operator {
 }
 
 impl Operator {
-    pub fn from(token: &TokenKind) -> Option<Self> {
-        if let Some(kind) = OperatorKind::from(&token) {
-            Some(Self { kind, position: OperatorPosition::Binary })
-        } else {
-            None
-        }
+    fn new(kind: OperatorKind, position: OperatorPosition) -> Self {
+        Self { kind, position }
     }
 
-    fn precedence(&self) -> Option<u8> {
+    fn precedence(&self) -> u8 {
         use OperatorKind::*;
         use OperatorPosition::*;
         match (&self.position, &self.kind) {
-            (Binary, Dot) => Some(0),
-            (Prefix, Dash | Not) => Some(1),
-            (Binary, Star | Slash) => Some(2),
-            (Binary, Plus | Dash) => Some(3),
-            (Binary, EqEq | Neq | Less | LessEq | Great | GreatEq) => Some(4),
-            (Binary, Range) => Some(5),
-            _ => None,
+            (_Postfix, _) => todo!(),
+            (_, Dot) => 1,
+            (Prefix, _) => 2,
+            (_, Star | Slash) => 3,
+            (_, Plus | Dash) => 4,
+            (_, EqEq | Neq | Less | LessEq | Great | GreatEq) => 5,
+            (_, Range) => 6,
+            (Binary, Not) => unimplemented!(),
         }
     }
 }
 
-struct IndexedOperator {
-    index: usize,
-    token: Token,
-    operator: Operator,
-}
-
-impl IndexedOperator {
-    fn new(index: usize, token: Token) -> Option<Self> {
-        if let Some(operator) = Operator::from(&token.kind) {
-            Some(Self { index, token, operator })
-        } else {
-            None
-        }
+pub fn parse_indexing(tokens: &mut Vec<Token>) {
+    if tokens.len() < 2 || tokens.iter().any(|token| token.kind.is_operator()) {
+        return;
     }
-
-    fn as_unary(mut self) -> Self {
-        self.operator.position = OperatorPosition::Prefix;
-        self
-    }
-
-    fn as_binary(mut self) -> Self {
-        self.operator.position = OperatorPosition::Binary;
-        self
-    }
-
-    fn as_token(self) -> Token {
-        self.token
-    }
-}
-
-fn next_operator_index(tokens: &Vec<Token>) -> Option<IndexedOperator> {
-    let op = tokens.iter()
-        .enumerate()
-        .scan(None::<TokenKind>, |last_token,(index,token)| {
-            let previous_token = last_token.clone();
-            let current_token = token.kind.clone();
-            *last_token = Some(current_token.clone());
-            let Some(operator) = IndexedOperator::new(index, token.clone()) else {
-                return Some(None);
-            };
-            match (previous_token, operator) {
-                (Some(token), _) if token.is_operator() => Some(None),
-                (None, op) => Some(Some(op.as_unary())),
-                (_, op) => Some(Some(op.as_binary())),
-            }
-        })  
-        .filter_map(identity)
-        .fold(None, |acc: Option<(u8, IndexedOperator)>, op| {
-            let precedence = match (acc, op.operator.precedence()) {
-                (None, Some(pr)) => pr,
-                (Some((acc, _)), Some(pr)) if pr > acc => pr,
-                (acc, _) => return acc,
-            };
-            Some((precedence, op))
-        });
-
-    op.map(|(_, op)| op )
-}
-
-fn parse_indexing(tokens: &mut Vec<Token>) {
     let last_token = tokens.last().unwrap();
     if let TokenKind::Group(Delimeter::Brackets, _) = last_token.kind {
         let new_token = Token::new(TokenKind::Ident("index".into()), last_token.span.clone());
@@ -162,32 +126,148 @@ fn parse_indexing(tokens: &mut Vec<Token>) {
     }
 }
 
-impl TokenKind {
-    fn is_operator(&self) -> bool {
-        OperatorKind::from(self).is_some()
+pub fn parse_operators(block: Block, parser: &Parser) -> Result<Expression> {
+    if block.is_id_tagged() || block.chain.is_none() {
+        return parser.parse_block_expression(block);
     }
+
+    let ops_tree = OpsTree::new(block.clone());
+
+    ops_tree.parse(parser)
 }
 
-pub fn parse_operators(tokens: &mut Vec<Token>)  {
-    if tokens.is_empty() {
-        return;
-    }
-    if !&tokens[0].kind.is_operator() && !&tokens[1].kind.is_operator() && !matches!(tokens[1].kind, TokenKind::Group(Delimeter::Brackets, _)) {
-        return;
+#[derive(Debug, PartialEq, Clone)]
+enum OpsTree {
+    Leaf(Vec<Token>),
+    UnOp(OperatorKind, Span, Box<OpsTree>),
+    BinOp(OperatorKind, Span, Box<OpsTree>, Box<OpsTree>),
+}
+
+impl OpsTree {
+    fn new(block: Block) -> Self {
+        let blocks: Vec<_> = OpsTree::get_chained_block_vec(block);
+        let ops_list = OpsTree::to_operators(blocks);
+        OpsTree::from_chained_operators(ops_list)
     }
 
-    if let Some(operator) = next_operator_index(&tokens) {
-        let span = tokens.iter().map(|t|t.span.clone()).fold(tokens.first().unwrap().span.clone(), |acc, s| acc.union(&s));
-        if operator.index == 0 {
-            tokens.remove(0);
-        } else {
-            tokens[operator.index] = Token::new(TokenKind::Comma, tokens[operator.index].span.clone());
+    fn from_chained_operators(mut blocks: Vec<(Block, Option<Operator>)>) -> Self {
+        assert!(!blocks.is_empty());
+        let (i, op) = OpsTree::next_operator_index(&blocks);
+        match op {
+            None => {
+                assert!(blocks[i].0.is_anonymous());
+                OpsTree::Leaf(blocks[i].0.header.clone())
+            }
+            Some(operator) => {
+                match operator.position {
+                    OperatorPosition::Prefix => {
+                        let span = blocks[i].0.span.clone();
+                        blocks[i].0.tag = BlockTag::Anonymous;
+                        blocks[i].1 = None;
+                        OpsTree::UnOp(operator.kind, span, Box::new(OpsTree::from_chained_operators(blocks)))
+                    },
+                    OperatorPosition::Binary => {
+                        assert!(i > 0);
+                        let span = blocks[i].0.span.clone();
+                        blocks[i].0.tag = BlockTag::Anonymous;
+                        blocks[i].1 = None;
+                        let end_list = blocks.split_off(i);
+                        let left = Box::new(OpsTree::from_chained_operators(blocks));
+                        let right = Box::new(OpsTree::from_chained_operators(end_list));
+                        OpsTree::BinOp(operator.kind, span, left, right)
+                    },
+                    OperatorPosition::_Postfix => unreachable!(),
+                }
+            },
         }
-        let mut token = operator.as_token();
-        token.span = span;
-        tokens.insert(0, token);
-        return;
     }
 
-    parse_indexing(tokens);
+    fn next_operator_index(blocks: &Vec<(Block, Option<Operator>)>) -> (usize, Option<Operator>) {
+        let mut current = (0, None);
+        for (i, (_, op)) in blocks.iter().enumerate() {
+            match current.1 {
+                None => {
+                    current = (i, op.clone())
+                }
+                Some(ref cur_op) => {
+                    if let Some(op) = op && cur_op.precedence() < op.precedence() {
+                        current = (i, Some(op.clone()))
+                    }
+                }
+            }
+        }
+        current
+    }
+
+    fn parse(self, parser: &Parser) -> Result<Expression> {
+        match self {
+            OpsTree::Leaf(tokens) => parser.parse_expression(tokens),
+            OpsTree::UnOp(kind, span, ops_tree) => {
+                let tag = BlockTag::Operator(kind);
+                let header = ops_tree.as_tokens();
+                let block = Block { tag, span: span.clone(), header: vec![Token::new(TokenKind::Group(Delimeter::Parens, header), span.clone())], body: vec![], chain: None };
+                parser.parse_block_expression(block)
+            }
+            OpsTree::BinOp(kind, span, ops_tree, ops_tree1) => {
+                let tag = BlockTag::Operator(kind);
+                let mut header = ops_tree.as_tokens();
+                header.push(Token::new(TokenKind::Comma, span.clone()));
+                header.extend(ops_tree1.as_tokens());
+                let block = Block { tag, span: span.clone(), header: vec![Token::new(TokenKind::Group(Delimeter::Parens, header), span.clone())], body: vec![], chain: None };
+                parser.parse_block_expression(block)
+            }
+        }
+    }
+
+    fn as_tokens(self) -> Vec<Token> {
+        match self {
+            OpsTree::Leaf(tokens) => tokens,
+            OpsTree::UnOp(kind, span, ops_tree) => {
+                let mut tokens = ops_tree.as_tokens();
+                tokens.insert(0, Token::new(kind.as_token(), span.clone()));
+                vec![Token::new(TokenKind::Group(Delimeter::Parens, tokens), span.clone())]
+            }
+            OpsTree::BinOp(kind, span, ops_tree, ops_tree1) => {
+                let mut tokens = ops_tree.as_tokens();
+                tokens.insert(0, Token::new(kind.as_token(), span.clone()));
+                tokens.push(Token::new(TokenKind::Comma, span.clone()));
+                tokens.extend(ops_tree1.as_tokens());
+                vec![Token::new(TokenKind::Group(Delimeter::Parens, tokens), span.clone())]
+            }
+        }
+    }
+
+    fn get_chained_block_vec(mut block: Block) -> Vec<Block> {
+        assert!(block.is_anonymous() || block.is_operator());
+        match block.chain.take() {
+            None => vec![block],
+            Some(chain) => {
+                let mut blocks = OpsTree::get_chained_block_vec(*chain);
+                blocks.insert(0,block);
+                blocks
+            }
+        }
+    }
+
+    fn to_operators(blocks: Vec<Block>) -> Vec<(Block, Option<Operator>)> {
+        blocks.into_iter()
+                    .scan(true, |is_last_header_empty, block| {
+                        let header_is_empty = block.header.is_empty();
+                        let value = match block.tag.clone() {
+                            BlockTag::Anonymous => (block, None),
+                            BlockTag::Operator(kind) => {
+                                let operator = if *is_last_header_empty {
+                                    Operator::new(kind, OperatorPosition::Prefix)
+                                } else {
+                                    Operator::new(kind, OperatorPosition::Binary)
+                                };
+                                (block, Some(operator))
+                            },
+                            BlockTag::Ident(_) => unreachable!(),
+                        };
+                        *is_last_header_empty = header_is_empty;
+                        Some(value)
+                    })
+                    .collect()
+    }
 }

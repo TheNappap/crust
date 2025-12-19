@@ -125,6 +125,7 @@ fn loops_and_arrays() {
     let arr = [[2,3],[4,5],[6,7]];
     //mut index arr[1] = 12; //TODO
     println "array[2][1]: %i", arr[2][1];
+    //println "Data[0]: %i", new Data::new().arr[0]; //TODO
 
     iter 0..3 => for i: if i == 1 {
         iter arr => for i {
@@ -175,6 +176,5 @@ fn basics() {
 }
 
 fn plus_one(a: Int, b: Int) -> Int {
-    // TODO implement operators as chains?
     a + b + 1
 }

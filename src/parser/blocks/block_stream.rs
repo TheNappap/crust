@@ -8,6 +8,7 @@ use super::block_tokens::BlockTokenStream;
 pub struct BlockStream<Stream> where Stream: Peeking<Item=Result<Token>> {
     stream: BlockTokenStream<Stream>,
     peeked: Option<Result<Block>>,
+    collect_operators: bool,
 }
 
 impl<Stream> Iterator for BlockStream<Stream> where Stream: Peeking<Item=Result<Token>> {
@@ -48,6 +49,7 @@ impl<'str> From<&'str str> for BlockStream<TokenStream<'str>> {
         BlockStream {
             stream: BlockTokenStream::from(source),
             peeked: None,
+            collect_operators: false,
         }
     }
 }
@@ -57,20 +59,31 @@ impl From<Vec<Token>> for BlockStream<FromVecStream> {
         BlockStream {
             stream: BlockTokenStream::from(tokens),
             peeked: None,
+            collect_operators: false,
         }
     }
 }
 
 impl<Stream> BlockStream<Stream> where Stream: Peeking<Item=Result<Token>> {
+    pub fn collect_operators(mut self) -> BlockStream<Stream> {
+        self.collect_operators = true;
+        self
+    }
+
     pub fn forward_last(self) -> ForwardBlockStream<Stream> {
         self.into()
     }
 
     fn take_block(&mut self) -> Result<Option<Block>> {
-        let Some(tokens) = self.stream.next() else {
+        let Some(tokens) = self.stream.next().transpose()? else {
             return Ok(None);
         };
-        BlockCollector::from(tokens?).collect_block()
+
+        if self.collect_operators {
+            BlockCollector::from(tokens).collect_operators().collect_block()
+        } else {
+            BlockCollector::from(tokens).collect_block()
+        }
     }
 }
 
@@ -144,6 +157,6 @@ impl<Stream> ForwardBlockStream<Stream> where Stream: Peeking<Item=Result<Token>
         }
 
         let block = BlockCollector::from(tokens).collect_block()?;
-        return Ok(block.map(|b| (b, false)))
+        Ok(block.map(|b| (b, false)))
     }
 }

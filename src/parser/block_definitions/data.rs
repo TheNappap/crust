@@ -62,7 +62,7 @@ impl BlockDefinition for Enum {
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.len() == 1);
         let Some(TokenKind::Ident(name)) = header.first().map(|t|&t.kind) else {
-            return Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Expected identifier as enum name".to_string()));
         };
 
         let variants = parser.split_list(body).enumerate()
@@ -131,9 +131,9 @@ impl BlockDefinition for Field {
         assert!(body.is_empty());
         let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
         if operands.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Field expression needs exactly 2 operands".to_string()));
+            return Err(span.error(ErrorKind::Syntax, "Field expression expected 2 operands".to_string()));
         }
-
+            
         let ExpressionKind::Symbol(field_symbol) = &operands[1].kind else {
             return Err(span.error(ErrorKind::Syntax, "Field expression expected symbol as field name".to_string()));
         };
@@ -141,7 +141,14 @@ impl BlockDefinition for Field {
         Ok(ExpressionKind::Field(Box::new(operands[0].clone()), field_symbol.to_owned(), -1))
     }
     
-    fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+    fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
+        assert!(body.is_empty());
+        let field = parser.parse_expression(header)?;
+
+        let ExpressionKind::Symbol(field_symbol) = field.kind else {
+            return Err(span.error(ErrorKind::Syntax, "Field expression expected symbol as field name".to_string()));
+        };
+        assert_eq!(field_symbol.ty, Type::Inferred);
+        Ok(ExpressionKind::Field(Box::new(input), field_symbol.to_owned(), -1))
     }
 }

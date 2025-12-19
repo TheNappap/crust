@@ -140,15 +140,10 @@ impl Parser {
             return Ok(Expression::new(ExpressionKind::Void, Span::zero()));
         }
 
-        if tokens.len() == 1 {
-            let block = Block::anonymous_block(tokens);
-            return self.parse_block_expression(block);
-        }
-
-        parse_ops::parse_operators(&mut tokens);
+        parse_ops::parse_indexing(&mut tokens);
         let span = tokens[0].span.clone();
-        match BlockStream::from(tokens).next().transpose()? {
-            Some(block) => self.parse_block_expression(block),
+        match BlockStream::from(tokens).collect_operators().next().transpose()? {
+            Some(block) => parse_ops::parse_operators(block, &self),
             None => return span.syntax("Can't make block from these tokens.".into()),
         }
     }
@@ -196,31 +191,7 @@ impl Parser {
 
     fn parse_block_expression(&self, block: Block) -> Result<Expression> {
         if block.is_anonymous() {
-            assert!(block.body.is_empty());
-
-            let mut tokens = block.header;
-            if tokens.len() > 1 {
-                return self.parse_expression(tokens);
-            }
-
-            return match tokens.remove(0).kind {
-                TokenKind::Tag(tag) => {
-                    self.blockdefs.get(&BlockTag::from(tag.as_str()), &block.span)?
-                            .parse_expression(block.span, vec![], vec![], self)
-                }
-                TokenKind::Ident(name) => Ok(Expression::new(ExpressionKind::Symbol(Symbol{name, ty:Type::Inferred}), block.span)),
-                TokenKind::Literal(literal) => Ok(Expression::new(ExpressionKind::Literal(literal), block.span)),
-                TokenKind::Group(Delimeter::Parens, tokens) => self.parse_expression(tokens),
-                TokenKind::Group(Delimeter::Brackets, body) => {
-                    self.blockdefs.get(&BlockTag::from("array"), &block.span)?
-                            .parse_expression(block.span, body, vec![], self)
-                }
-                TokenKind::Group(Delimeter::Braces, body) => {
-                    self.blockdefs.get(&BlockTag::from("group"), &block.span)?
-                            .parse_expression(block.span, vec![], body, self)
-                }
-                _ => return block.span.syntax("Can't parse anonymous block.".into()),
-            };
+            return self.parse_anonymous_block(block);
         }
 
         let expr = self.blockdefs.get(&block.tag, &block.span)?
@@ -240,11 +211,47 @@ impl Parser {
             None => expr,
         }
     }
+    
+    fn parse_anonymous_block(&self, block: Block) -> Result<Expression> {
+        assert!(block.is_anonymous());
+        assert!(block.body.is_empty());
+        let mut tokens = block.header;
+        if tokens.len() > 1 {
+            return self.parse_expression(tokens);
+        } else if tokens.len() == 0 {
+            return Ok(Expression::new(ExpressionKind::Void, Span::zero()));
+        }
+        let expr = match tokens.remove(0).kind {
+            TokenKind::Tag(tag) => {
+                self.blockdefs.get(&BlockTag::from(tag.as_str()), &block.span)?
+                        .parse_expression(block.span, vec![], vec![], self)
+            }
+            TokenKind::Ident(name) => Ok(Expression::new(ExpressionKind::Symbol(Symbol{name, ty:Type::Inferred}), block.span)),
+            TokenKind::Literal(literal) => Ok(Expression::new(ExpressionKind::Literal(literal), block.span)),
+            TokenKind::Group(Delimeter::Parens, tokens) => self.parse_expression(tokens),
+            TokenKind::Group(Delimeter::Brackets, body) => {
+                self.blockdefs.get(&BlockTag::from("array"), &block.span)?
+                        .parse_expression(block.span, body, vec![], self)
+            }
+            TokenKind::Group(Delimeter::Braces, body) => {
+                self.blockdefs.get(&BlockTag::from("group"), &block.span)?
+                        .parse_expression(block.span, vec![], body, self)
+            }
+            _ => return block.span.syntax("Can't parse anonymous block.".into()),
+        };
+        
+        match block.chain {
+            Some(chain) => self.parse_chained_block_expression(*chain, expr?),
+            None => expr,
+        } 
+    }
 
-    fn split_list(&self, tokens: Vec<Token>) -> impl Iterator<Item=Vec<Token>> {
-        let tokens = if let Some(Token{kind: TokenKind::Group(Delimeter::Parens, tokens), ..}) = tokens.first() && tokens.len() == 1 {
-                                    tokens.clone()
-                                } else { tokens };
+    fn split_list(&self, mut tokens: Vec<Token>) -> impl Iterator<Item=Vec<Token>> {
+        loop {
+            if tokens.len() == 1 && let Some(Token{kind: TokenKind::Group(Delimeter::Parens, inner_tokens), ..}) = tokens.first() {
+                tokens = inner_tokens.clone()
+            } else { break; };
+        };
 
         let mut tokens = tokens.into_iter().filter(|t| !matches!(t.kind, TokenKind::NewLine));
         (0..).map(move |_| {

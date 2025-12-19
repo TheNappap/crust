@@ -26,7 +26,7 @@ pub enum BlockTag {
 impl fmt::Display for BlockTag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            BlockTag::Anonymous => Ok(()),
+            BlockTag::Anonymous => write!(f, "`Anonymous`"),
             BlockTag::Ident(tag) => write!(f, "{}", tag),
             BlockTag::Operator(operator) => write!(f, "{}", operator),
         }
@@ -35,6 +35,7 @@ impl fmt::Display for BlockTag {
 
 impl From<&str> for BlockTag {
     fn from(value: &str) -> Self {
+        assert_ne!(value, "");
         Self::Ident(value.into())
     }
 }
@@ -61,6 +62,14 @@ pub struct Block {
 impl Block {
     pub fn is_anonymous(&self) -> bool {
         matches!(self.tag, BlockTag::Anonymous)
+    }
+    
+    pub fn is_operator(&self) -> bool {
+        matches!(self.tag, BlockTag::Operator(_))
+    }
+
+    pub fn is_id_tagged(&self) -> bool {
+        matches!(self.tag, BlockTag::Ident(_))
     }
     
     pub fn anonymous_block(header: Vec<Token>) -> Self {

@@ -1,7 +1,9 @@
 use std::{collections::HashMap, rc::Rc};
 
+use itertools::Itertools;
+
 use crate::{
-    lexer::{Span, Token}, parser::blocks::BlockTag, utils::{ErrorKind, Result, ThrowablePosition}
+    lexer::{Span, Token}, parser::{BinOpKind, Type, UnOpKind, blocks::BlockTag}, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
 use super::{syntax_tree::Expression, Parser, ExpressionKind};
@@ -37,6 +39,66 @@ pub trait BlockDefinition {
     fn parse_chained_expression(&self, span: Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<Expression> {
         self.parse_chained(&span, header, body, input, parser)
             .map(|kind| Expression::new(kind, span))
+    }
+}
+pub trait OperatorBlockDefintion : BlockDefinition {
+    fn id(&self) -> BlockTag;
+    fn unary_operator(&self) -> Option<UnOpKind> { None }
+    fn binary_operator(&self) -> Option<BinOpKind> { None }
+
+    fn parse_unary_operator(&self, span: &Span, operand: Expression) -> Result<ExpressionKind> {
+        let Some(op_kind) = self.unary_operator() else {
+            return span.syntax("Operator cannot be used as unary operator".into());
+        };
+        Ok( ExpressionKind::UnOp(op_kind, Box::new(operand), Type::Inferred) )
+    }
+    fn parse_binary_operator(&self, span: &Span, operand1: Expression, operand2: Expression) -> Result<ExpressionKind> {
+        let Some(op_kind) = self.binary_operator() else {
+            return span.syntax("Operator cannot be used as binary operator".into());
+        };
+        Ok( ExpressionKind::BinOp(op_kind, Box::new(operand1), Box::new(operand2), Type::Inferred) )
+    }
+        
+    // Following functions are alternative to specialisation, which is attow not stable yet.
+    fn s_override_parsing(&self) -> bool { false }
+    fn s_parse(&self, _span: &Span, _header: Vec<Token>, _body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {
+        unimplemented!()
+    }
+    fn s_parse_chained(&self, _span: &Span, _header: Vec<Token>, _body: Vec<Token>, _input: Expression, _parser: &Parser) -> Result<ExpressionKind> {
+        unimplemented!()
+    }
+}
+
+impl<T: OperatorBlockDefintion> BlockDefinition for T {
+    fn id(&self) -> BlockTag {
+        OperatorBlockDefintion::id(self)
+    }
+
+    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+        if self.s_override_parsing() {
+            return self.s_parse(span, header, body, parser);
+        }
+
+        assert!(body.is_empty());
+        let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        match operands.len() {
+            1 => self.parse_unary_operator(span, operands[0].clone()),
+            2 => self.parse_binary_operator(span, operands[0].clone(), operands[1].clone()),
+            _ => Err(span.error(ErrorKind::Syntax, "Operator expects 1 or 2 operands".to_string()))
+        }
+    }
+
+    fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
+        if self.s_override_parsing() {
+            return self.s_parse_chained(span, header, body, input, parser);
+        }
+
+        assert!(body.is_empty());
+        let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        match operands.len() {
+            1 => self.parse_binary_operator(span, input, operands[0].clone()),
+            _ => Err(span.error(ErrorKind::Syntax, "Operator expects 1 or 2 operands".to_string()))
+        }
     }
 }
 
