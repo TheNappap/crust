@@ -47,7 +47,7 @@ impl Codegen {
     }
 
     pub fn compile_fn(&mut self, fun: &Fn, linkage: Linkage, path: &str) -> Result<()> {
-        //println!("Compiling: {:?}", fun.signature().name());
+        //println!("Compiling: {}", fun.signature().path());
         let func = super::fn_gen::create_fn(
             &mut self.fun_ctx,
             &mut self.data_ctx,
@@ -57,7 +57,7 @@ impl Codegen {
         )?;
 
         let mut ctx = Context::for_function(func);
-        let id = self.module.declare_function(fun.signature().name(), linkage, &ctx.func.signature)?;
+        let id = self.module.declare_function(&fun.signature().path().to_string(), linkage, &ctx.func.signature)?;
         self.module.define_function(id, &mut ctx)?;
         Ok(())
     }

@@ -12,43 +12,74 @@ use super::BlockDefinition;
 #[derive(Default)]
 pub struct Call;
 
+impl Call {
+    fn parse_call(&self, span: &Span, path: ExpressionKind, params: Vec<Token>, input: Option<Expression>, parser: &Parser) -> Result<ExpressionKind> {
+        let path = match path {
+            ExpressionKind::Path(path) => path,
+            ExpressionKind::Symbol(symbol) => symbol.name.into(),
+            _ => return span.syntax("Expected path expression".into()),
+        };
+
+        let ty = match path.element_count() {
+            1 => None,
+            2 => {
+                let ty = if path.is_inferred() {
+                    Type::Inferred
+                } else {
+                    Type::Named(path.elements().last().unwrap().name().unwrap().to_owned())
+                };
+                Some(ty)
+            }
+            _ => return span.syntax("Expected proper path".into()),
+        };
+
+        let mut params: Vec<_> = parser.iter_expression(params).try_collect()?;
+        if let Some(input) = input {
+            params.insert(0, input);
+        }
+        Ok(ExpressionKind::Call(Signature::new(ty, path, vec![], Type::Inferred), params))
+    }
+}
+
 impl BlockDefinition for Call {
     fn id(&self) -> BlockTag {
         BlockTag::from("call")
     }
 
-    // TODO implement the ColonColon operator
-    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        use TokenKind::*;
+    fn parse(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         use Delimeter::*;
         assert!(body.is_empty());
-        let (ty, name, tokens) = match header.as_slice() {
-            [Token{kind: Ident(name), ..}, Token{kind: Group(Parens, tokens), ..}] => (None, name.to_owned(), tokens),
-            [Token{kind: Ident(type_name), ..}, Token{kind: ColonColon, ..}, Token{kind: Ident(name), ..}, Token{kind: Group(Parens, tokens), ..}] => {
-                if type_name == "_" {
-                    (Some(Type::Inferred), name.to_owned(), tokens)
-                } else {
-                    (Some(Type::Named(type_name.to_owned())), type_name.to_owned() + "::" + name, tokens)
-                }
-            }
-            _ => return Err(span.error(ErrorKind::Syntax, "Badly formed call expression".to_string())),
+        assert!(matches!(header.last(), Some(Token { kind: TokenKind::Group(Parens, _), .. })));
+        assert!(header.len() > 1);
+
+        // TODO generalize parens and indexing as a postfix operator
+        let Some(Token { kind: TokenKind::Group(Parens, params), .. }) = header.pop() else {
+            return span.syntax("Badly formed call expression".into())
         };
 
-        let exprs = parser.iter_expression(tokens.clone()).try_collect()?;
-        Ok(ExpressionKind::Call(Signature::new(ty, &name, vec![], Type::Inferred), exprs))
+        let exprs: Vec<_> = parser.iter_expression(header).try_collect()?;
+        match exprs.len() {
+            1 => self.parse_call(span, exprs[0].kind.clone(), params, None, parser),
+            2 => {
+                self.parse_call(span, exprs[1].kind.clone(), params,Some(exprs[0].clone()), parser)
+            },
+            _ => return Err(span.error(ErrorKind::Syntax, "Badly formed call expression".to_string())),
+        }
     }
     
-    fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
-        use TokenKind::*;
+    fn parse_chained(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
         use Delimeter::*;
-        assert!(body.is_empty());
-        let (ty, name, tokens) = match header.as_slice() {
-            [Token{kind: Ident(name), ..}, Token{kind: Group(Parens, tokens), ..}] => (Type::Inferred, name.to_owned(), tokens),
-            _ => return Err(span.error(ErrorKind::Syntax, "Badly formed call expression".to_string())),
+        assert!(body.is_empty());        
+        assert!(header.len() > 2);
+        assert!(matches!(header.last(), Some(Token { kind: TokenKind::Group(Parens, _), .. })));
+
+        let Some(Token { kind: TokenKind::Group(Parens, params), .. }) = header.pop() else {
+            return span.syntax("Badly formed call expression".into())
         };
 
-        let mut exprs: Vec<_> = parser.iter_expression(tokens.clone()).try_collect()?;
-        exprs.insert(0, input);
-        Ok(ExpressionKind::Call(Signature::new(Some(ty), &name, vec![], Type::Inferred), exprs))
+        let exprs: Vec<_> = parser.iter_expression(header).try_collect()?;
+        assert!(exprs.len() == 1);
+        
+        self.parse_call(span, exprs[0].kind.clone(), params, Some(input), parser)
     }
 }

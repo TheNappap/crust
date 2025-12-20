@@ -5,7 +5,7 @@ mod parse_ops;
 
 
 use itertools::Itertools;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
+pub use syntax_tree::{fn_expr::{Fn, Signature}, path::Path, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 
 use crate::{
     lexer::{Delimeter, Span, Token, TokenKind}, parser::blocks::BlockTag, utils::{Result, ThrowablePosition}
@@ -17,10 +17,12 @@ pub fn parse(source: &str) -> Result<SyntaxTree> {
     Parser::new().parse_code(source)
 }
 
+// TODO move block_defintions out of parser
 fn block_definitions() -> BlockDefinitions {
     let mut blockdefs = BlockDefinitions::new();
     blockdefs.add::<dot::Dot>();
     blockdefs.add::<call::Call>();
+    blockdefs.add::<path::PathBlock>();
     blockdefs.add::<returns::Return>();
     blockdefs.add::<returns::Forward>();
     blockdefs.add::<fn_def::FnDef>();
@@ -109,7 +111,7 @@ impl Parser {
                     });
                     let _: () = t.sigs.iter().cloned().map(|mut sig| {
                         sig.set_self_type(&type_name);
-                        let has_impl = methods.iter().any(|fun| fun.signature().name() == sig.name());
+                        let has_impl = methods.iter().any(|fun| fun.signature().path() == sig.path());
                         if !has_impl {
                             return span.syntax("Not all trait functions implemented".to_string());
                         }
@@ -118,7 +120,7 @@ impl Parser {
                     let _: () = methods.into_iter().map(|fun| {
                         let is_in_trait = t.sigs.iter().cloned().any(|mut sig| {
                             sig.set_self_type(&type_name);
-                            fun.signature().name() == sig.name()
+                            fun.signature().path() == sig.path()
                         });
                         if !is_in_trait {
                             return span.syntax("Function not part of trait".to_string());
@@ -218,6 +220,7 @@ impl Parser {
                 self.blockdefs.get(&BlockTag::from(tag.as_str()), &block.span)?
                         .parse_expression(block.span, vec![], vec![], self)
             }
+            TokenKind::Underscore => Ok(Expression::new(ExpressionKind::Path(Path::inferred()), block.span)),
             TokenKind::Ident(name) => Ok(Expression::new(ExpressionKind::Symbol(Symbol{name, ty:Type::Inferred}), block.span)),
             TokenKind::Literal(literal) => Ok(Expression::new(ExpressionKind::Literal(literal), block.span)),
             TokenKind::Group(Delimeter::Parens, tokens) => self.parse_expression(tokens),
@@ -239,11 +242,9 @@ impl Parser {
     }
 
     fn split_list(&self, mut tokens: Vec<Token>) -> impl Iterator<Item=Vec<Token>> {
-        loop {
-            if tokens.len() == 1 && let Some(Token{kind: TokenKind::Group(Delimeter::Parens, inner_tokens), ..}) = tokens.first() {
-                tokens = inner_tokens.clone()
-            } else { break; };
-        };
+        if tokens.len() == 1 && let Some(Token{kind: TokenKind::Group(Delimeter::Parens, inner_tokens), ..}) = tokens.first() {
+            tokens = inner_tokens.clone()
+        }
 
         let mut tokens = tokens.into_iter().filter(|t| !matches!(t.kind, TokenKind::NewLine));
         (0..).map(move |_| {
@@ -280,10 +281,10 @@ mod tests {
 
         let print_call = |string: String, span: Span, literal_start_pos: Position| {
             Expression::new(ExpressionKind::Call(
-                Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
+                Signature::new(None, "__stdio_common_vfprintf".into(),vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
                 vec![
                     Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone()), 
-                    Expression::new(ExpressionKind::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), 
+                    Expression::new(ExpressionKind::Call(Signature::new(None, "__acrt_iob_func".into(), vec![Type::Int], Type::Int), 
                         vec![Expression::new(ExpressionKind::Literal(Literal::Int(1)), span.clone())])
                     , span.clone()), 
                     Expression::new(ExpressionKind::Literal(Literal::String(string)), Span::new(literal_start_pos, span.end())), 
@@ -296,11 +297,11 @@ mod tests {
         assert_eq!(
             syntax_tree,
             SyntaxTree::new(vec![Fn::new(
-                Signature::new(None, "main", vec![], Type::Void),
+                Signature::new(None, "main".into(), vec![], Type::Void),
                 vec![],
                 vec![
                     Expression::new(ExpressionKind::Fn(Fn::new(
-                        Signature::new(None, "function", vec![], Type::Void),
+                        Signature::new(None, "function".into(), vec![], Type::Void),
                         vec![],
                         vec![
                             print_call("Line1".to_string(), Span::new(Position::new(3, 0), Position::new(3, 18)), Position::new(3, 10)),
@@ -310,15 +311,15 @@ mod tests {
                         ],
                     )), Span::new(Position::new(2, 0), Position::new(5, 19))),
                     Expression::new(ExpressionKind::Fn(Fn::new(
-                        Signature::new(None, "f2", vec![], Type::Void),
+                        Signature::new(None, "f2".into(), vec![], Type::Void),
                         vec![],
                         vec![
                             print_call("one liner".to_string(), Span::new(Position::new(7, 12), Position::new(7, 30)), Position::new(7, 18)),
                             Expression::new(ExpressionKind::Return(Box::new(Expression::new(ExpressionKind::Void, Span::new(Position::new(7, 12), Position::new(7, 30))))), Span::new(Position::new(7, 12), Position::new(7, 30))),
                         ],
                     )), Span::new(Position::new(7, 0), Position::new(7, 31))),
-                    Expression::new(ExpressionKind::Call(Signature::new(None, "f2", vec![], Type::Inferred), vec![]), Span::new(Position::new(9, 0), Position::new(9, 13))),
-                    Expression::new(ExpressionKind::Call(Signature::new(None, "function", vec![], Type::Inferred), vec![]), Span::new(Position::new(10, 0), Position::new(10, 19))),
+                    Expression::new(ExpressionKind::Call(Signature::new(None, "f2".into(), vec![], Type::Inferred), vec![]), Span::new(Position::new(9, 0), Position::new(9, 13))),
+                    Expression::new(ExpressionKind::Call(Signature::new(None, "function".into(), vec![], Type::Inferred), vec![]), Span::new(Position::new(10, 0), Position::new(10, 19))),
                     Expression::new(ExpressionKind::Return(Box::new(Expression::new(ExpressionKind::Void, Span::new(Position::new(10, 0), Position::new(10, 19))))), Span::new(Position::new(10, 0), Position::new(10, 19))),
                 ],
             )

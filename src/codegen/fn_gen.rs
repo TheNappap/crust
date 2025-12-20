@@ -15,7 +15,7 @@ use itertools::Itertools;
 
 use crate::utils::{Result, ThrowablePosition, try_option};
 use crate::lexer::Literal;
-use crate::parser::{BinOpKind, Expression, ExpressionKind, Symbol, Fn, OrderedMap, Pattern, Signature, TransformKind, Type, UnOpKind};
+use crate::parser::{BinOpKind, Expression, ExpressionKind, Fn, OrderedMap, Path, Pattern, Signature, Symbol, TransformKind, Type, UnOpKind};
 
 use super::comp_kind::CompKind;
 use super::gen_type::GenType;
@@ -24,7 +24,7 @@ pub fn create_fn<'codegen>(
     fun_ctx: &'codegen mut FunctionBuilderContext,
     data_ctx: &'codegen mut DataDescription,
     module: &'codegen mut ObjectModule,
-    path: &str,
+    path: &str, // TODO paths should be handled before this and should already be part of signature
     fun: &Fn,
 ) -> Result<Function> {
     let mut sig = module.make_signature();
@@ -38,10 +38,12 @@ pub fn create_fn<'codegen>(
     let mut func = Function::with_name_signature(UserFuncName::user(0, 0), sig);
     let builder = FunctionBuilder::new(&mut func, fun_ctx);
 
+    let mut fn_path = fun.signature().path().clone();
+    fn_path.add(path.into());
     let ctx = FunctionCodegenContext {
         data_ctx,
         module,
-        path: path.to_string() + fun.signature().name(),
+        path: fn_path,
         variables: HashMap::new(),
         functions: HashMap::new(),
         str_counter: Counter::new(),
@@ -75,9 +77,9 @@ impl Counter {
 struct FunctionCodegenContext<'codegen> {
     data_ctx: &'codegen mut DataDescription,
     module: &'codegen mut ObjectModule,
-    path: String,
+    path: Path,
     variables: HashMap<String, StackSlot>,
-    functions: HashMap<String, FuncRef>,
+    functions: HashMap<Path, FuncRef>,
     str_counter: Counter,
     var_counter: Counter,
 }
@@ -234,12 +236,13 @@ impl<'codegen> FunctionCodegen<'codegen> {
             ExpressionKind::Match(expr, ty, cases) => {
                 try_option!(self.create_match(expr, ty, cases))
             },
-            ExpressionKind::Signature(_) => vec![], //ignore, handled before function codegen
-            ExpressionKind::Fn(_) => vec![], //ignore, handled before function codegen
-            ExpressionKind::Trait(_) => vec![], //ignore, handled before function codegen
-            ExpressionKind::Impl(..) => vec![], //ignore, handled before function codegen
-            ExpressionKind::Data(_) => vec![], //ignore, handled before function codegen
-            ExpressionKind::Case(..) => unreachable!(),
+            ExpressionKind::Fn(_) => vec![], // missing support for fn pointers or closures
+            ExpressionKind::Path(_) => unreachable!(), //ignore, handled before function codegen
+            ExpressionKind::Signature(_) => unreachable!(), //ignore, handled before function codegen
+            ExpressionKind::Trait(_) => unreachable!(), //ignore, handled before function codegen
+            ExpressionKind::Impl(..) => unreachable!(), //ignore, handled before function codegen
+            ExpressionKind::Data(_) => unreachable!(), //ignore, handled before function codegen
+            ExpressionKind::Case(..) => unreachable!(), //ignore, handled before function codegen
         };
         Ok(Some(value))
     }
@@ -249,7 +252,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
         signature: &Signature,
         param_values: &[Value],
     ) -> Result<Vec<Value>> {
-        let callee = if let Some(f) = self.ctx.functions.get(signature.name()) {
+        let callee = if let Some(f) = self.ctx.functions.get(signature.path()) {
             *f
         } else {
             let sig = {
@@ -265,10 +268,10 @@ impl<'codegen> FunctionCodegen<'codegen> {
 
             let id = self.ctx
                 .module
-                .declare_function(signature.name(), Linkage::Import, &sig)?;
+                .declare_function(&signature.path().to_string(), Linkage::Import, &sig)?;
         
             let callee = self.ctx.module.declare_func_in_func(id, self.builder.func);
-            self.ctx.functions.insert(signature.name().to_string(), callee);
+            self.ctx.functions.insert(signature.path().to_owned(), callee);
             callee
         };
 
@@ -631,7 +634,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
 
     fn create_literal_string(&mut self, mut str: String) -> Result<Value> {
         str.push('\0');
-        let name = self.ctx.path.clone() + "_string_" + &self.ctx.str_counter.next().to_string();
+        let name = self.ctx.path.to_string() + "_string_" + &self.ctx.str_counter.next().to_string();
         let contents = str.as_bytes().to_vec().into_boxed_slice();
 
         self.create_data(&name, contents)
@@ -667,7 +670,7 @@ impl<'codegen> FunctionCodegen<'codegen> {
             Type::String => {
                 let mut param_values= self.create_expression_value(param1)?;
                 param_values.extend(self.create_expression_value(param2)?);
-                self.create_fn_call(&Signature::new(None, "strcat",vec![Type::Int,Type::Int],Type::Int), &param_values)
+                self.create_fn_call(&Signature::new(None, "strcat".into(),vec![Type::Int,Type::Int],Type::Int), &param_values)
             }
             _ => param1.span.codegen("Addition for this type is not supported".to_string())
         }

@@ -18,7 +18,8 @@ pub enum OperatorKind {
     EqEq, Neq, 
     Less, LessEq,
     Great, GreatEq,
-    Range,   
+    Range,
+    ColonColon,
 }
 
 impl OperatorKind {
@@ -37,6 +38,7 @@ impl OperatorKind {
             TokenKind::Great => Some(OperatorKind::Great),
             TokenKind::GreatEq => Some(OperatorKind::GreatEq),
             TokenKind::Range => Some(OperatorKind::Range),
+            TokenKind::ColonColon => Some(OperatorKind::ColonColon),
             _ => None,
         }
     }    
@@ -56,6 +58,7 @@ impl OperatorKind {
             OperatorKind::Great => TokenKind::Great,
             OperatorKind::GreatEq => TokenKind::GreatEq,
             OperatorKind::Range => TokenKind::Range,
+            OperatorKind::ColonColon => TokenKind::ColonColon,
         }
     }
 }
@@ -77,6 +80,7 @@ impl fmt::Display for OperatorKind {
             Great => write!(f, ">"),
             GreatEq => write!(f, ">="),
             Range => write!(f, ".."),
+            ColonColon => write!(f, "::"),
         }
     }
 }
@@ -104,12 +108,14 @@ impl Operator {
         use OperatorPosition::*;
         match (&self.position, &self.kind) {
             (_Postfix, _) => todo!(),
-            (_, Dot) => 1,
-            (Prefix, _) => 2,
-            (_, Star | Slash) => 3,
-            (_, Plus | Dash) => 4,
-            (_, EqEq | Neq | Less | LessEq | Great | GreatEq) => 5,
-            (_, Range) => 6,
+            (Binary, ColonColon) => 1,
+            (Prefix, Dot) => 2,
+            (Binary, Dot) => 3,
+            (Prefix, _) => 4,
+            (_, Star | Slash) => 5,
+            (_, Plus | Dash) => 6,
+            (_, EqEq | Neq | Less | LessEq | Great | GreatEq) => 7,
+            (_, Range) => 8,
             (Binary, Not) => unimplemented!(),
         }
     }
@@ -133,7 +139,6 @@ pub fn parse_operators(block: Block, parser: &Parser) -> Result<Expression> {
     }
 
     let ops_tree = OpsTree::new(block.clone());
-
     ops_tree.parse(parser)
 }
 
@@ -207,7 +212,7 @@ impl OpsTree {
             OpsTree::UnOp(kind, span, ops_tree) => {
                 let tag = BlockTag::Operator(kind);
                 let header = ops_tree.as_tokens();
-                let block = Block { tag, span: span.clone(), header: vec![Token::new(TokenKind::Group(Delimeter::Parens, header), span.clone())], body: vec![], chain: None };
+                let block = Block { tag, span: span.clone(), header, body: vec![], chain: None };
                 parser.parse_block_expression(block)
             }
             OpsTree::BinOp(kind, span, ops_tree, ops_tree1) => {
@@ -215,7 +220,7 @@ impl OpsTree {
                 let mut header = ops_tree.as_tokens();
                 header.push(Token::new(TokenKind::Comma, span.clone()));
                 header.extend(ops_tree1.as_tokens());
-                let block = Block { tag, span: span.clone(), header: vec![Token::new(TokenKind::Group(Delimeter::Parens, header), span.clone())], body: vec![], chain: None };
+                let block = Block { tag, span: span.clone(), header, body: vec![], chain: None };
                 parser.parse_block_expression(block)
             }
         }
@@ -227,14 +232,13 @@ impl OpsTree {
             OpsTree::UnOp(kind, span, ops_tree) => {
                 let mut tokens = ops_tree.as_tokens();
                 tokens.insert(0, Token::new(kind.as_token(), span.clone()));
-                vec![Token::new(TokenKind::Group(Delimeter::Parens, tokens), span.clone())]
+                tokens
             }
             OpsTree::BinOp(kind, span, ops_tree, ops_tree1) => {
                 let mut tokens = ops_tree.as_tokens();
-                tokens.insert(0, Token::new(kind.as_token(), span.clone()));
-                tokens.push(Token::new(TokenKind::Comma, span.clone()));
+                tokens.push(Token::new(kind.as_token(), span.clone()));
                 tokens.extend(ops_tree1.as_tokens());
-                vec![Token::new(TokenKind::Group(Delimeter::Parens, tokens), span.clone())]
+                tokens
             }
         }
     }
@@ -272,4 +276,45 @@ impl OpsTree {
                     })
                     .collect()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{lexer::{Literal, Position, Span}, parser::blocks::BlockStream, utils::Result};
+
+    #[test]
+    fn ops_tree() -> Result<()> {
+        let s = r#".Data::new().a()*3 + 3/R"#;
+        let block = BlockStream::from(s).collect_operators(true).next().expect("Should form block with chains")?;
+        let ops_tree = OpsTree::new(block);
+        let reference = 
+            OpsTree::BinOp(OperatorKind::Plus, Span::new(Position::new(0, 18), Position::new(0, 22)), 
+                Box::new(OpsTree::BinOp(OperatorKind::Star, Span::new(Position::new(0, 16), Position::new(0, 18)),
+                    Box::new(OpsTree::BinOp(OperatorKind::Dot, Span::new(Position::new(0, 12), Position::new(0, 16)), 
+                        Box::new(OpsTree::UnOp(OperatorKind::Dot, Span::new(Position::new(0, 0), Position::new(0, 5)), 
+                            Box::new(OpsTree::BinOp(OperatorKind::ColonColon, Span::new(Position::new(0, 5), Position::new(0, 12)), 
+                                Box::new(OpsTree::Leaf(vec![Token::new(TokenKind::Ident("Data".into()), Span::new(Position::new(0, 1), Position::new(0, 5)))])), 
+                                Box::new(OpsTree::Leaf(vec![
+                                    Token::new(TokenKind::Ident("new".into()), Span::new(Position::new(0, 7), Position::new(0, 10))),
+                                    Token::new(TokenKind::Group(Delimeter::Parens, vec![]), Span::new(Position::new(0, 10), Position::new(0, 12)))
+                                ]))
+                            ))
+                        )), 
+                        Box::new(OpsTree::Leaf(vec![
+                            Token::new(TokenKind::Ident("a".into()), Span::new(Position::new(0, 13), Position::new(0, 14))),
+                            Token::new(TokenKind::Group(Delimeter::Parens, vec![]), Span::new(Position::new(0, 14), Position::new(0, 16)))
+                        ]))
+                    )),
+                    Box::new(OpsTree::Leaf(vec![Token::new(TokenKind::Literal(Literal::Int(3)), Span::new(Position::new(0, 17), Position::new(0, 18)))]))
+                )), 
+                Box::new(OpsTree::BinOp(OperatorKind::Slash, Span::new(Position::new(0, 22), Position::new(0, 28)), 
+                    Box::new(OpsTree::Leaf(vec![Token::new(TokenKind::Literal(Literal::Int(3)), Span::new(Position::new(0, 20), Position::new(0, 22)))])), 
+                    Box::new(OpsTree::Leaf(vec![Token::new(TokenKind::Ident("R".into()), Span::new(Position::new(0, 24), Position::new(0, 28)))]))
+                ))
+            );
+        assert_eq!(ops_tree, reference);
+        Ok(())
+    }
+
 }

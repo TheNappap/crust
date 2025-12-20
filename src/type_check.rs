@@ -3,26 +3,26 @@ use std::{collections::{hash_map::Entry, HashMap}};
 
 use itertools::Itertools;
 
-use crate::{parser::{SyntaxTree, Type, Fn, Expression, ExpressionKind, Signature, BinOpKind}, utils::{Result, Error, ThrowablePosition, ErrorKind}, lexer::{Literal, Span, Position}};
+use crate::{lexer::{Literal, Position, Span}, parser::{BinOpKind, Expression, ExpressionKind, Fn, Path, Signature, SyntaxTree, Type}, utils::{Error, ErrorKind, Result, ThrowablePosition}};
 
 
 pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     let mut data_map = HashMap::new();
     let _: () = syntax_tree.data_types()
-        .map(|(data, span)| match data_map.entry(data.name().to_owned()) {
+        .map(|(data, span)| match data_map.entry(Path::from(data.name())) {
             Entry::Occupied(_) => return Err(span.error(ErrorKind::Type, "Data structure already defined".to_string())),
             Entry::Vacant(v) => { v.insert((data.to_owned(), span.to_owned())); Ok(()) },
         })
         .try_collect()?;
 
-    let mut functions: HashMap<_,_> = syntax_tree.imports().cloned().map(|sig| (sig.name().to_owned(), sig) ).collect();
+    let mut functions: HashMap<_,_> = syntax_tree.imports().cloned().map(|sig| (sig.path().to_owned(), sig) ).collect();
     for fun in syntax_tree.fns_impls() {
         for expr in fun.body() {
             if let ExpressionKind::Fn(f) = &expr.kind {
-                functions.insert(f.signature().name().to_string(), f.signature().clone());
+                functions.insert(f.signature().path().to_owned(), f.signature().clone());
             }
         }
-        functions.insert(fun.signature().name().to_string().clone(), fun.signature().clone()); 
+        functions.insert(fun.signature().path().to_owned(), fun.signature().clone()); 
     }
     functions.values_mut().try_for_each(|sig| sig.params_mut().try_for_each(|ty| data_map.check_named_type(ty)))?;
 
@@ -45,9 +45,10 @@ trait DataTypeCheck {
     } 
 }
 
-impl DataTypeCheck for HashMap<String, (Type, Span)> {
+impl DataTypeCheck for HashMap<Path, (Type, Span)> {
     fn check_type_name(&self, name: &str) -> Result<Type> {
-        match self.get(name) {
+        let path = name.into();
+        match self.get(&path) {
             Some((data, _)) => Ok(data.to_owned()),
             None => return Err(Error::new(ErrorKind::Type, format!("Data structure not found: {}", name), Position::zero()))
         }
@@ -56,13 +57,13 @@ impl DataTypeCheck for HashMap<String, (Type, Span)> {
 
 struct TypeCheck<'f> {
     variables: HashMap<String, Type>,
-    functions: &'f HashMap<String, Signature>,
-    data_types: &'f HashMap<String, (Type, Span)>,
+    functions: &'f HashMap<Path, Signature>,
+    data_types: &'f HashMap<Path, (Type, Span)>,
     hidden_fns: Vec<Fn>,
 }
 
 impl<'f> TypeCheck<'f> {
-    fn new(functions: &'f HashMap<String, Signature>, data_types: &'f HashMap<String, (Type, Span)>) -> TypeCheck<'f> {
+    fn new(functions: &'f HashMap<Path, Signature>, data_types: &'f HashMap<Path, (Type, Span)>) -> TypeCheck<'f> {
         TypeCheck {
             variables: HashMap::new(),
             functions,
@@ -120,7 +121,7 @@ impl<'f> TypeCheck<'f> {
                     let ty = self.check_expression(&mut params[0])?;
                     signature.set_self_type(&ty.name());
                 }
-                *signature = self.functions.get(signature.name()).expect("Function not found").clone();
+                *signature = self.functions.get(signature.path()).expect("Function not found").clone();
 
                 params.iter_mut()
                       .map(|expr| self.check_expression(expr))
@@ -454,6 +455,7 @@ impl<'f> TypeCheck<'f> {
                     })?.unwrap();
                 ty
             },
+            ExpressionKind::Path(_) => unreachable!(),
             ExpressionKind::Case(..) => unreachable!(),
             ExpressionKind::Signature(_) => unreachable!(),
             ExpressionKind::Trait(_) => unreachable!(),

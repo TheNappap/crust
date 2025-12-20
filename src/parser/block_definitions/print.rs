@@ -67,10 +67,10 @@ fn parse_print(span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parse
     };
 
     Ok(ExpressionKind::Call(
-        Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
+        Signature::new(None, "__stdio_common_vfprintf".into(),vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
         vec![
             Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone()),
-            Expression::new(ExpressionKind::Call(Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int), vec![Expression::new(ExpressionKind::Literal(Literal::Int(1)), span.clone())]), span.clone()),
+            Expression::new(ExpressionKind::Call(Signature::new(None, "__acrt_iob_func".into(), vec![Type::Int], Type::Int), vec![Expression::new(ExpressionKind::Literal(Literal::Int(1)), span.clone())]), span.clone()),
             string_expr, 
             Expression::new(ExpressionKind::Literal(Literal::Int(0)), span.clone()), 
             Expression::new(args_expr, span.clone()),

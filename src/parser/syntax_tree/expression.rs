@@ -1,5 +1,5 @@
 
-use crate::{lexer::{Literal, Span}, parser::{Fn, Signature, Type}};
+use crate::{lexer::{Literal, Span}, parser::{Fn, Signature, Type, syntax_tree::path::Path}};
 
 use super::{patterns::Pattern, ordered_map::OrderedMap, fn_expr::Trait};
 
@@ -83,6 +83,7 @@ pub enum ExpressionKind {
     Void,
     AddrOf(Vec<Expression>),
     Symbol(Symbol),
+    Path(Path),
     BinOp(BinOpKind, Box<Expression>, Box<Expression>, Type),
     UnOp(UnOpKind, Box<Expression>, Type),
     Return(Box<Expression>),

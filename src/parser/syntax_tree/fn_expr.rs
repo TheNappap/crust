@@ -1,17 +1,19 @@
+use crate::parser::syntax_tree::path::Path;
+
 use super::{Expression, types::Type};
 use core::{slice::{Iter, IterMut}};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Signature {
     self_ty: Option<Type>,
-    name: String,
+    path: Path,
     params: Vec<Type>,
     returns: Type,
 }
 
 impl Signature {
-    pub fn new(self_ty: Option<Type>, name: &str, params: Vec<Type>, returns: Type) -> Signature {
-        Signature { self_ty, name: name.to_string(), params, returns }
+    pub fn new(self_ty: Option<Type>, path: Path, params: Vec<Type>, returns: Type) -> Signature {
+        Signature { self_ty, path, params, returns }
     }
     
     pub fn self_ty_mut(&mut self) -> &mut Option<Type> {
@@ -23,12 +25,17 @@ impl Signature {
     }
 
     pub fn set_self_type(&mut self, type_name: &str) {
-        self.name = type_name.to_owned() + "::" + &self.name;
+        assert!(self.path.element_count() == 1 || self.path.is_inferred());
+        self.path.add(type_name.into());
         self.self_ty = Some(Type::Named(type_name.to_owned()));
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn _path_mut(&mut self) -> &mut Path {
+        &mut self.path
     }
 
     pub fn params(&self) -> Iter<'_, Type> {

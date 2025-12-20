@@ -10,6 +10,7 @@ use super::{syntax_tree::Expression, Parser, ExpressionKind};
 
 pub mod dot;
 pub mod call;
+pub mod path;
 pub mod fn_def;
 pub mod print;
 pub mod assign;

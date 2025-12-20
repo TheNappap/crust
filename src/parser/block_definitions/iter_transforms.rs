@@ -35,8 +35,8 @@ impl BlockDefinition for Map {
                                             .try_collect()?;
         let id = TRANSFORM_FN_ID.load(Ordering::Relaxed);
         TRANSFORM_FN_ID.store(id+1, Ordering::Relaxed);
-        let name = format!("__map_function{}", id);
-        let signature = Signature::new(None, &name, vec![symbol.ty], Type::Inferred);
+        let path = format!("__map_function{}", id).into();
+        let signature = Signature::new(None, path, vec![symbol.ty], Type::Inferred);
 
         let transform = IterTransform{
             kind: TransformKind::Map,
@@ -76,8 +76,8 @@ impl BlockDefinition for Filter {
                                     .try_collect()?;
         let id = TRANSFORM_FN_ID.load(Ordering::Relaxed);
         TRANSFORM_FN_ID.store(id+1, Ordering::Relaxed);
-        let name = format!("__filter_function{}", id);
-        let signature = Signature::new(None, &name, vec![symbol.ty], Type::Bool);
+        let path = format!("__filter_function{}", id).into();
+        let signature = Signature::new(None, path, vec![symbol.ty], Type::Bool);
 
         let transform = IterTransform{
             kind: TransformKind::Filter,

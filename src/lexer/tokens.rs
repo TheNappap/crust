@@ -95,6 +95,7 @@ pub enum TokenKind {
     Great,
     GreatEq,
     Range,
+    ColonColon,
     // Special symbols
     Underscore,
     Eq,
@@ -102,7 +103,6 @@ pub enum TokenKind {
     Arrow2,
     Comma,
     Colon,
-    ColonColon,
     Semicolon,
     NewLine,
 }

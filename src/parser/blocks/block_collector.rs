@@ -47,6 +47,7 @@ impl BlockCollector {
 
         let tag = BlockTag::new(token.kind.clone());
         let block = match token.kind {
+            TokenKind::Underscore if peeked_is_operator_or_none => self.collect_anonymous_block(vec![token])?,
             TokenKind::Ident(_) if peeked_is_operator_or_none => self.collect_anonymous_block(vec![token])?,
             TokenKind::Tag(_) if peeked_is_operator_or_none => self.collect_anonymous_block(vec![token])?,
             TokenKind::Literal(_) => self.collect_anonymous_block(vec![token])?,

@@ -28,7 +28,7 @@ impl OperatorBlockDefintion for Dot {
                     [TokenKind::Ident(name), TokenKind::Group(Delimeter::Parens, tokens)] => {
                         let mut params = token_list[0].clone();
                         params.extend(tokens.clone());
-                        let header = vec![TokenKind::Ident("_".to_owned()), TokenKind::ColonColon, TokenKind::Ident(name.to_owned()), TokenKind::Group(Delimeter::Parens, params)];
+                        let header = vec![TokenKind::Underscore, TokenKind::ColonColon, TokenKind::Ident(name.to_owned()), TokenKind::Group(Delimeter::Parens, params)];
                         Call.parse(span, header.into_iter().map(|t|Token::new(t, span.clone())).collect(), vec![], parser)
                     }
                     _ => Err(span.error(ErrorKind::Syntax, "Badly formed . expression".to_string())),

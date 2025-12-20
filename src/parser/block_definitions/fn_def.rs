@@ -52,7 +52,7 @@ impl BlockDefinition for FnDef {
         } else {
             None
         };
-        let signature = Signature::new(ty, &name, param_types, returns);
+        let signature = Signature::new(ty, name.into(), param_types, returns);
 
         if body.is_empty() {
             Ok(ExpressionKind::Signature(signature))

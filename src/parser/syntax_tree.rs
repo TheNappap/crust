@@ -4,6 +4,7 @@ pub mod fn_expr;
 pub mod types;
 pub mod expression;
 pub mod ordered_map;
+pub mod path;
 pub mod patterns;
 
 pub use expression::{Expression, ExpressionKind, Symbol, BinOpKind, UnOpKind, TransformKind};

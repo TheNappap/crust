@@ -8,8 +8,8 @@ fn std_data_types() -> Vec<(Type, Span)> {
 
 fn import_functions() -> Vec<Signature> {
     vec![
-        Signature::new(None, "__stdio_common_vfprintf",vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
-        Signature::new(None, "__acrt_iob_func", vec![Type::Int], Type::Int)
+        Signature::new(None, "__stdio_common_vfprintf".into(),vec![Type::Int,Type::Int,Type::String,Type::Int,Type::Int],Type::Void),
+        Signature::new(None, "__acrt_iob_func".into(), vec![Type::Int], Type::Int)
     ]
 }
 
