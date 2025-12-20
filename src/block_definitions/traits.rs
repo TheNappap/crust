@@ -1,13 +1,13 @@
 use std::vec;
 
-use crate::{lexer::{Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, blocks::BlockTag, syntax_tree::fn_expr}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, Parser, Trait}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
 #[derive(Default)]
-pub struct Trait;
+pub struct TraitBlock;
 
-impl BlockDefinition for Trait {
+impl BlockDefinition for TraitBlock {
     fn id(&self) -> BlockTag {
         BlockTag::from("trait")
     }
@@ -28,7 +28,7 @@ impl BlockDefinition for Trait {
             }
         }
 
-        Ok(ExpressionKind::Trait(fn_expr::Trait::new(name.clone(), sigs, fns)))
+        Ok(ExpressionKind::Trait(Trait::new(name.clone(), sigs, fns)))
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {

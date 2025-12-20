@@ -3,10 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 use itertools::Itertools;
 
 use crate::{
-    lexer::{Span, Token}, parser::{BinOpKind, Type, UnOpKind, blocks::BlockTag}, utils::{ErrorKind, Result, ThrowablePosition}
+    lexer::{Span, Token}, parser::{BinOpKind, BlockTag, Expression, ExpressionKind, Parser, Type, UnOpKind}, utils::{ErrorKind, Result, ThrowablePosition}
 };
-
-use super::{syntax_tree::Expression, Parser, ExpressionKind};
 
 pub mod dot;
 pub mod call;
@@ -129,5 +127,55 @@ impl BlockDefinitions {
         }
         self.definitions
             .insert(definition.id(), definition);
+    }
+}
+
+impl Default for BlockDefinitions {
+    fn default() -> Self {
+        let mut blockdefs = BlockDefinitions::new();
+        blockdefs.add::<dot::Dot>();
+        blockdefs.add::<call::Call>();
+        blockdefs.add::<path::PathBlock>();
+        blockdefs.add::<returns::Return>();
+        blockdefs.add::<returns::Forward>();
+        blockdefs.add::<fn_def::FnDef>();
+        blockdefs.add::<fn_def::Impl>();
+        blockdefs.add::<traits::TraitBlock>();
+        blockdefs.add::<data::Struct>();
+        blockdefs.add::<data::Enum>();
+        blockdefs.add::<data::New>();
+        blockdefs.add::<data::Field>();
+        blockdefs.add::<print::Print>();
+        blockdefs.add::<print::PrintLn>();
+        blockdefs.add::<assign::Let>();
+        blockdefs.add::<assign::Mut>();
+        blockdefs.add::<operators::Not>();
+        blockdefs.add::<operators::Add>();
+        blockdefs.add::<operators::Dash>();
+        blockdefs.add::<operators::Multiply>();
+        blockdefs.add::<operators::Divide>();
+        blockdefs.add::<operators::Equals>();
+        blockdefs.add::<operators::NotEquals>();
+        blockdefs.add::<operators::LessThan>();
+        blockdefs.add::<operators::LessEquals>();
+        blockdefs.add::<operators::GreatThan>();
+        blockdefs.add::<operators::GreatEquals>();
+        blockdefs.add::<bools::True>();
+        blockdefs.add::<bools::False>();
+        blockdefs.add::<conditional::If>();
+        blockdefs.add::<conditional::Else>();
+        blockdefs.add::<loops::While>();
+        blockdefs.add::<loops::For>();
+        blockdefs.add::<loops::Fold>();
+        blockdefs.add::<group::Group>();
+        blockdefs.add::<array::Array>();
+        blockdefs.add::<array::Index>();
+        blockdefs.add::<iter::Iter>();
+        blockdefs.add::<iter_transforms::Map>();
+        blockdefs.add::<iter_transforms::Filter>();
+        blockdefs.add::<range::Range>();
+        blockdefs.add::<pattern_match::Match>();
+        blockdefs.add::<pattern_match::Case>();
+        blockdefs
     }
 }

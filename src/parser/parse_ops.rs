@@ -142,7 +142,7 @@ pub fn parse_operators(block: Block, parser: &Parser) -> Result<Expression> {
     ops_tree.parse(parser)
 }
 
-// TODO refactor OpsTree
+// TODO refactor OpsTree to directly call expressions and not revert to tokens again
 #[derive(Debug, PartialEq, Clone)]
 enum OpsTree {
     Leaf(Vec<Token>),

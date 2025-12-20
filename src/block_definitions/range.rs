@@ -1,5 +1,5 @@
 
-use crate::{lexer::{Literal, Span}, parser::{Expression, ExpressionKind, block_definitions::OperatorBlockDefintion, blocks::BlockTag, parse_ops::OperatorKind}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{block_definitions::OperatorBlockDefintion, lexer::{Literal, Span}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 
 #[derive(Default)]

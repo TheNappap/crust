@@ -1,6 +1,6 @@
 use crate::{
     lexer::{Delimeter, Span, Token, TokenKind}, parser::{
-        ExpressionKind, Parser, blocks::BlockTag, syntax_tree::Expression
+        ExpressionKind, Parser, BlockTag, Expression
     }, utils::{ErrorKind, Result, ThrowablePosition}
 };
 

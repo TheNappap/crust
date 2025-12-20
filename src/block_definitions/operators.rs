@@ -1,5 +1,5 @@
 
-use crate::parser::{BinOpKind, UnOpKind, block_definitions::OperatorBlockDefintion, blocks::BlockTag, parse_ops::OperatorKind};
+use crate::{block_definitions::OperatorBlockDefintion, parser::{BinOpKind, BlockTag, OperatorKind, UnOpKind}};
 
 #[derive(Default)]
 pub struct Not;

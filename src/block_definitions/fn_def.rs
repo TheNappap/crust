@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Fn, Parser, Type, blocks::BlockTag, syntax_tree::fn_expr::Signature}, utils::{ErrorKind, Result, ThrowablePosition}
+    lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Fn, Parser, Type, BlockTag, Signature}, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;

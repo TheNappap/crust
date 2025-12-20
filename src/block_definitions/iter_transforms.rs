@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use itertools::Itertools;
 
-use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Fn, Parser, Signature, Type, blocks::BlockTag, syntax_tree::expression::{IterTransform, TransformKind}}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token}, parser::{BlockTag, Expression, ExpressionKind, Fn, IterTransform, Parser, Signature, TransformKind, Type}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -38,7 +38,7 @@ impl BlockDefinition for Map {
         let path = format!("__map_function{}", id).into();
         let signature = Signature::new(None, path, vec![symbol.ty], Type::Inferred);
 
-        let transform = IterTransform{
+        let transform = IterTransform {
             kind: TransformKind::Map,
             fun: Fn::new(signature, vec![symbol.name], body),
             span: span.clone()

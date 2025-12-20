@@ -3,7 +3,7 @@ use itertools::Itertools;
 
 use crate::{
     lexer::{Literal, Span, Token}, parser::{
-        BinOpKind, ExpressionKind, Parser, Signature, Type, blocks::BlockTag, syntax_tree::Expression
+        BinOpKind, ExpressionKind, Parser, Signature, Type, BlockTag, Expression
     }, utils::{ErrorKind, Result, ThrowablePosition}
 };
 

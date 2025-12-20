@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     lexer::{Span, Token, TokenKind}, parser::{
-        ExpressionKind, OrderedMap, Parser, Type, blocks::BlockTag, syntax_tree::Expression
+        ExpressionKind, OrderedMap, Parser, Type, BlockTag, Expression
     }, utils::{ErrorKind, Result, ThrowablePosition}
 };
 

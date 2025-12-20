@@ -1,6 +1,7 @@
 mod codegen;
 mod lexer;
 mod parser;
+mod block_definitions;
 mod type_check;
 mod std_lib;
 mod utils;

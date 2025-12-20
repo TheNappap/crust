@@ -2,7 +2,7 @@
 use itertools::Itertools;
 
 use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::{
-        ExpressionKind, Parser, Type, blocks::BlockTag, syntax_tree::Expression
+        BlockTag, Expression, ExpressionKind, Parser, Type
     }, utils::{ErrorKind, Result, ThrowablePosition}};
 
 use super::BlockDefinition;

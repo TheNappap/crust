@@ -1,4 +1,4 @@
-use crate::{lexer::Span, parser::{Expression, ExpressionKind, Path, block_definitions::OperatorBlockDefintion, blocks::BlockTag, parse_ops::OperatorKind}, utils::{Result, ThrowablePosition}};
+use crate::{block_definitions::OperatorBlockDefintion, lexer::Span, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Path}, utils::{Result, ThrowablePosition}};
 
 
 #[derive(Default)]

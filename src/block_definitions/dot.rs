@@ -1,9 +1,7 @@
 
 use itertools::Itertools;
 
-use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, block_definitions::{OperatorBlockDefintion, call::Call}, blocks::BlockTag, parse_ops::OperatorKind}, utils::{ErrorKind, Result, ThrowablePosition}};
-
-use super::{BlockDefinition, data::Field};
+use crate::{block_definitions::{BlockDefinition, OperatorBlockDefintion, call::Call, data::Field}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Parser}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 #[derive(Default)]
 pub struct Dot;

@@ -1,69 +1,20 @@
 mod blocks;
-mod block_definitions;
 mod syntax_tree;
 mod parse_ops;
 
 
+pub use syntax_tree::{fn_expr::{Fn, Signature, Trait}, path::Path, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, IterTransform, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
+pub use blocks::BlockTag;
+pub use parse_ops::OperatorKind;
+
 use itertools::Itertools;
-pub use syntax_tree::{fn_expr::{Fn, Signature}, path::Path, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
-
 use crate::{
-    lexer::{Delimeter, Span, Token, TokenKind}, parser::blocks::BlockTag, utils::{Result, ThrowablePosition}
+    block_definitions::BlockDefinitions, lexer::{Delimeter, Span, Token, TokenKind}, utils::{Result, ThrowablePosition}
 };
-
-use self::{block_definitions::*, blocks::{BlockStream, Block}};
+use self::blocks::{BlockStream, Block};
 
 pub fn parse(source: &str) -> Result<SyntaxTree> {
     Parser::new().parse_code(source)
-}
-
-// TODO move block_defintions out of parser
-fn block_definitions() -> BlockDefinitions {
-    let mut blockdefs = BlockDefinitions::new();
-    blockdefs.add::<dot::Dot>();
-    blockdefs.add::<call::Call>();
-    blockdefs.add::<path::PathBlock>();
-    blockdefs.add::<returns::Return>();
-    blockdefs.add::<returns::Forward>();
-    blockdefs.add::<fn_def::FnDef>();
-    blockdefs.add::<fn_def::Impl>();
-    blockdefs.add::<traits::Trait>();
-    blockdefs.add::<data::Struct>();
-    blockdefs.add::<data::Enum>();
-    blockdefs.add::<data::New>();
-    blockdefs.add::<data::Field>();
-    blockdefs.add::<print::Print>();
-    blockdefs.add::<print::PrintLn>();
-    blockdefs.add::<assign::Let>();
-    blockdefs.add::<assign::Mut>();
-    blockdefs.add::<operators::Not>();
-    blockdefs.add::<operators::Add>();
-    blockdefs.add::<operators::Dash>();
-    blockdefs.add::<operators::Multiply>();
-    blockdefs.add::<operators::Divide>();
-    blockdefs.add::<operators::Equals>();
-    blockdefs.add::<operators::NotEquals>();
-    blockdefs.add::<operators::LessThan>();
-    blockdefs.add::<operators::LessEquals>();
-    blockdefs.add::<operators::GreatThan>();
-    blockdefs.add::<operators::GreatEquals>();
-    blockdefs.add::<bools::True>();
-    blockdefs.add::<bools::False>();
-    blockdefs.add::<conditional::If>();
-    blockdefs.add::<conditional::Else>();
-    blockdefs.add::<loops::While>();
-    blockdefs.add::<loops::For>();
-    blockdefs.add::<loops::Fold>();
-    blockdefs.add::<group::Group>();
-    blockdefs.add::<array::Array>();
-    blockdefs.add::<array::Index>();
-    blockdefs.add::<iter::Iter>();
-    blockdefs.add::<iter_transforms::Map>();
-    blockdefs.add::<iter_transforms::Filter>();
-    blockdefs.add::<range::Range>();
-    blockdefs.add::<pattern_match::Match>();
-    blockdefs.add::<pattern_match::Case>();
-    blockdefs
 }
 
 pub struct Parser {
@@ -73,7 +24,7 @@ pub struct Parser {
 impl Parser {
     pub fn new() -> Parser {
         Parser {
-            blockdefs: block_definitions(),
+            blockdefs: BlockDefinitions::default(),
         }
     }
 
@@ -137,7 +88,7 @@ impl Parser {
         Ok(SyntaxTree::new(fns, vec![], datas, traits))
     }
 
-    fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
+    pub fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
         if tokens.is_empty() {
             return Ok(Expression::new(ExpressionKind::Void, Span::zero()));
         }
@@ -150,21 +101,21 @@ impl Parser {
         }
     }
 
-    fn iter_expression(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
+    pub fn iter_expression(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
         self.split_list(tokens).map(|tokens| self.parse_expression(tokens))
     }
 
-    fn iter_statement(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
+    pub fn iter_statement(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
         BlockStream::from(tokens).forward_last(BlockTag::Ident("forward".into()))
                 .map(|b| self.parse_block_expression(b?))
     }
     
-    fn iter_block(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
+    pub fn iter_block(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
         BlockStream::from(tokens)
                 .map(|b| self.parse_block_expression(b?))
     }
     
-    fn parse_parameter(&self, mut tokens: Vec<Token>) -> Result<(String, Vec<Token>)> {
+    pub fn parse_parameter(&self, mut tokens: Vec<Token>) -> Result<(String, Vec<Token>)> {
         assert!(tokens.len() > 0);
         let name = match tokens.remove(0) {
             Token{kind: TokenKind::Ident(name), ..} => name,
@@ -179,11 +130,11 @@ impl Parser {
         }
     }
 
-    fn iter_parameter(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<(String, Vec<Token>)>> {
+    pub fn iter_parameter(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<(String, Vec<Token>)>> {
         self.split_list(tokens).map(|tokens| self.parse_parameter(tokens) )
     }
 
-    fn parse_block_expression(&self, block: Block) -> Result<Expression> {
+    pub fn parse_block_expression(&self, block: Block) -> Result<Expression> {
         if block.is_anonymous() {
             return self.parse_anonymous_block(block);
         }
@@ -197,7 +148,7 @@ impl Parser {
         } 
     }
     
-    fn parse_chained_block_expression(&self, block: Block, input: Expression) -> Result<Expression> {
+    pub fn parse_chained_block_expression(&self, block: Block, input: Expression) -> Result<Expression> {
         let expr = self.blockdefs.get(&block.tag, &block.span)?
             .parse_chained_expression(block.span, block.header, block.body, input, self);
         match block.chain {
@@ -206,7 +157,7 @@ impl Parser {
         }
     }
     
-    fn parse_anonymous_block(&self, block: Block) -> Result<Expression> {
+    pub fn parse_anonymous_block(&self, block: Block) -> Result<Expression> {
         assert!(block.is_anonymous());
         assert!(block.body.is_empty());
         let mut tokens = block.header;
@@ -241,7 +192,7 @@ impl Parser {
         } 
     }
 
-    fn split_list(&self, mut tokens: Vec<Token>) -> impl Iterator<Item=Vec<Token>> {
+    pub fn split_list(&self, mut tokens: Vec<Token>) -> impl Iterator<Item=Vec<Token>> {
         if tokens.len() == 1 && let Some(Token{kind: TokenKind::Group(Delimeter::Parens, inner_tokens), ..}) = tokens.first() {
             tokens = inner_tokens.clone()
         }
