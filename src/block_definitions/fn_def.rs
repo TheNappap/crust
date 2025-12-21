@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Fn, Parser, Type, BlockTag, Signature}, utils::{ErrorKind, Result, ThrowablePosition}
+    lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Fn, Parser, Type, BlockTag, Signature}, utils::{Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -20,7 +20,7 @@ impl BlockDefinition for FnDef {
         let name = match tokens.next().map(|t|t.kind.clone()) {
             Some(TokenKind::Ident(value)) => value,
             _ => {
-                return Err(span.error(ErrorKind::Syntax, "Expected an identifier as function name".to_string()))
+                return span.syntax("Expected an identifier as function name".into())
             }
         };
 
@@ -38,13 +38,13 @@ impl BlockDefinition for FnDef {
                     .flatten()
                     .process_results(|iter| iter.unzip())?
             }
-            _ => return Err(span.error(ErrorKind::Syntax, "Expected parameters in parens".to_string())),
+            _ => return span.syntax("Expected parameters in parens".into()),
         };
 
         let returns = match (tokens.next().map(|t|t.kind.clone()), tokens.next()) {
             (None, None) => Type::Void,
             (Some(TokenKind::Arrow), Some(token)) => Type::from(token)?,
-            _ => return Err(span.error(ErrorKind::Syntax, "Unexpected symbols after function header".to_string())),
+            _ => return span.syntax("Unexpected symbols after function header".into()),
         };
 
         let ty = if param_names.len() > 0 && param_names[0] == "self" {
@@ -69,7 +69,7 @@ impl BlockDefinition for FnDef {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -88,7 +88,7 @@ impl BlockDefinition for Impl {
             [TokenKind::Ident(name)] => (name.clone(), None),
             [TokenKind::Ident(trait_name), TokenKind::Ident(for_), TokenKind::Ident(name)]
                 if for_ == "for" => (name.clone(), Some(trait_name.clone())),
-            _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name or trait".to_string())),
+            _ => return span.syntax("Expected symbol as type name or trait".into()),
         };
 
         let fns = parser.iter_block(body)
@@ -97,7 +97,7 @@ impl BlockDefinition for Impl {
                     fun.set_self_type(&type_name);
                     Ok(fun) 
                 }
-                else { return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string())); }
+                else { return span.syntax("Expected symbol as type name".into()); }
             })
             .flatten()
             .try_collect()?;
@@ -105,6 +105,6 @@ impl BlockDefinition for Impl {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }

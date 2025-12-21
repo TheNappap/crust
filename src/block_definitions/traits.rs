@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{lexer::{Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, Parser, Trait}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, Parser, Trait}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -15,7 +15,7 @@ impl BlockDefinition for TraitBlock {
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.len() == 1);
         let Some(TokenKind::Ident(name)) = header.first().map(|t|&t.kind) else {
-            return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string()));
+            return span.syntax("Expected symbol as type name".into());
         };
 
         let mut sigs = vec![];
@@ -24,7 +24,7 @@ impl BlockDefinition for TraitBlock {
             match expr?.kind {
                 ExpressionKind::Fn(fun) => fns.push(fun),
                 ExpressionKind::Signature(sig) => sigs.push(sig),
-                _ => return Err(span.error(ErrorKind::Syntax, "Unexpected block in trait".to_string())),
+                _ => return span.syntax("Unexpected block in trait".into()),
             }
         }
 
@@ -32,6 +32,6 @@ impl BlockDefinition for TraitBlock {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }

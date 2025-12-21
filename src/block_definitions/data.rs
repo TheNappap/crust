@@ -3,7 +3,7 @@ use itertools::Itertools;
 use crate::{
     lexer::{Span, Token, TokenKind}, parser::{
         ExpressionKind, OrderedMap, Parser, Type, BlockTag, Expression
-    }, utils::{ErrorKind, Result, ThrowablePosition}
+    }, utils::{Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -19,7 +19,7 @@ impl BlockDefinition for Struct {
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.len() == 1);
         let Some(TokenKind::Ident(name)) = header.first().map(|t|&t.kind) else {
-            return Err(span.error(ErrorKind::Syntax, "Expected symbol as type name".to_string()));
+            return span.syntax("Expected symbol as type name".into());
         };
 
         let types : OrderedMap<_,_> = parser.iter_parameter(body)
@@ -47,7 +47,7 @@ impl BlockDefinition for Struct {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -62,13 +62,13 @@ impl BlockDefinition for Enum {
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(header.len() == 1);
         let Some(TokenKind::Ident(name)) = header.first().map(|t|&t.kind) else {
-            return Err(span.error(ErrorKind::Syntax, "Expected identifier as enum name".to_string()));
+            return span.syntax("Expected identifier as enum name".into());
         };
 
         let variants = parser.split_list(body).enumerate()
             .map(|(i, tokens)| match &tokens[0].kind {
                 TokenKind::Ident(variant) => Ok((variant.clone(), i)),
-                _ => return Err(span.error(ErrorKind::Syntax, "Unexpected token as enum variant".to_string())),
+                _ => return span.syntax("Unexpected token as enum variant".into()),
             })
             .try_collect()?;
 
@@ -77,7 +77,7 @@ impl BlockDefinition for Enum {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -94,7 +94,7 @@ impl BlockDefinition for New {
             match &token.kind {
                 TokenKind::Ident(name) => Some(Ok(name)),
                 TokenKind::ColonColon => None,
-                _ => Some(Err(span.error(ErrorKind::Syntax, "Failed to parse data structure name".to_string()))),
+                _ => Some(span.syntax("Failed to parse data structure name".into())),
             })
             .try_collect()?;
 
@@ -115,7 +115,7 @@ impl BlockDefinition for New {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -131,11 +131,11 @@ impl BlockDefinition for Field {
         assert!(body.is_empty());
         let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
         if operands.len() != 2 {
-            return Err(span.error(ErrorKind::Syntax, "Field expression expected 2 operands".to_string()));
+            return span.syntax("Field expression expected 2 operands".into());
         }
             
         let ExpressionKind::Symbol(field_symbol) = &operands[1].kind else {
-            return Err(span.error(ErrorKind::Syntax, "Field expression expected symbol as field name".to_string()));
+            return span.syntax("Field expression expected symbol as field name".into());
         };
         assert_eq!(field_symbol.ty, Type::Inferred);
         Ok(ExpressionKind::Field(Box::new(operands[0].clone()), field_symbol.to_owned(), -1))
@@ -146,7 +146,7 @@ impl BlockDefinition for Field {
         let field = parser.parse_expression(header)?;
 
         let ExpressionKind::Symbol(field_symbol) = field.kind else {
-            return Err(span.error(ErrorKind::Syntax, "Field expression expected symbol as field name".to_string()));
+            return span.syntax("Field expression expected symbol as field name".into());
         };
         assert_eq!(field_symbol.ty, Type::Inferred);
         Ok(ExpressionKind::Field(Box::new(input), field_symbol.to_owned(), -1))

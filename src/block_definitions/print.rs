@@ -4,7 +4,7 @@ use itertools::Itertools;
 use crate::{
     lexer::{Literal, Span, Token}, parser::{
         BinOpKind, ExpressionKind, Parser, Signature, Type, BlockTag, Expression
-    }, utils::{ErrorKind, Result, ThrowablePosition}
+    }, utils::{Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -23,7 +23,7 @@ impl BlockDefinition for Print {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -41,7 +41,7 @@ impl BlockDefinition for PrintLn {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 

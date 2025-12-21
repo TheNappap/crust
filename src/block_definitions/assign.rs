@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{lexer::{Span, Token}, parser::{
         ExpressionKind, Parser, BlockTag, Expression
-    }, utils::{ErrorKind, Result, ThrowablePosition}};
+    }, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -22,7 +22,7 @@ impl BlockDefinition for Let {
         let symbol = match name_expr.kind {
             ExpressionKind::Symbol(symbol) => symbol,
             _ => {
-                return Err(name_expr.span.error(ErrorKind::Syntax, "Expected an identifier as variable name".to_string()));
+                return name_expr.span.syntax("Expected an identifier as variable name".to_string());
             }
         };
         let value = parser.parse_expression(body)?;
@@ -30,7 +30,7 @@ impl BlockDefinition for Let {
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -51,11 +51,11 @@ impl BlockDefinition for Mut {
                 match &expr.kind {
                     ExpressionKind::Symbol(symbol) => (symbol, Some((field_symbol.clone(), *offset))),
                     k => {
-                        return Err(span.error(ErrorKind::Syntax, format!("Expected an identifier as variable name, got {:?}", k)));
+                        return span.syntax(format!("Expected an identifier as variable name, got {:?}", k));
                     }
                 },
             k => {
-                return Err(span.error(ErrorKind::Syntax, format!("Expected an identifier as variable name, got {:?}", k)));
+                return span.syntax(format!("Expected an identifier as variable name, got {:?}", k));
             }
         };
         let value = parser.parse_expression(body)?;
@@ -63,6 +63,6 @@ impl BlockDefinition for Mut {
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }

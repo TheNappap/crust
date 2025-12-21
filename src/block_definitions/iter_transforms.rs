@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use itertools::Itertools;
 
-use crate::{lexer::{Span, Token}, parser::{BlockTag, Expression, ExpressionKind, Fn, IterTransform, Parser, Signature, TransformKind, Type}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token}, parser::{BlockTag, Expression, ExpressionKind, Fn, IterTransform, Parser, Signature, TransformKind, Type}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -18,17 +18,17 @@ impl BlockDefinition for Map {
     }
 
     fn parse(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpectedly no input, block needs input".to_string()))
+        span.syntax("Unexpectedly no input, block needs input".into())
     }
     
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, mut input: Expression, parser: &Parser) -> Result<ExpressionKind> {
         let ExpressionKind::Iter(_, iter_transforms, _) = &mut input.kind else {
-            return Err(span.error(ErrorKind::Syntax, "Expected iter as block input".to_string()))
+            return span.syntax("Expected iter as block input".into())
         };
 
         let symbol = match parser.parse_expression(header)?.kind.clone() {
             ExpressionKind::Symbol(symbol) => symbol,
-            _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for map variable".to_string()))
+            _ => return span.syntax("Expected symbol for map variable".into())
         };
         let body = parser.iter_statement(body)
                                             .map_ok(Expression::return_if_forward)
@@ -59,17 +59,17 @@ impl BlockDefinition for Filter {
     }
 
     fn parse(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpectedly no input, block needs input".to_string()))
+        span.syntax("Unexpectedly no input, block needs input".into())
     }
     
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, mut input: Expression, parser: &Parser) -> Result<ExpressionKind> {
         let ExpressionKind::Iter(_, iter_transforms, _) = &mut input.kind else {
-            return Err(span.error(ErrorKind::Syntax, "Expected iter as block input".to_string()))
+            return span.syntax("Expected iter as block input".into())
         };
 
         let symbol = match parser.parse_expression(header)?.kind.clone() {
             ExpressionKind::Symbol(symbol) => symbol,
-            _ => return Err(span.error(ErrorKind::Syntax, "Expected symbol for filter variable".to_string()))
+            _ => return span.syntax("Expected symbol for filter variable".into())
         };
         let body = parser.iter_statement(body)
                                     .map_ok(Expression::return_if_forward)

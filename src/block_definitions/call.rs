@@ -4,7 +4,7 @@ use itertools::Itertools;
 use crate::{
     lexer::{Delimeter, Span, Token, TokenKind}, parser::{
         ExpressionKind, Parser, Signature, Type, BlockTag, Expression
-    }, utils::{ErrorKind, Result, ThrowablePosition}
+    }, utils::{Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -63,7 +63,7 @@ impl BlockDefinition for Call {
             2 => {
                 self.parse_call(span, exprs[1].kind.clone(), params,Some(exprs[0].clone()), parser)
             },
-            _ => return Err(span.error(ErrorKind::Syntax, "Badly formed call expression".to_string())),
+            _ => return span.syntax("Badly formed call expression".into()),
         }
     }
     

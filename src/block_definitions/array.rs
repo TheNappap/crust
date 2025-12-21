@@ -3,7 +3,7 @@ use itertools::Itertools;
 
 use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::{
         BlockTag, Expression, ExpressionKind, Parser, Type
-    }, utils::{ErrorKind, Result, ThrowablePosition}};
+    }, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -24,7 +24,7 @@ impl BlockDefinition for Array {
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -45,7 +45,7 @@ impl BlockDefinition for Index {
         if let TokenKind::Group(Delimeter::Brackets, tokens) = bracket_token.kind {
             let index: Vec<_> = parser.iter_expression(tokens).try_collect()?;
             if index.len() != 1 {
-                return Err(bracket_token.span.error(ErrorKind::Syntax, "Expected exactly one index".to_string()));
+                return bracket_token.span.syntax("Expected exactly one index".to_string());
             }
             let index = index[0].clone();
 
@@ -53,11 +53,11 @@ impl BlockDefinition for Index {
 
             Ok(ExpressionKind::Index(Box::new(collection), Box::new(index), Type::Inferred, 0))
         } else {
-            return Err(bracket_token.span.error(ErrorKind::Syntax, "Expected brackets at the end of index block".to_string()));
+            return bracket_token.span.syntax("Expected brackets at the end of index block".to_string());
         }
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }

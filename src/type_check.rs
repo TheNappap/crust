@@ -10,7 +10,7 @@ pub fn type_check(syntax_tree: &mut SyntaxTree) -> Result<()> {
     let mut data_map = HashMap::new();
     let _: () = syntax_tree.data_types()
         .map(|(data, span)| match data_map.entry(Path::from(data.name())) {
-            Entry::Occupied(_) => return Err(span.error(ErrorKind::Type, "Data structure already defined".to_string())),
+            Entry::Occupied(_) => return span.type_("Data structure already defined".into()),
             Entry::Vacant(v) => { v.insert((data.to_owned(), span.to_owned())); Ok(()) },
         })
         .try_collect()?;
@@ -129,7 +129,7 @@ impl<'f> TypeCheck<'f> {
                       .map(|(r,t)| {
                             r.and_then(|ty| {
                                 if *t != ty {
-                                    return Err(span.error(ErrorKind::Type, format!("Mismatched types for parameter, expected: {:?}, got: {:?}", t, ty).to_string()));
+                                    return span.type_(format!("Mismatched types for parameter, expected: {:?}, got: {:?}", t, ty).into());
                                 }
                                 Ok(ty)
                             })
@@ -165,7 +165,7 @@ impl<'f> TypeCheck<'f> {
                             .map(|((_,(ty, offset)), expr)| -> Result<_> { 
                                 let expr_ty =  self.check_expression(expr)?;
                                 if *ty != expr_ty {
-                                    return Err(expr.span.error(ErrorKind::Type, "Mismatch types for parameter expression".to_string()));
+                                    return expr.span.type_("Mismatch types for parameter expression".into());
                                 }
                                 Ok(*offset)
                             })
@@ -178,13 +178,13 @@ impl<'f> TypeCheck<'f> {
                     Type::Enum(_, variants) => {
                         assert!(exprs.len() == 1);
                         let ExpressionKind::Data(data) = &exprs[0].kind else {
-                            return Err(expr.span.error(ErrorKind::Type, "Enum variant parsing failed".to_string()));
+                            return expr.span.type_("Enum variant parsing failed".into());
                         };
                         let Some(_) = variants.get(&data.name()) else {
-                            return Err(expr.span.error(ErrorKind::Type, "Enum variant not found".to_string()));
+                            return expr.span.type_("Enum variant not found".into());
                         };
                     }
-                    _ => return Err(expr.span.error(ErrorKind::Type, "The type of data structure is not well defined".to_string()))
+                    _ => return expr.span.type_("The type of data structure is not well defined".into())
                 }
                     
                 ty.to_owned()
@@ -195,20 +195,20 @@ impl<'f> TypeCheck<'f> {
                 match ty {
                     Type::Struct(_, map) => {
                         let Some((ty, offset)) = map.get(&field_symbol.name) else { 
-                            return Err(expr.span.error(ErrorKind::Type, format!("No field found with this name: {}", &field_symbol.name))); 
+                            return expr.span.type_(format!("No field found with this name: {}", &field_symbol.name)); 
                         };
 
                         field_symbol.ty = ty.to_owned();
                         *field_offset = *offset;
                         ty.to_owned()
                     },
-                    _ => return Err(expr.span.error(ErrorKind::Type, format!("No field for type: {:?}", ty)))
+                    _ => return expr.span.type_(format!("No field for type: {:?}", ty))
                 }
             }
             ExpressionKind::Let(symbol, expr) => {
                 let ty = self.check_expression(expr)?;
                 if symbol.ty != Type::Inferred && symbol.ty != ty {
-                    return Err(expr.span.error(ErrorKind::Type, format!("Mismatch types for assignment, expected: {:?}", symbol.ty)));
+                    return expr.span.type_(format!("Mismatch types for assignment, expected: {:?}", symbol.ty));
                 }
                 self.variables.insert(symbol.name.clone(), ty.clone());
                 symbol.ty = ty.clone();
@@ -231,31 +231,31 @@ impl<'f> TypeCheck<'f> {
                     } else {
                         let ty = self.check_expression(expr)?;
                         if var_ty != Type::Inferred && var_ty != ty {
-                            return Err(expr.span.error(ErrorKind::Type, format!("Mismatch types for assignment, expected: {:?}, but got {:?}", var_ty, ty)));
+                            return expr.span.type_(format!("Mismatch types for assignment, expected: {:?}, but got {:?}", var_ty, ty));
                         }
                         ty
                     };
                     ty
                 } else {
-                    return Err(expr.span.error(ErrorKind::Type, format!("No variable found with this name: {:?}", symbol.name)));
+                    return expr.span.type_(format!("No variable found with this name: {:?}", symbol.name));
                 }
             },
             ExpressionKind::If(condition, if_body, else_body, ty) => {
                 let cond_ty = self.check_expression(condition)?;
                 if cond_ty != Type::Bool {
-                    return Err(expr.span.error(ErrorKind::Type, "Expected a boolean type as condition".to_string()));
+                    return expr.span.type_("Expected a boolean type as condition".into());
                 }
                 let if_type = self.check_group(if_body)?;
                 if let Some(else_body) = else_body {
                     let else_type = self.check_group(else_body)?;
                     if if_type != else_type {
-                        return Err(expr.span.error(ErrorKind::Type, "Type of if block and else block should be the same".to_string()));
+                        return expr.span.type_("Type of if block and else block should be the same".into());
                     }
                     if *ty == Type::Inferred {
                         *ty = else_type;
                     }
                     if if_type != *ty {
-                        return Err(expr.span.error(ErrorKind::Type, "Types of blocks do not match with expression".to_string()));
+                        return expr.span.type_("Types of blocks do not match with expression".into());
                     }
                     if_type
                 } else {
@@ -266,7 +266,7 @@ impl<'f> TypeCheck<'f> {
             ExpressionKind::While(condition, while_body) => {
                 let ty = self.check_expression(condition)?;
                 if ty != Type::Bool {
-                    return Err(expr.span.error(ErrorKind::Type, "Expected a boolean type as condition".to_string()));
+                    return expr.span.type_("Expected a boolean type as condition".into());
                 }
                 for expr in while_body {
                     self.check_expression(expr)?;
@@ -289,7 +289,7 @@ impl<'f> TypeCheck<'f> {
                         }
                         self.variables.insert(var_symbol.name.clone(), var_symbol.ty.clone());
                         if *arr_type != var_symbol.ty {
-                            return Err(expr.span.error(ErrorKind::Type, "Array type and for type do not match".to_string()));
+                            return expr.span.type_("Array type and for type do not match".into());
                         }
                         for expr in for_body {
                             self.check_expression(expr)?;
@@ -301,17 +301,17 @@ impl<'f> TypeCheck<'f> {
                         }
                         self.variables.insert(var_symbol.name.clone(), var_symbol.ty.clone());
                         if Type::Int != var_symbol.ty {
-                            return Err(expr.span.error(ErrorKind::Type, "Range type and for type do not match".to_string()));
+                            return expr.span.type_("Range type and for type do not match".into());
                         }
                         for expr in for_body {
                             self.check_expression(expr)?;
                         }
                         Type::Void
                     } else {
-                        return Err(expr.span.error(ErrorKind::Type, "Expected array or range as iterator".to_string()));
+                        return expr.span.type_("Expected array or range as iterator".into());
                     }
                 } else {
-                    return Err(expr.span.error(ErrorKind::Type, "Expected iter as input for loop block".to_string()));
+                    return expr.span.type_("Expected iter as input for loop block".into());
                 }
             },
             ExpressionKind::Iter(input_expr, iter_transforms, len) => {
@@ -319,7 +319,7 @@ impl<'f> TypeCheck<'f> {
                 let (iter_len, el_ty) = match &ty {
                     Type::Array(arr_ty, l) => (*l as u32, *arr_ty.clone()),
                     Type::Range(l) => (*l as u32, Type::Int),
-                    _ => return Err(expr.span.error(ErrorKind::Type, "Expected array or range as iter input".to_string())),
+                    _ => return expr.span.type_("Expected array or range as iter input".into()),
                 };
                 *len = iter_len;
 
@@ -344,7 +344,7 @@ impl<'f> TypeCheck<'f> {
                     *ty = group_type.clone();
                 }
                 if *ty != group_type {
-                    expr.span.error(ErrorKind::Type, format!("Mismatch types for for group forward, expected: {:?}", ty));
+                    return expr.span.type_(format!("Mismatch types for for group forward, expected: {:?}", ty));
                 }
                 group_type
             },
@@ -361,7 +361,7 @@ impl<'f> TypeCheck<'f> {
             ExpressionKind::BinOp(kind, param1, param2, op_ty) => {
                 let ty = self.check_expression(param1)?;
                 if ty != self.check_expression(param2)? {
-                    return Err(expr.span.error(ErrorKind::Type, format!("Mismatch types for operands, expected: {:?}", ty)));
+                    return expr.span.type_(format!("Mismatch types for operands, expected: {:?}", ty));
                 }
 
                 let out_ty = match kind {
@@ -370,7 +370,7 @@ impl<'f> TypeCheck<'f> {
                 };
 
                 if *op_ty != Type::Inferred && *op_ty != out_ty {
-                    return Err(span.error(ErrorKind::Type, format!("Mismatch types for binary operation, expected: {:?}", op_ty)));
+                    return span.type_(format!("Mismatch types for binary operation, expected: {:?}", op_ty));
                 }
                 *op_ty = ty;
                 out_ty
@@ -378,7 +378,7 @@ impl<'f> TypeCheck<'f> {
             ExpressionKind::UnOp(_, param, op_ty) => {
                 let ty = self.check_expression(param)?;
                 if *op_ty != Type::Inferred && *op_ty != ty {
-                    return Err(span.error(ErrorKind::Type, format!("Mismatch types for unary operation, expected: {:?}", op_ty)));
+                    return span.type_(format!("Mismatch types for unary operation, expected: {:?}", op_ty));
                 }
                 *op_ty = ty.clone();
                 ty
@@ -391,11 +391,11 @@ impl<'f> TypeCheck<'f> {
                             symbol.ty = t.clone();
                             symbol.ty.clone()
                         }
-                        None => return Err(span.error(ErrorKind::Type, format!("Can't infer type for {}", symbol.name))),
+                        None => return span.type_(format!("Can't infer type for {}", symbol.name)),
                     }
                     ty => match var_type {
                         Some(t) => if ty != t {
-                            return Err(span.error(ErrorKind::Type, format!("Type mismatch for {}", symbol.name)))
+                            return span.type_(format!("Type mismatch for {}", symbol.name))
                         } else {
                             ty.clone()
                         },
@@ -414,14 +414,14 @@ impl<'f> TypeCheck<'f> {
                         ty = el_ty.clone();
                     }
                     if ty != el_ty {
-                        return Err(expr.span.error(ErrorKind::Type, format!("Mismatch types for array elements, expected: {:?}", el_ty)));
+                        return expr.span.type_(format!("Mismatch types for array elements, expected: {:?}", el_ty));
                     }
                 }
                 Type::Array(Box::new(ty), list.len())
             },
             ExpressionKind::Index(collection, index, var_ty, coll_length) => {
                 if self.check_expression(index)? != Type::Int {
-                    return Err(expr.span.error(ErrorKind::Type, "Expected int as index".into()));
+                    return expr.span.type_("Expected int as index".into());
                 }
                 match self.check_expression(collection)? {
                     Type::Array(ty, length) => {
@@ -429,7 +429,7 @@ impl<'f> TypeCheck<'f> {
                         *coll_length = length as u32;
                         *ty
                     },
-                    _ => return Err(expr.span.error(ErrorKind::Type, "Expected array to index into".into())),
+                    _ => return expr.span.type_("Expected array to index into".into()),
                 }
             },
             ExpressionKind::Match(expr, ty, cases) => {
@@ -437,7 +437,7 @@ impl<'f> TypeCheck<'f> {
                 let ty = cases.iter_mut()
                     .map(|(pattern, exprs)|{
                         if !pattern.matches_on(&ty) {
-                            return Err(expr.span.error(ErrorKind::Type, "Unexpected pattern".into()));
+                            return expr.span.type_("Unexpected pattern".into());
                         }
                         let ty = self.check_group(exprs)?;
                         Ok(ty)
@@ -447,7 +447,7 @@ impl<'f> TypeCheck<'f> {
                             None => Ok(Some(ty?)),
                             Some(acc) => {
                                 if acc != ty? {
-                                    return Err(expr.span.error(ErrorKind::Type, "Type of case blocks do not match".into()));
+                                    return expr.span.type_("Type of case blocks do not match".into());
                                 }
                                 Ok(Some(acc))
                             }

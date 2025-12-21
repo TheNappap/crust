@@ -1,5 +1,5 @@
 
-use crate::{block_definitions::OperatorBlockDefintion, lexer::{Literal, Span}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{block_definitions::OperatorBlockDefintion, lexer::{Literal, Span}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind}, utils::{Result, ThrowablePosition}};
 
 
 #[derive(Default)]
@@ -12,10 +12,10 @@ impl OperatorBlockDefintion for Range {
 
     fn parse_binary_operator(&self, span: &Span, start: Expression, end: Expression) -> Result<ExpressionKind> {
         let ExpressionKind::Literal(Literal::Int(start)) = start.kind else {
-            return Err(span.error(ErrorKind::Syntax, "Parameter of range should be integer".to_string()));
+            return span.syntax("Parameter of range should be integer".into());
         };        
         let ExpressionKind::Literal(Literal::Int(end)) = end.kind else {
-            return Err(span.error(ErrorKind::Syntax, "Parameter of range should be integer".to_string()));
+            return span.syntax("Parameter of range should be integer".into());
         };
         Ok(ExpressionKind::Range(start, end))
     }

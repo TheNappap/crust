@@ -3,7 +3,7 @@
 
 use itertools::Itertools;
 
-use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, Type, BlockTag}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, Type, BlockTag}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -22,7 +22,7 @@ impl BlockDefinition for If {
     }
 
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -35,7 +35,7 @@ impl BlockDefinition for Else {
     }
 
     fn parse(&self, span: &Span, _header: Vec<Token>, _body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpectedly no input, block needs input".to_string()))
+        span.syntax("Unexpectedly no input, block needs input".into())
     }
 
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
@@ -44,7 +44,7 @@ impl BlockDefinition for Else {
 
         let if_else_expr = match input.kind {
             ExpressionKind::If(condition, if_body, None, ty) => ExpressionKind::If(condition.clone(), if_body.clone(), Some(else_body), ty),
-            _ => return Err(span.error(ErrorKind::Syntax, "Expected if expression before else".to_string()))
+            _ => return span.syntax("Expected if expression before else".into())
         };
         Ok(if_else_expr)
     }

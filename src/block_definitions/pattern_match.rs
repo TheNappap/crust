@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{lexer::{Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, Parser, Pattern, Type}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, Parser, Pattern, Type}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -18,7 +18,7 @@ impl BlockDefinition for Match {
         let cases = parser.iter_block(body)
             .map_ok(|expr| match expr.kind {
                 ExpressionKind::Case(pattern, exprs) => Ok((pattern.clone(), exprs.clone())),
-                _ => Err(span.error(ErrorKind::Syntax, "Expected case expression in match expression".to_string()))
+                _ => span.syntax("Expected case expression in match expression".into())
             })
             .flatten()
             .try_collect()?;
@@ -27,7 +27,7 @@ impl BlockDefinition for Match {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -44,7 +44,7 @@ impl BlockDefinition for Case {
             [TokenKind::Underscore] => Pattern::Ident("_".to_owned()),
             [TokenKind::Ident(name)] => Pattern::Ident(name.to_owned()),
             [TokenKind::Ident(ty), TokenKind::ColonColon, TokenKind::Ident(name)] => Pattern::EnumVariant(ty.to_owned(), name.to_owned()),
-            _ => return Err(span.error(ErrorKind::Syntax, "Failed to parse pattern in match expression".to_string())),
+            _ => return span.syntax("Failed to parse pattern in match expression".into()),
         };
 
         let exprs = parser.iter_statement(body).try_collect()?;
@@ -52,6 +52,6 @@ impl BlockDefinition for Case {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }

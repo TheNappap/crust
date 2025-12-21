@@ -1,7 +1,7 @@
 use crate::{
     lexer::{Delimeter, Span, Token, TokenKind}, parser::{
         ExpressionKind, Parser, BlockTag, Expression
-    }, utils::{ErrorKind, Result, ThrowablePosition}
+    }, utils::{Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -23,7 +23,7 @@ impl BlockDefinition for Return {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }
 
@@ -36,7 +36,7 @@ impl BlockDefinition for Forward {
     }
 
     fn parse(&self, span: &Span, _header: Vec<Token>, _body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "This block should not be parsed through `parse_expression()`".to_string()))
+        span.syntax("This block should not be parsed through `parse_expression()`".into())
     }
 
     fn parse_expression(&self, span: Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<Expression> {
@@ -48,6 +48,6 @@ impl BlockDefinition for Forward {
     }
     
     fn parse_chained(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: Expression, _: &Parser) -> Result<ExpressionKind> {
-        Err(span.error(ErrorKind::Syntax, "Unexpected input, block doesn't handle input".to_string()))
+        span.syntax("Unexpected input, block doesn't handle input".into())
     }
 }

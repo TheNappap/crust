@@ -1,7 +1,7 @@
 
 use itertools::Itertools;
 
-use crate::{block_definitions::{BlockDefinition, OperatorBlockDefintion, array::Index, call::Call, data::Field}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Parser}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{block_definitions::{BlockDefinition, OperatorBlockDefintion, array::Index, call::Call, data::Field}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Parser}, utils::{Result, ThrowablePosition}};
 
 #[derive(Default)]
 pub struct Dot;
@@ -37,10 +37,10 @@ impl OperatorBlockDefintion for Dot {
                         let header = vec![TokenKind::Underscore, TokenKind::ColonColon, TokenKind::Ident(name.to_owned()), TokenKind::Group(Delimeter::Parens, params)];
                         Call.parse(span, header.into_iter().map(|t|Token::new(t, span.clone())).collect(), vec![], parser)
                     }
-                    _ => Err(span.error(ErrorKind::Syntax, "Badly formed . expression".to_string())),
+                    _ => span.syntax("Badly formed . expression".into()),
                 }
             }
-            _ => return Err(span.error(ErrorKind::Syntax, "Dot operator expects 1 or 2 operands".to_string()))
+            _ => return span.syntax("Dot operator expects 1 or 2 operands".into())
         }
     }
     
@@ -48,7 +48,7 @@ impl OperatorBlockDefintion for Dot {
         assert!(body.is_empty());
         let token_list = parser.split_list(header.clone()).collect_vec();
         if token_list.len() != 1 {
-            return Err(span.error(ErrorKind::Syntax, "Dot operator expects 1 or 2 operands".to_string()))
+            return span.syntax("Dot operator expects 1 or 2 operands".into())
         }
 
         match token_list[0][..].iter().map(|t|&t.kind).collect_vec().as_slice() {
@@ -56,7 +56,7 @@ impl OperatorBlockDefintion for Dot {
             [TokenKind::Ident(_), TokenKind::Group(Delimeter::Parens, _)] => {
                 Call.parse_chained(span, header, body, input, parser)
             }
-            _ => Err(span.error(ErrorKind::Syntax, "Badly formed . expression".to_string())),
+            _ => span.syntax("Badly formed . expression".into()),
         }
     }
 }

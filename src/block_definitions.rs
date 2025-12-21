@@ -83,7 +83,7 @@ impl<T: OperatorBlockDefintion> BlockDefinition for T {
         match operands.len() {
             1 => self.parse_unary_operator(span, operands[0].clone()),
             2 => self.parse_binary_operator(span, operands[0].clone(), operands[1].clone()),
-            _ => Err(span.error(ErrorKind::Syntax, "Operator expects 1 or 2 operands".to_string()))
+            _ => span.syntax("Operator expects 1 or 2 operands".into())
         }
     }
 
@@ -96,7 +96,7 @@ impl<T: OperatorBlockDefintion> BlockDefinition for T {
         let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
         match operands.len() {
             1 => self.parse_binary_operator(span, input, operands[0].clone()),
-            _ => Err(span.error(ErrorKind::Syntax, "Operator expects 1 or 2 operands".to_string()))
+            _ => span.syntax("Operator expects 1 or 2 operands".into())
         }
     }
 }
