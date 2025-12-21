@@ -1,7 +1,7 @@
 
 use core::fmt;
 
-use crate::{lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, Parser, blocks::{Block, BlockTag}}, utils::Result};
+use crate::{lexer::{Span, Token, TokenKind}, parser::{Expression, Parser, blocks::{Block, BlockTag}}, utils::Result};
 
 impl TokenKind {
     pub fn is_operator(&self) -> bool {
@@ -118,18 +118,6 @@ impl Operator {
             (_, Range) => 8,
             (Binary, Not) => unimplemented!(),
         }
-    }
-}
-
-// TODO implement indexing for general scenario's
-pub fn parse_indexing(tokens: &mut Vec<Token>) {
-    if tokens.len() < 2 || tokens.iter().any(|token| token.kind.is_operator()) {
-        return;
-    }
-    let last_token = tokens.last().unwrap();
-    if let TokenKind::Group(Delimeter::Brackets, _) = last_token.kind {
-        let new_token = Token::new(TokenKind::Ident("index".into()), last_token.span.clone());
-        tokens.insert(0, new_token);
     }
 }
 
@@ -281,7 +269,7 @@ impl OpsTree {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{lexer::{Literal, Position, Span}, parser::blocks::BlockStream, utils::Result};
+    use crate::{lexer::{Delimeter, Literal, Position, Span}, parser::blocks::BlockStream, utils::Result};
 
     #[test]
     fn ops_tree() -> Result<()> {

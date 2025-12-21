@@ -88,12 +88,12 @@ impl Parser {
         Ok(SyntaxTree::new(fns, vec![], datas, traits))
     }
 
-    pub fn parse_expression(&self, mut tokens: Vec<Token>) -> Result<Expression> {
+    pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {
+        // TODO handle in blockstream
         if tokens.is_empty() {
             return Ok(Expression::new(ExpressionKind::Void, Span::zero()));
         }
 
-        parse_ops::parse_indexing(&mut tokens);
         let span = tokens[0].span.clone();
         match BlockStream::from(tokens).collect_operators(true).next().transpose()? {
             Some(block) => parse_ops::parse_operators(block, &self),

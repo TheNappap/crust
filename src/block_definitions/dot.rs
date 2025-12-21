@@ -1,7 +1,7 @@
 
 use itertools::Itertools;
 
-use crate::{block_definitions::{BlockDefinition, OperatorBlockDefintion, call::Call, data::Field}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Parser}, utils::{ErrorKind, Result, ThrowablePosition}};
+use crate::{block_definitions::{BlockDefinition, OperatorBlockDefintion, array::Index, call::Call, data::Field}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Parser}, utils::{ErrorKind, Result, ThrowablePosition}};
 
 #[derive(Default)]
 pub struct Dot;
@@ -17,6 +17,14 @@ impl OperatorBlockDefintion for Dot {
 
     fn s_parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
+        if let Some(Token { kind: TokenKind::Group(Delimeter::Brackets, _), .. }) = header.last() {
+            let mut header = header;
+            if header.len() > 2 || matches!(header.first(), Some(Token { kind: TokenKind::Symbol(_), .. })) {
+                header.insert(0, Token { kind: TokenKind::Dot, span: span.clone() });
+            }
+            return Index.parse(span, header, body, parser);
+        }
+
         let token_list = parser.split_list(header.clone()).collect_vec();
         match token_list.len() {
             1 => Call.parse(span, header, body, parser),

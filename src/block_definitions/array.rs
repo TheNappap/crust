@@ -18,6 +18,7 @@ impl BlockDefinition for Array {
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
+        // TODO only allow brackets for params
         let list = parser.iter_expression(header).try_collect()?;
         Ok(ExpressionKind::Array(list))
     }
@@ -40,11 +41,11 @@ impl BlockDefinition for Index {
         assert!(body.is_empty());
         assert!(!header.is_empty());
 
-        let first_token = header.pop().unwrap();
-        if let TokenKind::Group(Delimeter::Brackets, tokens) = first_token.kind {
+        let bracket_token = header.pop().unwrap();
+        if let TokenKind::Group(Delimeter::Brackets, tokens) = bracket_token.kind {
             let index: Vec<_> = parser.iter_expression(tokens).try_collect()?;
             if index.len() != 1 {
-                return Err(first_token.span.error(ErrorKind::Syntax, "Expected exactly one index".to_string()));
+                return Err(bracket_token.span.error(ErrorKind::Syntax, "Expected exactly one index".to_string()));
             }
             let index = index[0].clone();
 
@@ -52,7 +53,7 @@ impl BlockDefinition for Index {
 
             Ok(ExpressionKind::Index(Box::new(collection), Box::new(index), Type::Inferred, 0))
         } else {
-            return Err(first_token.span.error(ErrorKind::Syntax, "Expected brackets at the end of index block".to_string()));
+            return Err(bracket_token.span.error(ErrorKind::Syntax, "Expected brackets at the end of index block".to_string()));
         }
     }
 
