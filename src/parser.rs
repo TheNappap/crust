@@ -89,16 +89,13 @@ impl Parser {
     }
 
     pub fn parse_expression(&self, tokens: Vec<Token>) -> Result<Expression> {
-        // TODO handle in blockstream
-        if tokens.is_empty() {
-            return Ok(Expression::new(ExpressionKind::Void, Span::zero()));
-        }
-
-        let span = tokens[0].span.clone();
-        match BlockStream::from(tokens).collect_operators(true).next().transpose()? {
+        let mut block_stream = BlockStream::from(tokens).collect_operators(true);
+        let result = match block_stream.next().transpose()? {
             Some(block) => parse_ops::parse_operators(block, &self),
-            None => return span.syntax("Can't make block from these tokens.".into()),
-        }
+            None => return Ok(Expression::new(ExpressionKind::Void, Span::zero())),
+        };
+        assert!(block_stream.next().is_none());
+        result
     }
 
     pub fn iter_expression(&self, tokens: Vec<Token>) -> impl Iterator<Item=Result<Expression>> {
@@ -160,12 +157,13 @@ impl Parser {
     pub fn parse_anonymous_block(&self, block: Block) -> Result<Expression> {
         assert!(block.is_anonymous());
         assert!(block.body.is_empty());
+
         let mut tokens = block.header;
+        assert!(!tokens.is_empty());
         if tokens.len() > 1 {
             return self.parse_expression(tokens);
-        } else if tokens.len() == 0 {
-            return Ok(Expression::new(ExpressionKind::Void, Span::zero()));
         }
+        
         let expr = match tokens.remove(0).kind {
             TokenKind::Tag(tag) => {
                 self.blockdefs.get(&BlockTag::from(tag.as_str()), &block.span)?
