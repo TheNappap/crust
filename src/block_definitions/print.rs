@@ -47,10 +47,10 @@ impl BlockDefinition for PrintLn {
 
 fn parse_print(span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser, add: Option<String>) -> Result<ExpressionKind> {
     assert!(body.is_empty());
-    let params: Vec<_> = parser.iter_expression(header).try_collect()?;
+    let mut params: Vec<_> = parser.iter_expression(header).try_collect()?;
     
     let string_expr = if params.is_empty() { Expression::new(ExpressionKind::Literal(Literal::String("".into())), span.clone()) }
-                                  else { params[0].clone() };
+                                  else { params.remove(0) };
     
     let string_expr = if let Some(add_str) = add {
         let span = string_expr.span.to_owned();
@@ -59,9 +59,8 @@ fn parse_print(span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parse
         Expression::new(token, span)
     } else { string_expr.clone() };
 
-    let args_expr = if params.len() > 1 {
-        let exprs = params.into_iter().skip(1).collect();
-        ExpressionKind::AddrOf(exprs)
+    let args_expr = if !params.is_empty() {
+        ExpressionKind::AddrOf(params)
     } else {
         ExpressionKind::Literal(Literal::Int(0))
     };

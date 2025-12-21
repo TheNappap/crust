@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use itertools::Itertools;
 
 use crate::{
-    lexer::{Span, Token}, parser::{BinOpKind, BlockTag, Expression, ExpressionKind, Parser, Type, UnOpKind}, utils::{ErrorKind, Result, ThrowablePosition}
+    lexer::{Delimeter, Span, Token, TokenKind}, parser::{BinOpKind, BlockTag, Expression, ExpressionKind, Parser, Type, UnOpKind}, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
 pub mod dot;
@@ -40,64 +40,87 @@ pub trait BlockDefinition {
             .map(|kind| Expression::new(kind, span))
     }
 }
+
 pub trait OperatorBlockDefintion : BlockDefinition {
     fn id(&self) -> BlockTag;
     fn unary_operator(&self) -> Option<UnOpKind> { None }
     fn binary_operator(&self) -> Option<BinOpKind> { None }
 
-    fn parse_unary_operator(&self, span: &Span, operand: Expression) -> Result<ExpressionKind> {
+    fn parse_unary_operator(&self, span: &Span, operand: Expression, trailing_groups: Vec<TrailingGroup>) -> Result<ExpressionKind> {
+        assert!(trailing_groups.is_empty() || self.allow_trailing_groups());
         let Some(op_kind) = self.unary_operator() else {
             return span.syntax("Operator cannot be used as unary operator".into());
         };
         Ok( ExpressionKind::UnOp(op_kind, Box::new(operand), Type::Inferred) )
     }
-    fn parse_binary_operator(&self, span: &Span, operand1: Expression, operand2: Expression) -> Result<ExpressionKind> {
+    fn parse_binary_operator(&self, span: &Span, operand1: Expression, operand2: Expression, trailing_groups: Vec<TrailingGroup>) -> Result<ExpressionKind> {
+        assert!(trailing_groups.is_empty() || self.allow_trailing_groups());
         let Some(op_kind) = self.binary_operator() else {
             return span.syntax("Operator cannot be used as binary operator".into());
         };
         Ok( ExpressionKind::BinOp(op_kind, Box::new(operand1), Box::new(operand2), Type::Inferred) )
     }
-        
-    // Following functions are alternative to specialisation, which is attow not stable yet.
-    fn s_override_parsing(&self) -> bool { false }
-    fn s_parse(&self, _span: &Span, _header: Vec<Token>, _body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {
-        unimplemented!()
-    }
-    fn s_parse_chained(&self, _span: &Span, _header: Vec<Token>, _body: Vec<Token>, _input: Expression, _parser: &Parser) -> Result<ExpressionKind> {
-        unimplemented!()
+
+    fn allow_trailing_groups(&self) -> bool {
+        false
     }
 }
 
 impl<T: OperatorBlockDefintion> BlockDefinition for T {
+    // TODO force Operator as BlockTag
     fn id(&self) -> BlockTag {
         OperatorBlockDefintion::id(self)
     }
 
-    fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        if self.s_override_parsing() {
-            return self.s_parse(span, header, body, parser);
-        }
-
+    fn parse(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
-        let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        let trailing_groups = TrailingGroup::collect_trailing_groups(&mut header, parser, self.allow_trailing_groups())?;
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
         match operands.len() {
-            1 => self.parse_unary_operator(span, operands[0].clone()),
-            2 => self.parse_binary_operator(span, operands[0].clone(), operands[1].clone()),
+            1 => self.parse_unary_operator(span, operands.remove(0), trailing_groups),
+            2 => self.parse_binary_operator(span, operands.remove(0), operands.remove(0), trailing_groups),
             _ => span.syntax("Operator expects 1 or 2 operands".into())
         }
     }
 
-    fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
-        if self.s_override_parsing() {
-            return self.s_parse_chained(span, header, body, input, parser);
-        }
-
+    fn parse_chained(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
-        let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        let trailing_groups = TrailingGroup::collect_trailing_groups(&mut header, parser, self.allow_trailing_groups())?;
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
         match operands.len() {
-            1 => self.parse_binary_operator(span, input, operands[0].clone()),
+            1 => self.parse_binary_operator(span, input, operands.remove(0), trailing_groups),
             _ => span.syntax("Operator expects 1 or 2 operands".into())
         }
+    }
+}
+
+pub struct TrailingGroup {
+    delimeter: Delimeter,
+    expressions: Vec<Expression>,
+}
+
+impl TrailingGroup {
+    fn expressions(self) -> Vec<Expression> {
+        self.expressions
+    }
+
+    fn collect_trailing_groups(tokens: &mut Vec<Token>, parser: &Parser, do_collect: bool) -> Result<Vec<Self>> {
+        if !do_collect {
+            return Ok(vec![]);
+        }
+
+        let mut trailing_groups = vec![];
+        while let Some(Token { kind: TokenKind::Group(Delimeter::Brackets | Delimeter::Parens, _), .. }) = tokens.last() {
+            let group = tokens.pop().unwrap();
+            let group = match group.kind {
+                TokenKind::Group(delimeter, tokens) => {
+                    Self { delimeter, expressions: parser.iter_expression(tokens).try_collect()? }
+                },
+                _ => unreachable!()
+            };
+            trailing_groups.push(group);
+        }
+        Ok(trailing_groups)
     }
 }
 

@@ -13,8 +13,8 @@ use super::BlockDefinition;
 pub struct Call;
 
 impl Call {
-    fn parse_call(&self, span: &Span, path: ExpressionKind, params: Vec<Token>, input: Option<Expression>, parser: &Parser) -> Result<ExpressionKind> {
-        let path = match path {
+    pub fn parse_call(&self, span: &Span, path: Expression, params: Vec<Expression>, input: Option<Expression>) -> Result<ExpressionKind> {
+        let path = match path.kind {
             ExpressionKind::Path(path) => path,
             ExpressionKind::Symbol(symbol) => symbol.name.into(),
             _ => return span.syntax("Expected path expression".into()),
@@ -33,7 +33,7 @@ impl Call {
             _ => return span.syntax("Expected proper path".into()),
         };
 
-        let mut params: Vec<_> = parser.iter_expression(params).try_collect()?;
+        let mut params: Vec<_> = params;
         if let Some(input) = input {
             params.insert(0, input);
         }
@@ -52,16 +52,16 @@ impl BlockDefinition for Call {
         assert!(matches!(header.last(), Some(Token { kind: TokenKind::Group(Parens, _), .. })));
         assert!(header.len() > 1);
 
-        // TODO generalize parens and indexing as a postfix operator
         let Some(Token { kind: TokenKind::Group(Parens, params), .. }) = header.pop() else {
             return span.syntax("Badly formed call expression".into())
         };
+        let params = parser.iter_expression(params).try_collect()?;
 
-        let exprs: Vec<_> = parser.iter_expression(header).try_collect()?;
+        let mut exprs: Vec<_> = parser.iter_expression(header).try_collect()?;
         match exprs.len() {
-            1 => self.parse_call(span, exprs[0].kind.clone(), params, None, parser),
+            1 => self.parse_call(span, exprs.remove(0), params, None),
             2 => {
-                self.parse_call(span, exprs[1].kind.clone(), params,Some(exprs[0].clone()), parser)
+                self.parse_call(span, exprs.remove(0), params,Some(exprs.remove(0)))
             },
             _ => return span.syntax("Badly formed call expression".into()),
         }
@@ -76,10 +76,11 @@ impl BlockDefinition for Call {
         let Some(Token { kind: TokenKind::Group(Parens, params), .. }) = header.pop() else {
             return span.syntax("Badly formed call expression".into())
         };
+        let params = parser.iter_expression(params).try_collect()?;
 
-        let exprs: Vec<_> = parser.iter_expression(header).try_collect()?;
+        let mut exprs: Vec<_> = parser.iter_expression(header).try_collect()?;
         assert!(exprs.len() == 1);
         
-        self.parse_call(span, exprs[0].kind.clone(), params, Some(input), parser)
+        self.parse_call(span, exprs.remove(0), params, Some(input))
     }
 }

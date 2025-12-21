@@ -3,7 +3,7 @@ mod syntax_tree;
 mod parse_ops;
 
 
-pub use syntax_tree::{fn_expr::{Fn, Signature, Trait}, path::Path, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, IterTransform, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
+pub use syntax_tree::{fn_expr::{Fn, Signature, Trait}, path::{Path, PathElement}, BinOpKind, UnOpKind, Expression, ExpressionKind, Symbol, IterTransform, TransformKind, patterns::Pattern, SyntaxTree, Library, types::Type, ordered_map::OrderedMap};
 pub use blocks::BlockTag;
 pub use parse_ops::OperatorKind;
 

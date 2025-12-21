@@ -1,62 +1,68 @@
 
-use itertools::Itertools;
 
-use crate::{block_definitions::{BlockDefinition, OperatorBlockDefintion, array::Index, call::Call, data::Field}, lexer::{Delimeter, Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Parser}, utils::{Result, ThrowablePosition}};
+use crate::{block_definitions::{OperatorBlockDefintion, TrailingGroup, array::Index, call::Call, data::Field}, lexer::{Delimeter, Span}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, PathElement}, utils::{Result, ThrowablePosition}};
 
 #[derive(Default)]
 pub struct Dot;
+
+impl Dot {
+    fn parse_dot_no_indexing(&self, span: &Span, right: Expression, left: Option<Expression>, params: Option<Vec<Expression>>) -> Result<ExpressionKind> {
+        if let Some(left) = left {
+            if let Some(params) = params {
+                let mut path = right;
+                let mut path_inner = match path.kind {
+                    ExpressionKind::Path(path) => path,
+                    ExpressionKind::Symbol(symbol) => symbol.name.into(),
+                    _ => return span.syntax("Expected path expression".into()),
+                };
+                path_inner.add(PathElement::Inferred);
+                path.kind = ExpressionKind::Path(path_inner);
+                Call.parse_call(span, path, params, Some(left))
+            } else {
+                Field.parse_field(span, left, right)
+            }
+        } else {
+            if let Some(params) = params {
+                Call.parse_call(span, right, params, None)
+            } else {
+                Ok(right.kind)
+            }
+        }
+    }
+
+    fn parse_dot(&self, span: &Span, right: Expression, left: Option<Expression>, mut trailing_groups: Vec<TrailingGroup>) -> Result<ExpressionKind> {
+        let params = if let Some(TrailingGroup { delimeter: Delimeter::Parens, .. }) = trailing_groups.last() {
+            let group = trailing_groups.pop().unwrap();
+            Some(group.expressions())
+        } else {
+            None
+        };
+
+        let mut expression = self.parse_dot_no_indexing(span, right, left, params)?;
+
+        while let Some(TrailingGroup{delimeter: Delimeter::Brackets, expressions}) = trailing_groups.pop() {
+            let collection = Expression::new(expression, span.clone());
+            expression = Index.parse_index(span, collection, expressions)?;
+        }
+
+        Ok(expression)
+    }
+}
 
 impl OperatorBlockDefintion for Dot {
     fn id(&self) -> BlockTag {
         BlockTag::Operator(OperatorKind::Dot)
     }
 
-    fn s_override_parsing(&self) -> bool {
+    fn allow_trailing_groups(&self) -> bool {
         true
     }
 
-    fn s_parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
-        assert!(body.is_empty());
-        if let Some(Token { kind: TokenKind::Group(Delimeter::Brackets, _), .. }) = header.last() {
-            let mut header = header;
-            if header.len() > 2 || matches!(header.first(), Some(Token { kind: TokenKind::Symbol(_), .. })) {
-                header.insert(0, Token { kind: TokenKind::Dot, span: span.clone() });
-            }
-            return Index.parse(span, header, body, parser);
-        }
-
-        let token_list = parser.split_list(header.clone()).collect_vec();
-        match token_list.len() {
-            1 => Call.parse(span, header, body, parser),
-            2 => {
-                match token_list[1][..].iter().map(|t|&t.kind).collect_vec().as_slice() {
-                    [TokenKind::Ident(_)] => Field.parse(span, header, vec![], parser),
-                    [TokenKind::Ident(name), TokenKind::Group(Delimeter::Parens, tokens)] => {
-                        let mut params = token_list[0].clone();
-                        params.extend(tokens.clone());
-                        let header = vec![TokenKind::Underscore, TokenKind::ColonColon, TokenKind::Ident(name.to_owned()), TokenKind::Group(Delimeter::Parens, params)];
-                        Call.parse(span, header.into_iter().map(|t|Token::new(t, span.clone())).collect(), vec![], parser)
-                    }
-                    _ => span.syntax("Badly formed . expression".into()),
-                }
-            }
-            _ => return span.syntax("Dot operator expects 1 or 2 operands".into())
-        }
+    fn parse_unary_operator(&self, span: &Span, right: Expression, trailing_groups: Vec<TrailingGroup>) -> Result<ExpressionKind> {
+        self.parse_dot(span, right, None, trailing_groups)
     }
     
-    fn s_parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
-        assert!(body.is_empty());
-        let token_list = parser.split_list(header.clone()).collect_vec();
-        if token_list.len() != 1 {
-            return span.syntax("Dot operator expects 1 or 2 operands".into())
-        }
-
-        match token_list[0][..].iter().map(|t|&t.kind).collect_vec().as_slice() {
-            [TokenKind::Ident(_)] => Field.parse_chained(span, header, vec![], input, parser),
-            [TokenKind::Ident(_), TokenKind::Group(Delimeter::Parens, _)] => {
-                Call.parse_chained(span, header, body, input, parser)
-            }
-            _ => span.syntax("Badly formed . expression".into()),
-        }
+    fn parse_binary_operator(&self, span: &Span, left: Expression, right: Expression, trailing_groups: Vec<TrailingGroup>) -> Result<ExpressionKind> {
+        self.parse_dot(span, right, Some(left), trailing_groups)
     }
 }

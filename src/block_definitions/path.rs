@@ -1,4 +1,4 @@
-use crate::{block_definitions::OperatorBlockDefintion, lexer::Span, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Path}, utils::{Result, ThrowablePosition}};
+use crate::{block_definitions::{OperatorBlockDefintion, TrailingGroup}, lexer::Span, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Path}, utils::{Result, ThrowablePosition}};
 
 
 #[derive(Default)]
@@ -9,7 +9,8 @@ impl OperatorBlockDefintion for PathBlock {
         BlockTag::Operator(OperatorKind::ColonColon)
     }
 
-    fn parse_binary_operator(&self, span: &Span, left: Expression, right: Expression) -> Result<ExpressionKind> {
+    fn parse_binary_operator(&self, span: &Span, left: Expression, right: Expression, trailing_groups: Vec<TrailingGroup>) -> Result<ExpressionKind> {
+        assert!(trailing_groups.is_empty());
         let path = match (left.kind, right.kind) {
             (ExpressionKind::Symbol(symbol), ExpressionKind::Symbol(end_symbol)) => {
                 let mut new_path = Path::from(end_symbol.name);

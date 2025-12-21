@@ -27,12 +27,12 @@ impl BlockDefinition for FnDef {
         let (param_names, param_types) : (Vec<String>, Vec<Type>) = match tokens.next().map(|t|t.kind.clone()) {
             Some(TokenKind::Group(Delimeter::Parens, params)) => {
                 parser.iter_parameter(params.clone())
-                    .map_ok(|(name, tokens)| -> Result<_> {
-                        if name == "self" && tokens.len() == 0 {
+                    .map_ok(|(name, mut tokens)| -> Result<_> {
+                        if name == "self" && tokens.is_empty() {
                             Ok((name, Type::Inferred))
                         } else {
                             assert!(tokens.len() == 1);
-                            Ok((name, Type::from(tokens[0].clone())?))
+                            Ok((name, Type::from(tokens.remove(0))?))
                         }
                     })
                     .flatten()

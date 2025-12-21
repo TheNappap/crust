@@ -2,8 +2,8 @@ use itertools::Itertools;
 
 use crate::{
     lexer::{Span, Token, TokenKind}, parser::{
-        ExpressionKind, OrderedMap, Parser, Type, BlockTag, Expression
-    }, utils::{Result, ThrowablePosition}
+        BlockTag, Expression, ExpressionKind, OrderedMap, Parser, Type
+    }, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -23,8 +23,8 @@ impl BlockDefinition for Struct {
         };
 
         let types : OrderedMap<_,_> = parser.iter_parameter(body)
-                                .map_ok(|(name, tokens)| -> Result<_> {
-                                    Ok((name, Type::from(tokens[0].clone())?))
+                                .map_ok(|(name, mut tokens)| -> Result<_> {
+                                    Ok((name, Type::from(tokens.remove(0))?))
                                 })
                                 .flatten()
                                 .try_collect()?;
@@ -122,6 +122,16 @@ impl BlockDefinition for New {
 #[derive(Default)]
 pub struct Field;
 
+impl Field {
+    pub fn parse_field(&self, span: &Span, data: Expression, field: Expression) -> Result<ExpressionKind> {
+        let ExpressionKind::Symbol(field_symbol) = field.kind else {
+            return Err(span.error(ErrorKind::Syntax, "Field expression expected symbol as field name".to_string()));
+        };
+        assert_eq!(field_symbol.ty, Type::Inferred);
+        Ok(ExpressionKind::Field(Box::new(data), field_symbol.to_owned(), -1))
+    }
+}
+
 impl BlockDefinition for Field {
     fn id(&self) -> BlockTag {
         BlockTag::from("field")
@@ -129,26 +139,18 @@ impl BlockDefinition for Field {
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
-        let operands: Vec<_> = parser.iter_expression(header).try_collect()?;
+        let mut operands: Vec<_> = parser.iter_expression(header).try_collect()?;
         if operands.len() != 2 {
             return span.syntax("Field expression expected 2 operands".into());
         }
-            
-        let ExpressionKind::Symbol(field_symbol) = &operands[1].kind else {
-            return span.syntax("Field expression expected symbol as field name".into());
-        };
-        assert_eq!(field_symbol.ty, Type::Inferred);
-        Ok(ExpressionKind::Field(Box::new(operands[0].clone()), field_symbol.to_owned(), -1))
+
+        self.parse_field(span, operands.remove(0), operands.remove(0))
     }
     
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
         let field = parser.parse_expression(header)?;
 
-        let ExpressionKind::Symbol(field_symbol) = field.kind else {
-            return span.syntax("Field expression expected symbol as field name".into());
-        };
-        assert_eq!(field_symbol.ty, Type::Inferred);
-        Ok(ExpressionKind::Field(Box::new(input), field_symbol.to_owned(), -1))
+        self.parse_field(span, input, field)
     }
 }

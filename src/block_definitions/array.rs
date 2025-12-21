@@ -32,28 +32,32 @@ impl BlockDefinition for Array {
 #[derive(Default)]
 pub struct Index;
 
+impl Index {
+    pub fn parse_index(&self, span: &Span, collection: Expression, mut params: Vec<Expression>) -> Result<ExpressionKind> {
+        if params.len() != 1 {
+            return span.syntax("Expected exactly one index".into());
+        }
+        let index = params.remove(0);
+        Ok(ExpressionKind::Index(Box::new(collection), Box::new(index), Type::Inferred, 0))
+    }
+}
+
 impl BlockDefinition for Index {
     fn id(&self) -> BlockTag {
         BlockTag::from("index")
     }
 
-    fn parse(&self, _: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
+    fn parse(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
         assert!(body.is_empty());
         assert!(!header.is_empty());
 
         let bracket_token = header.pop().unwrap();
-        if let TokenKind::Group(Delimeter::Brackets, tokens) = bracket_token.kind {
-            let index: Vec<_> = parser.iter_expression(tokens).try_collect()?;
-            if index.len() != 1 {
-                return bracket_token.span.syntax("Expected exactly one index".to_string());
-            }
-            let index = index[0].clone();
-
+        if let TokenKind::Group(Delimeter::Brackets, params) = bracket_token.kind {
             let collection = parser.parse_expression(header)?;
-
-            Ok(ExpressionKind::Index(Box::new(collection), Box::new(index), Type::Inferred, 0))
+            let params = parser.iter_expression(params).try_collect()?;
+            self.parse_index(span, collection, params)
         } else {
-            return bracket_token.span.syntax("Expected brackets at the end of index block".to_string());
+            return span.syntax("Expected brackets at the end of index block".into());
         }
     }
 
