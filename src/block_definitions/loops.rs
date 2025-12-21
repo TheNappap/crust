@@ -3,7 +3,7 @@
 
 use itertools::Itertools;
 
-use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, BlockTag}, utils::{Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -12,8 +12,8 @@ use super::BlockDefinition;
 pub struct While;
 
 impl BlockDefinition for While {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("while")
+    fn id(&self) -> &str {
+        "while"
     }
 
     fn parse(&self, _: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -31,8 +31,8 @@ impl BlockDefinition for While {
 pub struct For;
 
 impl BlockDefinition for For {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("for")
+    fn id(&self) -> &str {
+        "for"
     }
 
     fn parse(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: &Parser) -> Result<ExpressionKind> {
@@ -53,8 +53,8 @@ impl BlockDefinition for For {
 pub struct Fold;
 
 impl BlockDefinition for Fold {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("fold")
+    fn id(&self) -> &str {
+        "fold"
     }
 
     fn parse(&self, span: &Span, _: Vec<Token>, _: Vec<Token>, _: &Parser) -> Result<ExpressionKind> {

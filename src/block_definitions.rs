@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use itertools::Itertools;
 
 use crate::{
-    lexer::{Delimeter, Span, Token, TokenKind}, parser::{BinOpKind, BlockTag, Expression, ExpressionKind, Parser, Type, UnOpKind}, utils::{ErrorKind, Result, ThrowablePosition}
+    lexer::{Delimeter, Span, Token, TokenKind}, parser::{BinOpKind, BlockTag, Expression, ExpressionKind, OperatorKind, Parser, Type, UnOpKind}, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
 pub mod dot;
@@ -27,7 +27,12 @@ pub mod traits;
 pub mod pattern_match;
 
 pub trait BlockDefinition {
-    fn id(&self) -> BlockTag;
+    fn id(&self) -> &str;
+    fn tag(&self) -> BlockTag {
+        assert!(!self.id().is_empty());
+        BlockTag::Ident(self.id().to_owned())
+    }
+
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind>;
     fn parse_chained(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, input: Expression, parser: &Parser) -> Result<ExpressionKind>;
 
@@ -42,7 +47,8 @@ pub trait BlockDefinition {
 }
 
 pub trait OperatorBlockDefintion : BlockDefinition {
-    fn id(&self) -> BlockTag;
+    fn operator(&self) -> OperatorKind;
+
     fn unary_operator(&self) -> Option<UnOpKind> { None }
     fn binary_operator(&self) -> Option<BinOpKind> { None }
 
@@ -67,9 +73,11 @@ pub trait OperatorBlockDefintion : BlockDefinition {
 }
 
 impl<T: OperatorBlockDefintion> BlockDefinition for T {
-    // TODO force Operator as BlockTag
-    fn id(&self) -> BlockTag {
-        OperatorBlockDefintion::id(self)
+    fn id(&self) -> &str {
+        self.operator().as_str()
+    }
+    fn tag(&self) -> BlockTag {
+        BlockTag::Operator(self.operator())
     }
 
     fn parse(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -144,12 +152,12 @@ impl BlockDefinitions {
 
     pub fn add<T: BlockDefinition + Default + 'static>(&mut self) {
         let definition: Rc<dyn BlockDefinition> = Rc::new(T::default());
-        let key = definition.id();
-        if self.definitions.contains_key(&key) {
-            println!("Definition of block \"{}\" was overidden.", key);
+        let tag = definition.tag();
+        if self.definitions.contains_key(&tag) {
+            println!("Definition of block \"{}\" was overidden.", tag);
         }
         self.definitions
-            .insert(definition.id(), definition);
+            .insert(tag, definition);
     }
 }
 

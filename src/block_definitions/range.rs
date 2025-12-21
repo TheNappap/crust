@@ -1,13 +1,13 @@
 
-use crate::{block_definitions::{OperatorBlockDefintion, TrailingGroup}, lexer::{Literal, Span}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind}, utils::{Result, ThrowablePosition}};
+use crate::{block_definitions::{OperatorBlockDefintion, TrailingGroup}, lexer::{Literal, Span}, parser::{Expression, ExpressionKind, OperatorKind}, utils::{Result, ThrowablePosition}};
 
 
 #[derive(Default)]
 pub struct Range;
 
 impl OperatorBlockDefintion for Range {
-    fn id(&self) -> BlockTag {
-        BlockTag::Operator(OperatorKind::Range)
+    fn operator(&self) -> OperatorKind {
+        OperatorKind::Range
     }
 
     fn parse_binary_operator(&self, span: &Span, start: Expression, end: Expression, trailing_groups: Vec<TrailingGroup>) -> Result<ExpressionKind> {

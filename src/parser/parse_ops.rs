@@ -61,27 +61,30 @@ impl OperatorKind {
             OperatorKind::ColonColon => TokenKind::ColonColon,
         }
     }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OperatorKind::Not => "!",
+            OperatorKind::Dash => "-",
+            OperatorKind::Dot => ".",
+            OperatorKind::Star => "*",
+            OperatorKind::Slash => "/",
+            OperatorKind::Plus => "+",
+            OperatorKind::EqEq => "==",
+            OperatorKind::Neq => "!=",
+            OperatorKind::Less => "<",
+            OperatorKind::LessEq => "<=",
+            OperatorKind::Great => ">",
+            OperatorKind::GreatEq => ">=",
+            OperatorKind::Range => "..",
+            OperatorKind::ColonColon => "::",
+        }
+    }
 }
 
 impl fmt::Display for OperatorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use OperatorKind::*;
-        match self {
-            Not => write!(f, "!"),
-            Dash => write!(f, "-"),
-            Dot => write!(f, "."),
-            Star => write!(f, "*"),
-            Slash => write!(f, "/"),
-            Plus => write!(f, "+"),
-            EqEq => write!(f, "=="),
-            Neq => write!(f, "!="),
-            Less => write!(f, "<"),
-            LessEq => write!(f, "<="),
-            Great => write!(f, ">"),
-            GreatEq => write!(f, ">="),
-            Range => write!(f, ".."),
-            ColonColon => write!(f, "::"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 

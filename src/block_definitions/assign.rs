@@ -3,7 +3,7 @@
 use itertools::Itertools;
 
 use crate::{lexer::{Span, Token}, parser::{
-        ExpressionKind, Parser, BlockTag, Expression
+        ExpressionKind, Parser, Expression
     }, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
@@ -13,8 +13,8 @@ use super::BlockDefinition;
 pub struct Let;
 
 impl BlockDefinition for Let {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("let")
+    fn id(&self) -> &str {
+        "let"
     }
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -39,8 +39,8 @@ impl BlockDefinition for Let {
 pub struct Mut;
 
 impl BlockDefinition for Mut {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("mut")
+    fn id(&self) -> &str {
+        "mut"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

@@ -1,4 +1,4 @@
-use crate::{lexer::{Literal, Span, Token}, parser::{Expression, ExpressionKind, Parser, BlockTag}, utils::{Result, ThrowablePosition}};
+use crate::{lexer::{Literal, Span, Token}, parser::{Expression, ExpressionKind, Parser}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -7,8 +7,8 @@ use super::BlockDefinition;
 pub struct True;
 
 impl BlockDefinition for True {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("true")
+    fn id(&self) -> &str {
+        "true"
     }
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {
@@ -26,8 +26,8 @@ impl BlockDefinition for True {
 pub struct False;
 
 impl BlockDefinition for False {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("false")
+    fn id(&self) -> &str {
+        "false"
     }
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {

@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{lexer::{Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, Parser, Trait}, utils::{Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, Trait}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -8,8 +8,8 @@ use super::BlockDefinition;
 pub struct TraitBlock;
 
 impl BlockDefinition for TraitBlock {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("trait")
+    fn id(&self) -> &str {
+        "trait"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

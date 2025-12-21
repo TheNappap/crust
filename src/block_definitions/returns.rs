@@ -1,6 +1,6 @@
 use crate::{
     lexer::{Delimeter, Span, Token, TokenKind}, parser::{
-        ExpressionKind, Parser, BlockTag, Expression
+        ExpressionKind, Parser, Expression
     }, utils::{Result, ThrowablePosition}
 };
 
@@ -10,8 +10,8 @@ use super::BlockDefinition;
 pub struct Return;
 
 impl BlockDefinition for Return {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("return")
+    fn id(&self) -> &str {
+        "return"
     }
 
     fn parse(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -31,8 +31,8 @@ impl BlockDefinition for Return {
 pub struct Forward;
 
 impl BlockDefinition for Forward {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("forward")
+    fn id(&self) -> &str {
+        "forward"
     }
 
     fn parse(&self, span: &Span, _header: Vec<Token>, _body: Vec<Token>, _parser: &Parser) -> Result<ExpressionKind> {

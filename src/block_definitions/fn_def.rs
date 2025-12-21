@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Fn, Parser, Type, BlockTag, Signature}, utils::{Result, ThrowablePosition}
+    lexer::{Delimeter, Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Fn, Parser, Type, Signature}, utils::{Result, ThrowablePosition}
 };
 
 use super::BlockDefinition;
@@ -10,8 +10,8 @@ use super::BlockDefinition;
 pub struct FnDef;
 
 impl BlockDefinition for FnDef {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("fn")
+    fn id(&self) -> &str {
+        "fn"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -78,8 +78,8 @@ impl BlockDefinition for FnDef {
 pub struct Impl;
 
 impl BlockDefinition for Impl {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("impl")
+    fn id(&self) -> &str {
+        "impl"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

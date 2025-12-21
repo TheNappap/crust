@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{lexer::{Span, Token, TokenKind}, parser::{BlockTag, Expression, ExpressionKind, Parser, Pattern, Type}, utils::{Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token, TokenKind}, parser::{Expression, ExpressionKind, Parser, Pattern, Type}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -9,8 +9,8 @@ use super::BlockDefinition;
 pub struct Match;
 
 impl BlockDefinition for Match {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("match")
+    fn id(&self) -> &str {
+        "match"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -35,8 +35,8 @@ impl BlockDefinition for Match {
 pub struct Case;
 
 impl BlockDefinition for Case {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("case")
+    fn id(&self) -> &str {
+        "case"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

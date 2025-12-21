@@ -3,7 +3,7 @@ use itertools::Itertools;
 
 use crate::{
     lexer::{Delimeter, Span, Token, TokenKind}, parser::{
-        ExpressionKind, Parser, Signature, Type, BlockTag, Expression
+        ExpressionKind, Parser, Signature, Type, Expression
     }, utils::{Result, ThrowablePosition}
 };
 
@@ -42,8 +42,8 @@ impl Call {
 }
 
 impl BlockDefinition for Call {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("call")
+    fn id(&self) -> &str {
+        "call"
     }
 
     fn parse(&self, span: &Span, mut header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

@@ -1,12 +1,12 @@
-use crate::{block_definitions::{OperatorBlockDefintion, TrailingGroup}, lexer::Span, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, Path}, utils::{Result, ThrowablePosition}};
+use crate::{block_definitions::{OperatorBlockDefintion, TrailingGroup}, lexer::Span, parser::{Expression, ExpressionKind, OperatorKind, Path}, utils::{Result, ThrowablePosition}};
 
 
 #[derive(Default)]
 pub struct PathBlock;
 
 impl OperatorBlockDefintion for PathBlock {
-    fn id(&self) -> BlockTag {
-        BlockTag::Operator(OperatorKind::ColonColon)
+    fn operator(&self) -> OperatorKind {
+        OperatorKind::ColonColon
     }
 
     fn parse_binary_operator(&self, span: &Span, left: Expression, right: Expression, trailing_groups: Vec<TrailingGroup>) -> Result<ExpressionKind> {

@@ -2,7 +2,7 @@
 
 use itertools::Itertools;
 
-use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, Type, BlockTag}, utils::{Result, ThrowablePosition}};
+use crate::{lexer::{Span, Token}, parser::{Expression, ExpressionKind, Parser, Type}, utils::{Result, ThrowablePosition}};
 
 use super::BlockDefinition;
 
@@ -11,8 +11,8 @@ use super::BlockDefinition;
 pub struct Group;
 
 impl BlockDefinition for Group {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("group")
+    fn id(&self) -> &str {
+        "group"
     }
 
     fn parse(&self, _span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

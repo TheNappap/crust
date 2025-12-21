@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     lexer::{Span, Token, TokenKind}, parser::{
-        BlockTag, Expression, ExpressionKind, OrderedMap, Parser, Type
+        Expression, ExpressionKind, OrderedMap, Parser, Type
     }, utils::{ErrorKind, Result, ThrowablePosition}
 };
 
@@ -12,8 +12,8 @@ use super::BlockDefinition;
 pub struct Struct;
 
 impl BlockDefinition for Struct {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("struct")
+    fn id(&self) -> &str {
+        "struct"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -55,8 +55,8 @@ impl BlockDefinition for Struct {
 pub struct Enum;
 
 impl BlockDefinition for Enum {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("enum")
+    fn id(&self) -> &str {
+        "enum"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -85,8 +85,8 @@ impl BlockDefinition for Enum {
 pub struct New;
 
 impl BlockDefinition for New {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("new")
+    fn id(&self) -> &str {
+        "new"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {
@@ -133,8 +133,8 @@ impl Field {
 }
 
 impl BlockDefinition for Field {
-    fn id(&self) -> BlockTag {
-        BlockTag::from("field")
+    fn id(&self) -> &str {
+        "field"
     }
 
     fn parse(&self, span: &Span, header: Vec<Token>, body: Vec<Token>, parser: &Parser) -> Result<ExpressionKind> {

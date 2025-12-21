@@ -1,6 +1,6 @@
 
 
-use crate::{block_definitions::{OperatorBlockDefintion, TrailingGroup, array::Index, call::Call, data::Field}, lexer::{Delimeter, Span}, parser::{BlockTag, Expression, ExpressionKind, OperatorKind, PathElement}, utils::{Result, ThrowablePosition}};
+use crate::{block_definitions::{OperatorBlockDefintion, TrailingGroup, array::Index, call::Call, data::Field}, lexer::{Delimeter, Span}, parser::{Expression, ExpressionKind, OperatorKind, PathElement}, utils::{Result, ThrowablePosition}};
 
 #[derive(Default)]
 pub struct Dot;
@@ -50,8 +50,8 @@ impl Dot {
 }
 
 impl OperatorBlockDefintion for Dot {
-    fn id(&self) -> BlockTag {
-        BlockTag::Operator(OperatorKind::Dot)
+    fn operator(&self) -> OperatorKind {
+        OperatorKind::Dot
     }
 
     fn allow_trailing_groups(&self) -> bool {
